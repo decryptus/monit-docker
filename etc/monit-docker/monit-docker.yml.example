@@ -1,0 +1,32 @@
+vars:
+  base_url_unix: unix:///var/run/docker.sock
+  base_url_https: https://127.0.0.1:2376/
+  tls_verify: true
+clients:
+  '@import_client':
+    - clients.yml.example
+  local_unix:
+    config:
+      base_url: ${vars['base_url_unix']}
+  foo_https:
+    '@import_vars': foo_https.vars.yml.example
+    config:
+      base_url: ${vars['base_url_https']}
+conditions:
+  mem_percent_60:
+    expr:
+      - mem_percent > 60
+      - cpu_percent > 10
+  status_not_running:
+    expr:
+      - status not in (pause,running)
+commands:
+  start_pause:
+    exec:
+      - start
+      - (echo 'foo' > /tmp/bar)
+      - pause
+  pause_restart:
+    exec:
+      - pause
+      - restart

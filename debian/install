@@ -1,0 +1,5 @@
+bin/  usr/
+etc/* etc/
+requirements.txt usr/share/monit-docker
+setup.py usr/share/monit-docker
+VERSION usr/share/monit-docker

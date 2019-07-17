@@ -1,0 +1,960 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+monit-docker
+"""
+
+__license__ = """
+    Copyright (C) 2019  doowan
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+__version__ = '0.0.5'
+
+import argparse
+import copy
+import fnmatch
+import itertools
+import json
+import os
+import re
+import sys
+
+import logging
+from logging.handlers import WatchedFileHandler
+
+import six
+
+import docker
+from docker.errors import APIError, DockerException
+
+import bitmath
+
+from ansible.module_utils._text import to_text
+from mako.template import Template
+
+import yaml
+
+try:
+    from yaml import CSafeLoader as YamlLoader, CSafeDumper as YamlDumper
+except ImportError:
+    from yaml import SafeLoader as YamlLoader, SafeDumper as YamlDumper
+
+
+SYSLOG_NAME           = "monit-docker"
+LOG                   = logging.getLogger(SYSLOG_NAME)
+
+DEFAULT_CONFFILE      = "/etc/monit-docker/monit-docker.yml"
+DEFAULT_LOGFILE       = "/var/log/monit-docker/monit-docker.log"
+
+MONIT_DOCKER_CONFFILE = os.environ.get('MONIT_DOCKER_CONFFILE') or DEFAULT_CONFFILE
+MONIT_DOCKER_LOGFILE  = os.environ.get('MONIT_DOCKER_LOGFILE') or DEFAULT_LOGFILE
+
+_SUBCMDS              = {}
+_TPL_IMPORTS          = ('from os import environ as ENV',)
+
+DOCKER_COMMANDS       = ('start',
+                         'stop',
+                         'reload',
+                         'restart',
+                         'pause',
+                         'unpause')
+
+RESOURCE_CHOICES      = ('mem_usage',
+                         'mem_limit',
+                         'mem_percent',
+                         'cpu_percent',
+                         'io_read',
+                         'io_write',
+                         'net_tx',
+                         'net_rx')
+
+DATATYPES             = RESOURCE_CHOICES
+DATATYPES_BEFORE_RUN  = ('status',)
+
+COND_MATCH            = re.compile(r'^(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?)\s+(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*' +
+                                   r'(?P<datatype>[a-z_]+)\s*' +
+                                   r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*' +
+                                   r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\)))\s*$').match
+
+CMD_MATCH             = re.compile(r'^\s*(?P<cmd>[^@].{2,})\s*$').match
+
+EXPR_IF_MATCH         = re.compile(r'^(?:(?P<cond>(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?)\s+(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*' +
+                                   r'(?P<datatype>[a-z_]+)\s*' +
+                                   r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*' +
+                                   r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\))))\s*|' +
+                                   r'\s*@(?P<cond_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64}))\s*' +
+                                   r'\?\s*(?:@(?P<cmd_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})|(?P<cmd>[^@].{2,}))\s*$').match
+
+
+StatusLoopContinue    = object()
+StatusLoopBreak       = object()
+StatusFuncReturn      = object()
+
+
+def argv_parse_check():
+    """
+    Parse (and check a little) command line parameters
+    """
+    parser        = argparse.ArgumentParser()
+
+    parser.add_argument("-c",
+                        dest    = 'conffile',
+                        default = MONIT_DOCKER_CONFFILE,
+                        help    = "Use configuration file <conffile> instead of %default")
+    parser.add_argument("--client",
+                        dest    = 'client',
+                        default = None,
+                        help    = "choose client configuration")
+    parser.add_argument("--client-from-env",
+                        action  = 'store_true',
+                        dest    = 'client_from_env',
+                        default = False,
+                        help    = "load client configuration from environment variables")
+    parser.add_argument("--id",
+                        action  = 'append',
+                        dest    = 'id',
+                        default = [],
+                        help    = "match containers by id")
+    parser.add_argument("--image",
+                        action  = 'append',
+                        dest    = 'image',
+                        default = [],
+                        help    = "match containers by image")
+    parser.add_argument("--label",
+                        action  = 'append',
+                        dest    = 'label',
+                        default = [],
+                        help    = "match containers by label")
+    parser.add_argument("-l",
+                        dest    = 'loglevel',
+                        default = 'info',   # warning: see affectation under
+                        choices = ('critical', 'error', 'warning', 'info', 'debug'),
+                        help    = ("emit traces with LOGLEVEL details, must be one"))
+    parser.add_argument("--logfile",
+                        dest      = 'logfile',
+                        default   = MONIT_DOCKER_LOGFILE,
+                        help      = "Use log file <logfile> instead of %(default)s")
+    parser.add_argument("--name",
+                        action  = 'append',
+                        dest    = 'name',
+                        default = [],
+                        help    = "match containers by name")
+
+    subparsers    = parser.add_subparsers(dest = 'subcommand',
+                                          help = "choice sub-command")
+
+    for subcmd in six.itervalues(_SUBCMDS):
+        subcmd.load_subcmd_parser(subparsers)
+
+    args          = parser.parse_args()
+    args.loglevel = getattr(logging, args.loglevel.upper(), logging.INFO)
+
+    if getattr(args, 'subcommand') \
+       and args.subcommand in _SUBCMDS:
+        _SUBCMDS[args.subcommand].valid_subcmd_parser(parser, args)
+
+    return args
+
+
+class MonitDockerExit(SystemExit):
+    pass
+
+
+class MonitDockerDataTypeError(TypeError):
+    pass
+
+
+class MonitDockerExprParserError(SyntaxError):
+    pass
+
+
+class MonitDockerSubCmdAbstract(object):
+    def __init__(self, options):
+        self.options      = options
+        self.config       = {}
+        self.client       = None
+        self._common_conf = {}
+        self._config_dir  = None
+        self._containers  = {}
+        self._subsets     = {'id': [],
+                             'image': [],
+                             'name': [],
+                             'label': []}
+
+        self.load_conf()
+        self.load_client()
+        self.has_subsets  = self._load_subsets()
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        return
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, args):
+        return
+
+    @staticmethod
+    def _subset_pattern(pattern_str):
+        if not pattern_str.startswith('~'):
+            return re.compile(fnmatch.translate(pattern_str)).match
+
+        return re.compile(pattern_str[1:]).match
+
+    @staticmethod
+    def _load_yaml(stream, loader = YamlLoader):
+        return yaml.load(stream, Loader = loader)
+
+    @staticmethod
+    def _dump_yaml(stream, dumper = YamlDumper, default_flow_style = True):
+        return yaml.dump(stream, Dumper = dumper, default_flow_style = default_flow_style)
+
+    @staticmethod
+    def _load_clients_conf_finalize(name, conf):
+        if conf.get('tls') \
+           and isinstance(conf['tls'], dict):
+            conf['tls'] = docker.tls.TLSConfig(**conf['tls'])
+
+    def load_client(self):
+        if self.options.client_from_env \
+           or not self.config \
+           or not self.config.get('clients'):
+            if not os.environ.get('DOCKER_HOST'):
+                os.environ['DOCKER_HOST'] = "unix:///var/run/docker.sock"
+            self.client = docker.from_env()
+            return
+
+        if self.options.client:
+            if self.options.client in self.config['clients']:
+                client = self.config['clients'][self.options.client]
+            else:
+                LOG.error("unknown client: %r", self.options.client)
+                raise MonitDockerExit(404)
+        else:
+            client = self.config['clients'][self.config['clients'].keys()[0]]
+
+        self.client = docker.DockerClient(**client['config'])
+
+    def _import_conf_file(self, filepath, config_dir = None, xvars = None):
+        if not xvars:
+            xvars = {}
+
+        if config_dir and not filepath.startswith(os.path.sep):
+            filepath = os.path.join(config_dir, filepath)
+
+        with open(filepath, 'r') as f:
+            return self._load_yaml(
+                Template(f.read(),
+                         imports = _TPL_IMPORTS).render(**xvars))
+
+    def _parse_import_file(self, conf, name, config_dir, xvars = None):
+        r = {}
+
+        import_key = "@import_%s" % name
+
+        if not conf.get(import_key):
+            return r
+
+        if isinstance(conf[import_key], basestring):
+            c = [conf[import_key]]
+        else:
+            c = conf[import_key]
+
+        for import_file in c:
+            r.update(
+                self._import_conf_file(
+                    import_file,
+                    config_dir,
+                    xvars))
+
+        return r
+
+    def _render_conf_object(self, conf, xvars = None):
+        if not xvars:
+            xvars = {}
+
+        return self._load_yaml(
+            Template(self._dump_yaml(conf, default_flow_style = False),
+                     imports = _TPL_IMPORTS).render(**xvars))
+
+    def _load_conf_section(self, xtype, section, conf, finalizer = None, config_dir = None):
+        r = {}
+
+        if not config_dir:
+            config_dir = self._config_dir
+
+        xvars = copy.deepcopy(self._common_conf)
+        xvars.update(self._parse_import_file(conf, 'vars', config_dir, xvars))
+
+        r     = self._parse_import_file(conf, xtype, config_dir, xvars)
+        r.update(conf)
+
+        for name, value in six.iteritems(copy.copy(r)):
+            if name.startswith('@'):
+                del r[name]
+                continue
+
+            c = copy.deepcopy(self._common_conf)
+            c.update(copy.deepcopy(xvars))
+            c["%s_name" % xtype] = name
+            c['vars'].update(copy.deepcopy(xvars['vars']))
+            c['vars'].update(self._parse_import_file(value, 'vars', config_dir, c))
+
+            if 'vars' in value:
+                c['vars'].update(copy.deepcopy(value['vars']))
+
+            if name not in r:
+                r[name] = {section: {}}
+
+            if section in value:
+                r[name][section] = self._render_conf_object(value[section], c)
+            else:
+                LOG.error("missing %s in %s: %r", section, xtype, name)
+                raise MonitDockerExit(404)
+
+            if finalizer:
+                finalizer(name, r[name][section])
+
+            for x in ('vars', '@import_vars'):
+                if x in r[name]:
+                    del r[name][x]
+
+        return r
+
+    def load_conf(self):
+        if not os.path.exists(self.options.conffile):
+            return {}
+
+        self._config_dir = os.path.dirname(os.path.abspath(self.options.conffile))
+
+        with open(self.options.conffile, 'r') as f:
+            conf = self._load_yaml(f)
+
+        self._common_conf = {'general': {},
+                             'vars': {}}
+
+        if conf.get('general'):
+            self._common_conf['general'] = dict(conf['general'])
+
+        if conf.get('vars'):
+            self._common_conf['vars'] = dict(conf['vars'])
+
+        if conf.get('clients'):
+            self.config['clients'] = self._load_conf_section('client',
+                                                             'config',
+                                                             conf['clients'],
+                                                             finalizer = self._load_clients_conf_finalize)
+
+        return conf
+
+    def _load_subsets(self):
+        r = False
+        for subset_type, subset_patterns in six.iteritems(self._subsets):
+            subset_opt = getattr(self.options, subset_type)
+            if not subset_opt:
+                continue
+
+            r = True
+
+            for search_pattern in self._split_search_pattern(subset_opt):
+                if subset_type == 'id' \
+                   and len(search_pattern) == 12 \
+                   and search_pattern.isalnum():
+                    search_pattern += '*'
+                subset_patterns.append(self._subset_pattern(search_pattern))
+
+        return r
+
+    def _match_containers(self, xall = False):
+        r = {}
+
+        containers = self.client.containers.list(**{'all': xall})
+
+        if not containers:
+            LOG.warning("no container found")
+            return r
+
+        for container in containers:
+            if not self.has_subsets:
+                r[container.id] = container
+                continue
+
+            matched = False
+            for subset_type, patterns in six.iteritems(self._subsets):
+                if not patterns:
+                    continue
+
+                for pattern in patterns:
+                    if subset_type in ('id', 'name'):
+                        if pattern(getattr(container, subset_type)):
+                            matched = True
+                            r[container.id] = container
+                            break
+                    elif subset_type == 'label':
+                        for label in six.itervalues(container.labels):
+                            if pattern(label):
+                                matched = True
+                                r[container.id] = container
+                                break
+                    elif subset_type == 'image':
+                        for tag in container.image.tags:
+                            if pattern(tag):
+                                matched = True
+                                r[container.id] = container
+                                break
+                    if matched:
+                        break
+                if matched:
+                    break
+
+        return r
+
+    def _split_search_pattern(self, pattern):
+        if isinstance(pattern, list):
+            return list(itertools.chain(*map(self._split_search_pattern, pattern)))
+        elif not isinstance(pattern, six.string_types):
+            pattern = to_text(pattern, errors='surrogate_or_strict')
+
+        if u',' in pattern:
+            patterns = pattern.split(u',')
+        else:
+            patterns = [pattern]
+
+        return [p.strip() for p in patterns]
+
+    def terminate(self):
+        if self.client:
+            self.client.api.close()
+
+
+class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
+    CMD_NAME = 'stats'
+    CMD_HELP = "display stats information"
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME,
+                                       help = cls.CMD_HELP)
+        parser.add_argument("--output",
+                            dest    = 'output',
+                            default = 'json',
+                            choices = ('text', 'json'),
+                            help    = "formatting style for command output")
+        parser.add_argument("--rsc",
+                            action  = 'append',
+                            dest    = 'resource',
+                            default = [],
+                            choices = RESOURCE_CHOICES,
+                            help    = "resource information")
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, args):
+        if not args.resource:
+            args.resource = RESOURCE_CHOICES
+
+    @staticmethod
+    def _calc_cpu_percent(cur_stats, pre_stats):
+        r = 0.0
+
+        if not cur_stats.get('system_cpu_usage'):
+            return r
+
+        if not pre_stats or not pre_stats.get('system_cpu_usage'):
+            return r
+
+        if pre_stats:
+            cpu_delta = float(cur_stats['cpu_usage']['total_usage']) - float(pre_stats['cpu_usage']['total_usage'])
+            sys_delta = float(cur_stats['system_cpu_usage']) - float(pre_stats['system_cpu_usage'])
+        else:
+            cpu_delta = 0.0
+            sys_delta = 0.0
+
+        if cur_stats.get('online_cpus'):
+            online_cpus = cur_stats['online_cpus']
+        else:
+            online_cpus = len(cur_stats['cpu_usage']['percpu_usage'])
+
+        if cpu_delta > 0.0 and sys_delta > 0.0:
+            r = (cpu_delta / sys_delta) * online_cpus * 100.0
+
+        return round(r, 2)
+
+    def _calc_mem_usage(self, data):
+        usage = data.get('usage', 0)
+
+        if self.CMD_NAME == 'monit':
+            return usage
+
+        return bitmath.Byte(usage).best_prefix().format('{value:.2f} {unit}').replace('Bit', 'B')
+
+    def _calc_mem_limit(self, data):
+        limit = data.get('limit', 0)
+
+        if self.CMD_NAME == 'monit':
+            return limit
+
+        return bitmath.Byte(limit).best_prefix().format('{value:.2f} {unit}').replace('Bit', 'B')
+
+    @staticmethod
+    def _calc_mem_percent(data):
+        if not data.get('limit'):
+            return 0.0
+
+        return round(float(data['usage']) / float(data['limit']) * 100.0, 2)
+
+    def _calc_network(self, data):
+        rx = 0
+        tx = 0
+
+        if data:
+            for v in six.itervalues(data):
+                rx += v['rx_bytes']
+                tx += v['tx_bytes']
+
+        if self.CMD_NAME == 'monit':
+            return (rx, tx)
+
+        return (bitmath.Byte(rx).to_kB().best_prefix().format('{value:.1f} {unit}').replace('Bit', 'B'),
+                bitmath.Byte(tx).to_kB().best_prefix().format('{value:.1f} {unit}').replace('Bit', 'B'))
+
+    def _calc_blockio(self, data):
+        read  = 0
+        write = 0
+
+        if data and data.get('io_service_bytes_recursive'):
+            for x in data['io_service_bytes_recursive']:
+                if x['op'] == 'Read':
+                    read  += x['value']
+                elif x['op'] == 'Write':
+                    write += x['value']
+
+        if self.CMD_NAME == 'monit':
+            return (read, write)
+
+        return (bitmath.Byte(read).to_kB().best_prefix().format('{value:.1f} {unit}').replace('Bit', 'B'),
+                bitmath.Byte(write).to_kB().best_prefix().format('{value:.1f} {unit}').replace('Bit', 'B'))
+
+    def _get_resource_info(self, rsc, current, previous):
+        if rsc == 'mem_usage':
+            return self._calc_mem_usage(current['memory_stats'])
+        elif rsc == 'mem_limit':
+            return self._calc_mem_limit(current['memory_stats'])
+        elif rsc == 'mem_percent':
+            return self._calc_mem_percent(current['memory_stats'])
+        elif rsc == 'cpu_percent':
+            return self._calc_cpu_percent(current['cpu_stats'],
+                                          previous.get('cpu_stats'))
+        elif rsc == 'io_read':
+            return self._calc_blockio(current.get('blkio_stats'))[0]
+        elif rsc == 'io_write':
+            return self._calc_blockio(current.get('blkio_stats'))[1]
+        elif rsc == 'net_tx':
+            return self._calc_network(current.get('networks'))[0]
+        elif rsc == 'net_rx':
+            return self._calc_network(current.get('networks'))[1]
+        else:
+            LOG.error("resource unknown: %r", rsc)
+            raise MonitDockerExit(404)
+
+    def before_run(self, container):
+        if container['obj'].status not in ('paused', 'running'):
+            return StatusLoopContinue
+
+    def _output_text(self, container, data):
+        r = ["%s" % container['name']]
+
+        for rsc in self.options.resource:
+            r.append("%s:%s" % (rsc, self._get_resource_info(rsc, data, container['stats'])))
+
+        sys.stdout.write('|'.join(r) + "\n")
+
+    def _output_json(self, container, data):
+        r = {container['name']: {}}
+
+        for rsc in self.options.resource:
+            r[container['name']][rsc] = self._get_resource_info(rsc, data, container['stats'])
+
+        sys.stdout.write(json.dumps(r))
+
+    def run(self, container, data):
+        getattr(self, "_output_%s" % getattr(self.options, 'output', 'json'))(container, data)
+
+        return StatusLoopBreak
+
+    def __call__(self):
+        containers = self._match_containers(xall = True)
+        if not containers:
+            raise MonitDockerExit(404)
+
+        for xid, obj in six.iteritems(containers):
+            if xid not in self._containers:
+                self._containers[xid] = {'obj': obj,
+                                         'id': xid,
+                                         'name': obj.name,
+                                         'stats': None}
+
+            container = self._containers[xid]
+
+            r = self.before_run(container)
+            if r is StatusLoopContinue:
+                continue
+
+            for line in container['obj'].stats(stream = True):
+                data  = json.loads(line)
+
+                if not container['stats']:
+                    container['stats'] = data
+                    continue
+                elif data['read'] == container['stats']['read']:
+                    continue
+
+                r = self.run(container, data)
+                if r is StatusLoopBreak:
+                    break
+
+
+class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
+    CMD_NAME    = 'monit'
+    CMD_HELP    = "return stats information with return code"
+    _COMMANDS   = {}
+    _CONDITIONS = {}
+    _EXPRS      = {}
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME,
+                                       help = cls.CMD_HELP)
+        parser.add_argument("--rsc",
+                            action  = 'append',
+                            dest    = 'resource',
+                            default = [],
+                            choices = RESOURCE_CHOICES,
+                            help    = "resource information")
+        parser.add_argument("--cmd-if",
+                            action  = 'append',
+                            dest    = 'cmd_if',
+                            default = [],
+                            help    = "run docker command or execute command inside containers if condition match")
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, args):
+        if args.resource and args.cmd_if:
+            parser.error("rsc and cmd-if options can't be in the same command")
+
+        setattr(args, 'output', 'text')
+
+    def _load_conditions_conf_finalize(self, name, exprs):
+        r = []
+
+        for expr in exprs:
+            m = COND_MATCH(expr)
+            if not m:
+                raise MonitDockerExprParserError("unable to parse conditional expression if: %r" % expr)
+            r.append({'real': expr,
+                      'parsed': m.groupdict()})
+
+        self._CONDITIONS[name] = r
+
+    def _load_commands_conf_finalize(self, name, cmds):
+        r = []
+
+        for cmd in cmds:
+            m = CMD_MATCH(cmd)
+            if not m:
+                raise MonitDockerExprParserError("unable to parse command expression if: %r", cmd)
+            r.append(m.group('cmd'))
+
+        self._COMMANDS[name] = r
+
+    def load_conf(self):
+        conf = super(MonitDockerSubCmdMonit, self).load_conf()
+
+        if conf.get('conditions'):
+            self.config['conditions'] = self._load_conf_section('condition',
+                                                                'expr',
+                                                                conf['conditions'],
+                                                                finalizer = self._load_conditions_conf_finalize)
+
+        if conf.get('commands'):
+            self.config['commands'] = self._load_conf_section('command',
+                                                              'exec',
+                                                              conf['commands'],
+                                                              finalizer = self._load_commands_conf_finalize)
+
+        return
+
+    def _parse_exprs_if(self, condition, datatypes):
+        r = {'conditions': [],
+             'commands': []}
+
+        if condition not in self._EXPRS:
+            m = EXPR_IF_MATCH(condition)
+            if not m:
+                raise MonitDockerExprParserError("unable to parse expression if: %r" % condition)
+
+            m = m.groupdict()
+            if m['cond_alias']:
+                cond_alias = m['cond_alias']
+                if cond_alias not in self._CONDITIONS:
+                    LOG.error("unknown conditional expression alias: %r", cond_alias)
+                    raise MonitDockerExit(404)
+
+                r['conditions'] = self._CONDITIONS[cond_alias]
+            else:
+                cond = dict(m)
+                del cond['cmd']
+                r['conditions'] = [{'real': cond['cond'],
+                                    'parsed': cond}]
+
+            if m['cmd_alias']:
+                cmd_alias = m['cmd_alias']
+                if cmd_alias not in self._COMMANDS:
+                    LOG.error("unknown command alias: %r", cmd_alias)
+                    raise MonitDockerExit(404)
+
+                r['commands'] = self._COMMANDS[cmd_alias]
+            else:
+                r['commands'] = [m['cmd']]
+
+            self._EXPRS[condition] = r
+        else:
+            r = self._EXPRS[condition]
+
+        for cond in r['conditions']:
+            if cond['parsed']['datatype'] not in datatypes:
+                raise MonitDockerDataTypeError("invalid specified datatype: %r" % cond['parsed']['datatype'])
+
+        return r
+
+    @staticmethod
+    def _run_exec_if(cmd, container):
+        LOG.info("execute %r in %s", cmd, container['name'])
+        r = container['obj'].exec_run(cmd)
+        LOG.info("%r executed in %s: %r", cmd, container['name'], r.rstrip())
+
+        return True
+
+    @staticmethod
+    def _run_docker_cmd_if(cmd, container):
+        try:
+            LOG.info("execute %s on %s", cmd, container['name'])
+            getattr(container['obj'], cmd)()
+            LOG.info("%s executed on %s", cmd, container['name'])
+            return True
+        except APIError as e:
+            LOG.error("unable to execute %s on %s. (error: %r)", cmd, container['name'], e)
+
+        return False
+
+    @staticmethod
+    def _condition_result(op, ret, val, enable_in = False):
+        if op == '==':
+            rs = ret == val
+        elif op == '!=':
+            rs = ret != val
+        elif op == '>=':
+            rs = ret >= val
+        elif op == '<=':
+            rs = ret <= val
+        elif op == '>':
+            rs = ret > val
+        elif op == '<':
+            rs = ret < val
+        elif op == 'in' and enable_in:
+            rs = ret in val
+        elif op == 'not in' and enable_in:
+            rs = ret not in val
+        else:
+            raise MonitDockerExprParserError("conditional operator unknown: %r" % op)
+
+        return rs
+
+    def _get_datatype_info(self, datatype, container, data):
+        if datatype == 'status':
+            return container['obj'].status
+
+        return self._get_resource_info(datatype, data, container['stats'])
+
+    def _eval_if(self, condition, container, data = None):
+        real_cond = condition['real']
+        expr      = condition['parsed']
+
+        datatype  = expr['datatype']
+        op        = expr['op'].strip()
+        ret       = self._get_datatype_info(datatype, container, data)
+
+        pre_op    = expr['pre_op']
+        pre_val   = expr['pre_value']
+
+        if op in ('in', 'not in'):
+            val = expr['value']
+            if val.startswith('(') and val.endswith(')'):
+                val = val[1:-1].split(',')
+            else:
+                raise MonitDockerExprParserError("invalid value with %r for expression if: %r" % (op, real_cond))
+        else:
+            try:
+                val = type(ret)(expr['value'])
+            except TypeError:
+                LOG.error("invalid value for expression if: %r", real_cond)
+                raise MonitDockerExit(400)
+
+            if pre_val is not None:
+                try:
+                    pre_val = type(ret)(pre_val)
+                except TypeError:
+                    LOG.error("invalid pre value for expression if: %r", real_cond)
+                    raise MonitDockerExit(400)
+
+        if None not in (pre_op, pre_val):
+            return self._condition_result(pre_op, ret, pre_val) \
+               and self._condition_result(op, ret, val)
+
+        return self._condition_result(op, ret, val, enable_in = True)
+
+    def _parse_cmd(self, condition, cmd):
+        cmd = cmd.strip()
+
+        if cmd.startswith('(') and cmd.endswith(')'):
+            cmd = cmd[1:-1]
+            if not cmd.strip():
+                LOG.error("missing command to execute in expression: %r", condition)
+                raise MonitDockerExit(400)
+            return {'func': self._run_exec_if, 'cmd': cmd}
+        elif cmd in DOCKER_COMMANDS:
+            return {'func': self._run_docker_cmd_if, 'cmd': cmd}
+
+        LOG.error("invalid docker command: %r. (condition: %r)", cmd, condition)
+        raise MonitDockerExit(400)
+
+    def _run_cmd_if(self, condition, container, datatypes, data = None):
+        exprs = self._parse_exprs_if(condition, datatypes)
+        cmds  = []
+        rs    = True
+
+        for command in exprs['commands']:
+            cmds.append(self._parse_cmd(condition, command))
+
+        for cond in exprs['conditions']:
+            if not self._eval_if(cond, container, data):
+                rs = False
+                break
+
+        LOG.debug("commands: %r, conditions: %r, result: %r",
+                  exprs['commands'],
+                  exprs['conditions'],
+                  rs)
+
+        if not rs:
+            return False
+
+        for cmd in cmds:
+            rs = cmd['func'](cmd = cmd['cmd'], container = container)
+            #LOG.info("command: %r, container: %r, result: %r", cmd['cmd'], container['name'], rs)
+
+    def before_run(self, container):
+        cmds_if = list(self.options.cmd_if)
+        if cmds_if:
+            to_pop = []
+            for i, condition in enumerate(cmds_if):
+                try:
+                    self._run_cmd_if(condition, container, DATATYPES_BEFORE_RUN)
+                except MonitDockerExprParserError:
+                    raise
+                except MonitDockerDataTypeError:
+                    continue
+                except Exception as e:
+                    LOG.debug(e)
+
+                to_pop.append(i)
+
+            for i in reversed(to_pop):
+                cmds_if.pop(i)
+
+            if not cmds_if:
+                return StatusLoopContinue
+
+        if container['obj'].status not in ('paused', 'running'):
+            return StatusLoopContinue
+
+    def run(self, container, data):
+        if self.options.resource:
+            rsc = self.options.resource[0]
+            ret = self._get_resource_info(rsc, data, container['stats'])
+
+            if rsc.endswith('_percent'):
+                ret = int(ret)
+            else:
+                ret = str(ret)
+
+            raise MonitDockerExit(ret)
+        elif self.options.cmd_if:
+            for condition in self.options.cmd_if:
+                self._run_cmd_if(condition, container, DATATYPES, data)
+
+            return StatusLoopBreak
+
+        return super(MonitDockerSubCmdMonit, self).run(container, data)
+
+
+_SUBCMDS['monit'] = MonitDockerSubCmdMonit
+_SUBCMDS['stats'] = MonitDockerSubCmdStats
+
+
+def main(options):
+    """
+    Main function
+    """
+    xformat     = "%(levelname)s:%(asctime)-15s: %(message)s"
+    datefmt     = '%Y-%m-%d %H:%M:%S'
+    logging.basicConfig(level   = options.loglevel,
+                        format  = xformat,
+                        datefmt = datefmt)
+    filehandler = WatchedFileHandler(options.logfile)
+    filehandler.setFormatter(logging.Formatter(xformat,
+                                               datefmt=datefmt))
+    root_logger = logging.getLogger('')
+    root_logger.addHandler(filehandler)
+
+    rc           = 0
+    monit_docker = None
+
+    try:
+        monit_docker = _SUBCMDS[options.subcommand](options)
+        monit_docker()
+    except APIError as e:
+        rc = 180
+        LOG.error(e.explanation)
+    except DockerException as e:
+        rc = 170
+        LOG.error(e)
+    except MonitDockerExit as e:
+        rc = e.code
+    except (SystemExit, KeyboardInterrupt):
+        rc = 255
+    except SyntaxError as e:
+        rc = 140
+        LOG.error(e)
+    except Exception as e:
+        rc = 150
+        LOG.exception(e)
+    finally:
+        if monit_docker:
+            monit_docker.terminate()
+
+    return rc
+
+
+if __name__ == '__main__':
+    sys.exit(main(argv_parse_check()))

@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+include /usr/share/dpkg/pkg-info.mk
+
+# Uncomment this to turn on verbose mode.
+export DH_VERBOSE=1
+export DH_OPTIONS=-v
+export PYBUILD_VERBOSE=1
+
+export PYBUILD_NAME=monit-docker
+
+%:
+	dh $@ --with python2 --buildsystem=pybuild
+
+override_dh_auto_install:
+	dh_auto_install
+	$(shell echo "$(DEB_VERSION_UPSTREAM)" > $(CURDIR)/VERSION)
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f "$(CURDIR)/VERSION"
+	find . -type d -name '*.egg-info' | xargs rm -rf
