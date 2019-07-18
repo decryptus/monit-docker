@@ -18,9 +18,9 @@ Restart containers with name starts with bar and status equal to pause or runnin
 
 `monit-docker monit --name "bar*" --cmd-if 'status in (pause,running) ? restart'`
 
-Run command in container with image name contains /php-fpm/ and if memory percent > 90%:
+Run command in container with image name contains /php-fpm/ and if memory usage > 100 MiB:
 
-`monit-docker --image '*/php-fpm/*' monit --cmd-if 'mem_percent > 90 ? (kill -USR2 1)'`
+`monit-docker --image '*/php-fpm/*' monit --cmd-if 'mem_usage > 100 MiB ? (kill -USR2 1)'`
 
 #### With aliases
 

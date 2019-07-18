@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.5'
+__version__ = '0.0.6'
 
 import argparse
 import copy
@@ -83,19 +83,20 @@ RESOURCE_CHOICES      = ('mem_usage',
 DATATYPES             = RESOURCE_CHOICES
 DATATYPES_BEFORE_RUN  = ('status',)
 
-COND_MATCH            = re.compile(r'^(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?)\s+(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*' +
-                                   r'(?P<datatype>[a-z_]+)\s*' +
-                                   r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*' +
-                                   r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\)))\s*$').match
+PRE_COND_RE           = (r'(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?\s*(?P<pre_value_unit>[a-zA-Z]+)?)\s+' +
+                         r'(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*')
+DATATYPE_RE           = r'(?P<datatype>[a-z_]+)\s*'
+OP_RE                 = r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*'
+VALUE_RE              = r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?\s*(?P<value_unit>[a-zA-Z]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\)))'
+CMD_RE                = r'(?P<cmd>[^@].{2,})'
 
-CMD_MATCH             = re.compile(r'^\s*(?P<cmd>[^@].{2,})\s*$').match
+COND_MATCH            = re.compile(r'^' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r'\s*$').match
 
-EXPR_IF_MATCH         = re.compile(r'^(?:(?P<cond>(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?)\s+(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*' +
-                                   r'(?P<datatype>[a-z_]+)\s*' +
-                                   r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*' +
-                                   r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\))))\s*|' +
+CMD_MATCH             = re.compile(r'^\s*' + CMD_RE + r'\s*$').match
+
+EXPR_IF_MATCH         = re.compile(r'^(?:(?P<cond>' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r')\s*|' +
                                    r'\s*@(?P<cond_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64}))\s*' +
-                                   r'\?\s*(?:@(?P<cmd_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})|(?P<cmd>[^@].{2,}))\s*$').match
+                                   r'\?\s*(?:@(?P<cmd_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})|' + CMD_RE + r')\s*$').match
 
 
 StatusLoopContinue    = object()
@@ -493,10 +494,18 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
     def _calc_mem_usage(self, data):
         usage = data.get('usage', 0)
 
+        if data.get('stats') and 'total_cache' in data['stats']:
+            usage -= data['stats']['total_cache']
+
         if self.CMD_NAME == 'monit':
             return usage
 
-        return bitmath.Byte(usage).best_prefix().format('{value:.2f} {unit}').replace('Bit', 'B')
+        if usage < 1:
+            usage = bitmath.Byte(usage)
+        else:
+            usage = bitmath.Byte(usage).best_prefix()
+
+        return usage.format('{value:.2f} {unit}').replace('Byte', 'B')
 
     def _calc_mem_limit(self, data):
         limit = data.get('limit', 0)
@@ -504,14 +513,24 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         if self.CMD_NAME == 'monit':
             return limit
 
-        return bitmath.Byte(limit).best_prefix().format('{value:.2f} {unit}').replace('Bit', 'B')
+        if limit < 1:
+            limit = bitmath.Byte(limit)
+        else:
+            limit = bitmath.Byte(limit).best_prefix()
+
+        return limit.format('{value:.2f} {unit}').replace('Byte', 'B')
 
     @staticmethod
     def _calc_mem_percent(data):
         if not data.get('limit'):
             return 0.0
 
-        return round(float(data['usage']) / float(data['limit']) * 100.0, 2)
+        usage = data.get('usage', 0)
+
+        if data.get('stats') and 'total_cache' in data['stats']:
+            usage -= data['stats']['total_cache']
+
+        return round(float(usage) / float(data['limit']) * 100.0, 2)
 
     def _calc_network(self, data):
         rx = 0
@@ -525,8 +544,18 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         if self.CMD_NAME == 'monit':
             return (rx, tx)
 
-        return (bitmath.Byte(rx).to_kB().best_prefix().format('{value:.1f} {unit}').replace('Bit', 'B'),
-                bitmath.Byte(tx).to_kB().best_prefix().format('{value:.1f} {unit}').replace('Bit', 'B'))
+        if rx < 1:
+            rx = bitmath.Byte(rx)
+        else:
+            rx = bitmath.Byte(rx).to_kB().best_prefix()
+
+        if tx < 1:
+            tx = bitmath.Byte(tx)
+        else:
+            tx = bitmath.Byte(tx).to_kB().best_prefix()
+
+        return (rx.format('{value:.1f} {unit}').replace('Byte', 'B'),
+                tx.format('{value:.1f} {unit}').replace('Byte', 'B'))
 
     def _calc_blockio(self, data):
         read  = 0
@@ -542,8 +571,18 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         if self.CMD_NAME == 'monit':
             return (read, write)
 
-        return (bitmath.Byte(read).to_kB().best_prefix().format('{value:.1f} {unit}').replace('Bit', 'B'),
-                bitmath.Byte(write).to_kB().best_prefix().format('{value:.1f} {unit}').replace('Bit', 'B'))
+        if read < 1:
+            read = bitmath.Byte(read)
+        else:
+            read = bitmath.Byte(read).to_kB().best_prefix()
+
+        if write < 1:
+            write = bitmath.Byte(write)
+        else:
+            write = bitmath.Byte(write).to_kB().best_prefix()
+
+        return (read.format('{value:.1f} {unit}').replace('Byte', 'B'),
+                write.format('{value:.1f} {unit}').replace('Byte', 'B'))
 
     def _get_resource_info(self, rsc, current, previous):
         if rsc == 'mem_usage':
@@ -559,9 +598,9 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
             return self._calc_blockio(current.get('blkio_stats'))[0]
         elif rsc == 'io_write':
             return self._calc_blockio(current.get('blkio_stats'))[1]
-        elif rsc == 'net_tx':
-            return self._calc_network(current.get('networks'))[0]
         elif rsc == 'net_rx':
+            return self._calc_network(current.get('networks'))[0]
+        elif rsc == 'net_tx':
             return self._calc_network(current.get('networks'))[1]
         else:
             LOG.error("resource unknown: %r", rsc)
@@ -661,8 +700,17 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             m = COND_MATCH(expr)
             if not m:
                 raise MonitDockerExprParserError("unable to parse conditional expression if: %r" % expr)
+
+            m = m.groupdict()
+
+            if m.get('pre_value_unit'):
+                m['pre_value'] = bitmath.parse_string(m['pre_value']).bytes
+
+            if m.get('value_unit'):
+                m['value'] = bitmath.parse_string(m['value']).bytes
+
             r.append({'real': expr,
-                      'parsed': m.groupdict()})
+                      'parsed': m})
 
         self._CONDITIONS[name] = r
 
@@ -704,6 +752,13 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                 raise MonitDockerExprParserError("unable to parse expression if: %r" % condition)
 
             m = m.groupdict()
+
+            if m.get('pre_value_unit'):
+                m['pre_value'] = bitmath.parse_string(m['pre_value']).bytes
+
+            if m.get('value_unit'):
+                m['value'] = bitmath.parse_string(m['value']).bytes
+
             if m['cond_alias']:
                 cond_alias = m['cond_alias']
                 if cond_alias not in self._CONDITIONS:
@@ -861,7 +916,6 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
 
         for cmd in cmds:
             rs = cmd['func'](cmd = cmd['cmd'], container = container)
-            #LOG.info("command: %r, container: %r, result: %r", cmd['cmd'], container['name'], rs)
 
     def before_run(self, container):
         cmds_if = list(self.options.cmd_if)

@@ -1,3 +1,10 @@
+monit-docker (0.0.6) unstable; urgency=medium
+
+  * Added units parsing for sub-command monit.
+  * Fixed statistics for sub-command stats.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Thu, 18 Jul 2019 15:48:53 +0200
+
 monit-docker (0.0.5) unstable; urgency=medium
 
   * Fixed python3 compatibility.

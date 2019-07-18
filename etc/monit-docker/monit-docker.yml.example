@@ -17,6 +17,9 @@ conditions:
     expr:
       - mem_percent > 60
       - cpu_percent > 10
+  mem_usage_100MiB:
+    expr:
+      - mem_usage > 100 MiB
   status_not_running:
     expr:
       - status not in (pause,running)
