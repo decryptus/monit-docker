@@ -1,7 +1,5 @@
 FROM alpine:latest
 
-RUN mkdir -p /opt/monit-docker
-
 RUN apk -Uuv add bash \
                  gcc \
                  libffi-dev \
