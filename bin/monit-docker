@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.6'
+__version__ = '0.0.7'
 
 import argparse
 import copy
@@ -975,11 +975,13 @@ def main(options):
     logging.basicConfig(level   = options.loglevel,
                         format  = xformat,
                         datefmt = datefmt)
-    filehandler = WatchedFileHandler(options.logfile)
-    filehandler.setFormatter(logging.Formatter(xformat,
-                                               datefmt=datefmt))
-    root_logger = logging.getLogger('')
-    root_logger.addHandler(filehandler)
+
+    if os.path.isdir(os.path.dirname(options.logfile)):
+        filehandler = WatchedFileHandler(options.logfile)
+        filehandler.setFormatter(logging.Formatter(xformat,
+                                                   datefmt=datefmt))
+        root_logger = logging.getLogger('')
+        root_logger.addHandler(filehandler)
 
     rc           = 0
     monit_docker = None

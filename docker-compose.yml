@@ -1,0 +1,9 @@
+version: '3.2'
+services:
+  monit-docker:
+    image: monit-docker:latest
+    container_name: monit-docker
+    environment:
+      MONIT_DOCKER_CRONS: '*/2 * * * * monit-docker stats\n'
+    volumes:
+      - /var/run:/var/run:rw

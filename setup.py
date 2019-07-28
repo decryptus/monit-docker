@@ -4,7 +4,7 @@
 import os
 from setuptools import find_packages, setup
 
-version                = '0.0.6'
+version                = '0.0.7'
 
 current_dir            = os.path.abspath(os.path.dirname(__file__))
 requirements           = [line.strip() for line in open(os.path.join(current_dir, 'requirements.txt'), 'r').readlines()]
