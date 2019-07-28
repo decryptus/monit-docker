@@ -1,3 +1,15 @@
+monit-docker (0.0.9) unstable; urgency=medium
+
+  * Reviewed docker-compose.yml cron examples.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sun, 28 Jul 2019 14:48:06 +0200
+
+monit-docker (0.0.8) unstable; urgency=medium
+
+  * Fixed command result.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sun, 28 Jul 2019 14:44:34 +0200
+
 monit-docker (0.0.7) unstable; urgency=medium
 
   * Enabled logfile only if log directory exists.

@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.7'
+__version__ = '0.0.9'
 
 import argparse
 import copy
@@ -796,7 +796,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
     def _run_exec_if(cmd, container):
         LOG.info("execute %r in %s", cmd, container['name'])
         r = container['obj'].exec_run(cmd)
-        LOG.info("%r executed in %s: %r", cmd, container['name'], r.rstrip())
+        LOG.info("%r executed in %s: %r", cmd, container['name'], r)
 
         return True
 
