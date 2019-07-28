@@ -1,3 +1,9 @@
+monit-docker (0.0.12) unstable; urgency=medium
+
+  * Added commands docker remove and kill.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sun, 28 Jul 2019 16:25:02 +0200
+
 monit-docker (0.0.11) unstable; urgency=medium
 
   * Reviewed Dockerfile.
