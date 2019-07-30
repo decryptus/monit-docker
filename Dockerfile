@@ -1,5 +1,7 @@
 FROM alpine:latest
 
+LABEL maintainer="docker@doowan.net"
+
 RUN apk -Uuv add bash \
                  gcc \
                  libffi-dev \

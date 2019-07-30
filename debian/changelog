@@ -1,3 +1,9 @@
+monit-docker (0.0.13) unstable; urgency=medium
+
+  * Removed ansible package from requirements.txt.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Tue, 30 Jul 2019 17:08:29 +0200
+
 monit-docker (0.0.12) unstable; urgency=medium
 
   * Added commands docker remove and kill.

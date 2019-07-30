@@ -20,9 +20,10 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.12'
+__version__ = '0.0.13'
 
 import argparse
+import codecs
 import copy
 import fnmatch
 import itertools
@@ -41,7 +42,6 @@ from docker.errors import APIError, DockerException
 
 import bitmath
 
-from ansible.module_utils._text import to_text
 from mako.template import Template
 
 import yaml
@@ -104,6 +104,16 @@ EXPR_IF_MATCH         = re.compile(r'^(?:(?P<cond>' + PRE_COND_RE + DATATYPE_RE 
 StatusLoopContinue    = object()
 StatusLoopBreak       = object()
 StatusFuncReturn      = object()
+
+try:
+    codecs.lookup_error('surrogateescape')
+    HAS_SURROGATEESCAPE = True
+except LookupError:
+    HAS_SURROGATEESCAPE = False
+
+_COMPOSED_ERROR_HANDLERS = frozenset((None, 'surrogate_or_replace',
+                                      'surrogate_or_strict',
+                                      'surrogate_then_replace'))
 
 
 def argv_parse_check():
@@ -423,11 +433,53 @@ class MonitDockerSubCmdAbstract(object):
 
         return r
 
+    def to_text(self, obj, encoding='utf-8', errors=None, nonstring='simplerepr'):
+        """ function from project ansible: ansible/module_utils/_text.py """
+
+        if isinstance(obj, six.text_type):
+            return obj
+
+        if errors in _COMPOSED_ERROR_HANDLERS:
+            if HAS_SURROGATEESCAPE:
+                errors = 'surrogateescape'
+            elif errors == 'surrogate_or_strict':
+                errors = 'strict'
+            else:
+                errors = 'replace'
+
+        if isinstance(obj, six.binary_type):
+            # Note: We don't need special handling for surrogate_then_replace
+            # because all bytes will either be made into surrogates or are valid
+            # to decode.
+            return obj.decode(encoding, errors)
+
+        # Note: We do these last even though we have to call to_text again on the
+        # value because we're optimizing the common case
+        if nonstring == 'simplerepr':
+            try:
+                value = str(obj)
+            except UnicodeError:
+                try:
+                    value = repr(obj)
+                except UnicodeError:
+                    # Giving up
+                    return u''
+        elif nonstring == 'passthru':
+            return obj
+        elif nonstring == 'empty':
+            return u''
+        elif nonstring == 'strict':
+            raise TypeError('obj must be a string type')
+        else:
+            raise TypeError('Invalid value %s for to_text\'s nonstring parameter' % nonstring)
+
+        return self.to_text(value, encoding, errors)
+
     def _split_search_pattern(self, pattern):
         if isinstance(pattern, list):
             return list(itertools.chain(*map(self._split_search_pattern, pattern)))
         elif not isinstance(pattern, six.string_types):
-            pattern = to_text(pattern, errors='surrogate_or_strict')
+            pattern = self.to_text(pattern, errors='surrogate_or_strict')
 
         if u',' in pattern:
             patterns = pattern.split(u',')
