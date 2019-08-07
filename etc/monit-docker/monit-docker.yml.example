@@ -12,6 +12,16 @@ clients:
     '@import_vars': foo_https.vars.yml.example
     config:
       base_url: ${vars['base_url_https']}
+ctn-groups:
+  php:
+    match:
+      - 'name:foo-php*'
+      - 'image:*/php-fpm/*'
+      - 'label:*php-fpm*'
+  nodejs:
+    match:
+      - 'id:4c01db0b339c'
+      - 'name:node*'
 conditions:
   mem_percent_60:
     expr:
@@ -33,3 +43,8 @@ commands:
     exec:
       - pause
       - restart
+  remove_force:
+    exec:
+      - remove:
+          kwargs:
+            force: true
