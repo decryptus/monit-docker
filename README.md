@@ -33,7 +33,7 @@ Run command in container with image name contains /php-fpm/ and if memory usage 
 
 `monit-docker --image '*/php-fpm/*' monit --cmd-if 'mem_usage > 100 MiB ? (kill -USR2 1)'`
 
-#### Advanced commands wth configuration file or environment variable MONIT\_DOCKER\_CONFIG
+#### Advanced commands with configuration file or environment variable MONIT\_DOCKER\_CONFIG
 
 Run commands with aliases declared in configuration file (e.g.: monit-docker.yml.example):
 

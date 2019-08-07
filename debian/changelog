@@ -1,3 +1,9 @@
+monit-docker (0.0.15) unstable; urgency=medium
+
+  * Fixed README.md.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Wed, 07 Aug 2019 11:28:28 +0200
+
 monit-docker (0.0.14) unstable; urgency=medium
 
   * Added argument ctn-group.
