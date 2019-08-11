@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.16'
+__version__ = '0.0.17'
 
 import argparse
 import codecs
@@ -106,7 +106,7 @@ CMD_MATCH             = re.compile(r'^\s*' + CMD_RE + r'\s*$').match
 CTN_GRP_MATCH         = re.compile(r'^(?P<subset>id|image|name|label)\s*:\s*(?P<pattern>.+)\s*$').match
 
 EXPR_MATCH            = re.compile(r'^(?:(?:(?P<cond>' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r')\s*|' +
-                                   r'\s*' + COND_ALIAS_RE + ')\s*' +
+                                   r'\s*' + COND_ALIAS_RE + r')\s*' +
                                    r'\?)?\s*(?:' + CMD_ALIAS_RE + r'|' + CMD_RE + r')\s*$').match
 
 
