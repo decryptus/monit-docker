@@ -23,10 +23,10 @@ ctn-groups:
       - 'id:4c01db0b339c'
       - 'name:node*'
 conditions:
-  mem_percent_60:
+  mem_gt_10pct_and_cpu_gt_60pct:
     expr:
-      - mem_percent > 60
-      - cpu_percent > 10
+      - mem_percent > 10
+      - cpu_percent > 60
   mem_usage_100MiB:
     expr:
       - mem_usage > 100 MiB

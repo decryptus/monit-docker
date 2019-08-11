@@ -1,3 +1,9 @@
+monit-docker (0.0.16) unstable; urgency=medium
+
+  * Allow to execute commands without condition.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sun, 11 Aug 2019 18:03:29 +0200
+
 monit-docker (0.0.15) unstable; urgency=medium
 
   * Fixed README.md.

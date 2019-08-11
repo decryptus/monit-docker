@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.15'
+__version__ = '0.0.16'
 
 import argparse
 import codecs
@@ -97,15 +97,17 @@ DATATYPE_RE           = r'(?P<datatype>[a-z_]+)\s*'
 OP_RE                 = r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*'
 VALUE_RE              = r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?\s*(?P<value_unit>[a-zA-Z]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\)))'
 CMD_RE                = r'(?P<cmd>[^@].{2,})'
+CMD_ALIAS_RE          = r'@(?P<cmd_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})'
+COND_ALIAS_RE         = r'@(?P<cond_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})'
 
 COND_MATCH            = re.compile(r'^' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r'\s*$').match
 
 CMD_MATCH             = re.compile(r'^\s*' + CMD_RE + r'\s*$').match
 CTN_GRP_MATCH         = re.compile(r'^(?P<subset>id|image|name|label)\s*:\s*(?P<pattern>.+)\s*$').match
 
-EXPR_IF_MATCH         = re.compile(r'^(?:(?P<cond>' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r')\s*|' +
-                                   r'\s*@(?P<cond_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64}))\s*' +
-                                   r'\?\s*(?:@(?P<cmd_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})|' + CMD_RE + r')\s*$').match
+EXPR_MATCH            = re.compile(r'^(?:(?:(?P<cond>' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r')\s*|' +
+                                   r'\s*' + COND_ALIAS_RE + ')\s*' +
+                                   r'\?)?\s*(?:' + CMD_ALIAS_RE + r'|' + CMD_RE + r')\s*$').match
 
 
 StatusLoopContinue    = object()
@@ -799,16 +801,17 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                             default = [],
                             choices = RESOURCE_CHOICES,
                             help    = "resource information")
-        parser.add_argument("--cmd-if",
+        parser.add_argument("--cmd",
+                            "--cmd-if",
                             action  = 'append',
-                            dest    = 'cmd_if',
+                            dest    = 'cmd',
                             default = [],
-                            help    = "run docker command or execute command inside containers if condition match")
+                            help    = "run docker command or execute command inside containers")
 
     @classmethod
     def valid_subcmd_parser(cls, parser, args):
-        if args.resource and args.cmd_if:
-            parser.error("rsc and cmd-if options can't be in the same command")
+        if args.resource and args.cmd:
+            parser.error("rsc and cmd options can't be in the same command")
 
         setattr(args, 'output', 'text')
 
@@ -818,7 +821,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         for expr in exprs:
             m = COND_MATCH(expr)
             if not m:
-                raise MonitDockerExprParserError("unable to parse conditional expression if: %r" % expr)
+                raise MonitDockerExprParserError("unable to parse conditional expression: %r" % expr)
 
             m = m.groupdict()
 
@@ -850,7 +853,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
 
             m = CMD_MATCH(c)
             if not m:
-                raise MonitDockerExprParserError("unable to parse command expression if: %r" % cmd)
+                raise MonitDockerExprParserError("unable to parse command expression: %r" % cmd)
             xdict['cmd'] = m.group('cmd')
             r.append(xdict)
 
@@ -873,14 +876,14 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
 
         return
 
-    def _parse_exprs_if(self, condition, datatypes):
+    def _parse_exprs(self, expr, datatypes):
         r = {'conditions': [],
              'commands': []}
 
-        if condition not in self._EXPRS:
-            m = EXPR_IF_MATCH(condition)
+        if expr not in self._EXPRS:
+            m = EXPR_MATCH(expr)
             if not m:
-                raise MonitDockerExprParserError("unable to parse expression if: %r" % condition)
+                raise MonitDockerExprParserError("unable to parse expression: %r" % expr)
 
             m = m.groupdict()
 
@@ -897,7 +900,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                     raise MonitDockerExit(404)
 
                 r['conditions'] = self._CONDITIONS[cond_alias]
-            else:
+            elif m['cond']:
                 cond = dict(m)
                 del cond['cmd']
                 r['conditions'] = [{'real': cond['cond'],
@@ -915,9 +918,9 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                                   'args':   [],
                                   'kwargs': {}}]
 
-            self._EXPRS[condition] = r
+            self._EXPRS[expr] = r
         else:
-            r = self._EXPRS[condition]
+            r = self._EXPRS[expr]
 
         for cond in r['conditions']:
             if cond['parsed']['datatype'] not in datatypes:
@@ -926,7 +929,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         return r
 
     @staticmethod
-    def _run_exec_if(cmd, container, args = None, kwargs = None):
+    def _run_exec(cmd, container, args = None, kwargs = None):
         if not args:
             args = []
 
@@ -940,7 +943,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         return True
 
     @staticmethod
-    def _run_docker_cmd_if(cmd, container, args = None, kwargs = None):
+    def _run_docker_cmd(cmd, container, args = None, kwargs = None):
         if not args:
             args = []
 
@@ -1031,12 +1034,12 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             if not cmd.strip():
                 LOG.error("missing command to execute in expression: %r", condition)
                 raise MonitDockerExit(400)
-            return {'func':   self._run_exec_if,
+            return {'func':   self._run_exec,
                     'cmd':    cmd,
                     'args':   [],
                     'kwargs': {}}
         elif cmd in DOCKER_COMMANDS:
-            return {'func':   self._run_docker_cmd_if,
+            return {'func':   self._run_docker_cmd,
                     'cmd':    cmd,
                     'args':   command['args'],
                     'kwargs': command['kwargs']}
@@ -1044,14 +1047,14 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         LOG.error("invalid docker command: %r. (condition: %r)", cmd, condition)
         raise MonitDockerExit(400)
 
-    def _run_cmd_if(self, condition, container, datatypes, data = None):
-        exprs = self._parse_exprs_if(condition, datatypes)
+    def _run_cmd(self, expr, container, datatypes, data = None):
+        exprs = self._parse_exprs(expr, datatypes)
         cmds  = []
         rs    = True
         r     = []
 
         for command in exprs['commands']:
-            cmds.append(self._parse_cmd(condition, command))
+            cmds.append(self._parse_cmd(expr, command))
 
         for cond in exprs['conditions']:
             if not self._eval_if(cond, container, data):
@@ -1075,12 +1078,12 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         return r
 
     def before_run(self, container):
-        cmds_if = list(self.options.cmd_if)
-        if cmds_if:
+        cmds = list(self.options.cmd)
+        if cmds:
             to_pop = []
-            for i, condition in enumerate(cmds_if):
+            for i, expr in enumerate(cmds):
                 try:
-                    self._run_cmd_if(condition, container, DATATYPES_BEFORE_RUN)
+                    self._run_cmd(expr, container, DATATYPES_BEFORE_RUN)
                 except MonitDockerExprParserError:
                     raise
                 except MonitDockerDataTypeError:
@@ -1091,9 +1094,9 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                 to_pop.append(i)
 
             for i in reversed(to_pop):
-                cmds_if.pop(i)
+                cmds.pop(i)
 
-            if not cmds_if:
+            if not cmds:
                 return StatusLoopContinue
 
         if container['obj'].status not in ('paused', 'running'):
@@ -1109,9 +1112,9 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             rsc = self.options.resource[0]
 
             raise MonitDockerExit(int(self._get_resource_info(rsc, data, container['stats'])))
-        elif self.options.cmd_if:
-            for condition in self.options.cmd_if:
-                self._run_cmd_if(condition, container, DATATYPES, data)
+        elif self.options.cmd:
+            for expr in self.options.cmd:
+                self._run_cmd(expr, container, DATATYPES, data)
 
             return StatusLoopBreak
 
