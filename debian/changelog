@@ -1,3 +1,9 @@
+monit-docker (0.0.19) unstable; urgency=medium
+
+  * Reviewed README.md.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Mon, 12 Aug 2019 09:22:38 +0200
+
 monit-docker (0.0.18) unstable; urgency=medium
 
   * Reviewed README.md.
