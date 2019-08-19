@@ -119,15 +119,15 @@ check program docker.foo_php_fpm.status with path "/usr/bin/monit-docker --name 
     if status = 114 for 2 cycles then alert # container not found
     if status != 0 for 2 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd restart" # container not running
 
-check program docker.foo_php_fpm.cpu with path "/usr/bin/monit-docker --name foo_php_fpm monit --rsc cpu_percent"
+check program docker.foo_php_fpm.cpu with path "/usr/bin/monit-docker -s running --name foo_php_fpm monit --rsc cpu_percent"
     group monit-docker
-    if status > 100 for 2 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd restart"
+    if status > 100 for 2 cycles then alert
     if status > 70 for 2 cycles then alert
     if status > 80 for 4 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd reload"
 
-check program docker.foo_php_fpm.mem with path "/usr/bin/monit-docker --name foo_php_fpm monit --rsc mem_percent"
+check program docker.foo_php_fpm.mem with path "/usr/bin/monit-docker -s running --name foo_php_fpm monit --rsc mem_percent"
     group monit-docker
-    if status > 100 for 2 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd restart"
+    if status > 100 for 2 cycles then alert
     if status > 70 for 2 cycles then alert
     if status > 80 for 4 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd '(kill -USR2 1)'"
 ```
