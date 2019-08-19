@@ -1,3 +1,9 @@
+monit-docker (0.0.20) unstable; urgency=medium
+
+  * Reviewed exit codes and added status argument.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Mon, 19 Aug 2019 13:13:30 +0200
+
 monit-docker (0.0.19) unstable; urgency=medium
 
   * Reviewed README.md.

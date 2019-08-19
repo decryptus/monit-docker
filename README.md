@@ -14,9 +14,17 @@ Using monit-docker in Docker with crond
 
 See [docker-compose.yml](docker-compose.yml) and MONIT\_DOCKER\_CRONS environment variable to configure commands.
 
-## Commands:
+## Environment variables
 
-#### Simple commands
+| Variable                | Description                 | Default |
+|:------------------------|:----------------------------|:--------|
+| `MONIT_DOCKER_CONFIG`   | Configuration file contents<br />(e.g. `export MONIT_DOCKER_CONFIG="$(cat monit-docker.yml)"`) |  |
+| `MONIT_DOCKER_CONFFILE` | Configuration file path     | /etc/monit-docker/monit-docker.yml |
+| `MONIT_DOCKER_LOGFILE`  | Log file path               | /var/log/monit-docker/monit-docker.log |
+
+## monit sub-command
+
+### Simple commands
 
 Restart containers with name starts with foo if memory percent > 60% or cpu percent > 90%:
 
@@ -30,11 +38,15 @@ Kill containers with name starts with bar and status equal to pause or running:
 
 `monit-docker monit --name 'bar*' --cmd-if 'status in (pause,running) ? kill'`
 
+You can also use status argument, for example, restart containers with status paused or exited:
+
+`monit-docker -s paused -s exited monit --cmd 'restart'`
+
 Run command in container with image name contains /php-fpm/ and if memory usage > 100 MiB:
 
 `monit-docker --image '*/php-fpm/*' monit --cmd-if 'mem_usage > 100 MiB ? (kill -USR2 1)'`
 
-#### Advanced commands with configuration file or environment variable MONIT\_DOCKER\_CONFIG
+### Advanced commands with configuration file or environment variable MONIT\_DOCKER\_CONFIG
 
 ##### Run commands with aliases declared in configuration file (e.g.: [monit-docker.yml.example](etc/monit-docker/monit-docker.yml.example)):
 
@@ -48,38 +60,124 @@ Execute commands alias @start\_pause containers with name starts with foo if con
 
 Remove force container group php if status is equal to running:
 
-`monit-docker monit --ctn-group php --cmd-if 'status == running ? @remove_force'`
+`monit-docker --ctn-group php monit --cmd-if 'status == running ? @remove_force'`
 
 Restart containers group nodejs if memory percent > 10% and cpu percent > 60%:
 
-`monit-docker monit --ctn-group nodejs --cmd-if '@mem_gt_10pct_and_cpu_gt_60pct ? restart'`
+`monit-docker --ctn-group nodejs monit --cmd-if '@mem_gt_10pct_and_cpu_gt_60pct ? restart'`
 
 Remove force all containers:
 
 `monit-docker monit --cmd '@remove_force'`
 
-## Environment variables
+### Container informations with exit codes
 
-| Variable                | Description                 | Default |
-|:------------------------|:----------------------------|:--------|
-| `MONIT_DOCKER_CONFIG`   | Configuration file contents<br />(e.g. `export MONIT_DOCKER_CONFIG="$(cat monit-docker.yml)"`) |  |
-| `MONIT_DOCKER_CONFFILE` | Configuration file path     | /etc/monit-docker/monit-docker.yml |
-| `MONIT_DOCKER_LOGFILE`  | Log file path               | /var/log/monit-docker/monit-docker.log |
+#### Container status
 
-## monit-docker with M/Monit
+Run command below to get status with exit code for container named foo\_php\_fpm:
+
+`monit-docker --name foo_php_fpm monit --rsc status`
+
+An error occurred if exit code is greather than 100.
+
+| Exit code | Description |
+|:----------|:------------|
+| 0         | Running     |
+| 10        | Created     |
+| 20        | Paused      |
+| 30        | Restarting  |
+| 40        | Removing    |
+| 50        | Exited      |
+| 60        | Dead        |
+| 114       | Not found   |
+
+#### Container CPU usage percent
+
+Run command below to get CPU usage percentage with exit code for container named foo\_php\_fpm:
+
+`monit-docker --name foo_php_fpm monit --rsc cpu_percent`
+
+An error occurred if exit code is greather than 100.
+
+#### Container memory usage percent
+
+Run command below to get memory usage percentage with exit code for container named foo\_php\_fpm:
+
+`monit-docker --name foo_php_fpm monit --rsc mem_percent`
+
+An error occurred if exit code is greather than 100.
+
+### monit-docker with M/Monit
 
 We can also monitoring containers cpu\_percent and mem\_percent resources with [M/Monit](https://mmonit.com).
 
 #### Configuration examples
 
 ```
+check program docker.foo_php_fpm.status with path "/usr/bin/monit-docker --name foo_php_fpm monit --rsc status"
+    group monit-docker
+    if status = 114 for 2 cycles then alert # container not found
+    if status != 0 for 2 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd restart" # container not running
+
 check program docker.foo_php_fpm.cpu with path "/usr/bin/monit-docker --name foo_php_fpm monit --rsc cpu_percent"
     group monit-docker
+    if status > 100 for 2 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd restart"
     if status > 70 for 2 cycles then alert
     if status > 80 for 4 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd reload"
 
 check program docker.foo_php_fpm.mem with path "/usr/bin/monit-docker --name foo_php_fpm monit --rsc mem_percent"
     group monit-docker
+    if status > 100 for 2 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd restart"
     if status > 70 for 2 cycles then alert
     if status > 80 for 4 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd '(kill -USR2 1)'"
 ```
+
+## stats sub-command
+
+### Simple commands
+
+Get all resources statistics for all containers in json format:
+
+`monit-docker stats --output json`
+
+```json
+{
+  "flamboyant_chaplygin": {
+    "status": "running",
+    "mem_percent": 0.03,
+    "net_tx": "0.0 B",
+    "cpu_percent": 0,
+    "mem_usage": "2.52 MiB",
+    "io_read": "3.5 MB",
+    "io_write": "0.0 B",
+    "net_rx": "25.2 kB",
+    "mem_limit": "7.27 GiB"
+  }
+}
+{
+  "practical_proskuriakova": {
+    "status": "running",
+    "mem_percent": 0.04,
+    "net_tx": "0.0 B",
+    "cpu_percent": 0,
+    "mem_usage": "2.61 MiB",
+    "io_read": "24.6 kB",
+    "io_write": "0.0 B",
+    "net_rx": "25.0 kB",
+    "mem_limit": "7.27 GiB"
+  }
+}
+```
+
+Get all resources statistics for all containers in text format:
+
+`monit-docker stats --output text`
+
+`flamboyant_chaplygin|mem_usage:2.52 MiB|mem_limit:7.27 GiB|mem_percent:0.03|cpu_percent:0.0|io_read:3.5 MB|io_write:0.0 B|net_tx:0.0 B|net_rx:43.5 kB|status:running`
+`practical_proskuriakova|mem_usage:2.61 MiB|mem_limit:7.27 GiB|mem_percent:0.04|cpu_percent:0.0|io_read:24.6 kB|io_write:0.0 B|net_tx:0.0 B|net_rx:43.3 kB|status:running`
+
+### Advanced commands with configuration file or environment variable MONIT\_DOCKER\_CONFIG
+
+Get status and memory usage for group nodejs:
+
+`monit-docker --ctn-group nodejs --rsc status --rsc mem_usage`

@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.19'
+__version__ = '0.0.20'
 
 import argparse
 import codecs
@@ -86,7 +86,16 @@ RESOURCE_CHOICES      = ('mem_usage',
                          'io_read',
                          'io_write',
                          'net_tx',
-                         'net_rx')
+                         'net_rx',
+                         'status')
+
+STATUS_RC             = {'running': 0,
+                         'created': 10,
+                         'paused': 20,
+                         'restarting': 30,
+                         'removing': 40,
+                         'exited': 50,
+                         'dead': 60}
 
 DATATYPES             = RESOURCE_CHOICES
 DATATYPES_BEFORE_RUN  = ('status',)
@@ -111,6 +120,7 @@ EXPR_MATCH            = re.compile(r'^(?:(?:(?P<cond>' + PRE_COND_RE + DATATYPE_
 
 
 StatusLoopContinue    = object()
+StatusLoopRunContinue = object()
 StatusLoopBreak       = object()
 StatusFuncReturn      = object()
 
@@ -164,6 +174,12 @@ def argv_parse_check():
                         dest    = 'label',
                         default = [],
                         help    = "match containers by label")
+    parser.add_argument("-s",
+                        action  = 'append',
+                        dest    = 'status',
+                        default = [],
+                        choices = STATUS_RC.keys(),
+                        help    = "match containers by status")
     parser.add_argument("-l",
                         dest    = 'loglevel',
                         default = 'info',   # warning: see affectation under
@@ -253,6 +269,14 @@ class MonitDockerSubCmdAbstract(object):
            and isinstance(conf['tls'], dict):
             conf['tls'] = docker.tls.TLSConfig(**conf['tls'])
 
+    @staticmethod
+    def _get_status_rc(status):
+        status = status.lower()
+        if status not in STATUS_RC:
+            raise ValueError("unknown status: %r" % status)
+
+        return STATUS_RC[status]
+
     def _reset_subsets(self):
         self._subsets = {'id': [],
                          'image': [],
@@ -296,7 +320,7 @@ class MonitDockerSubCmdAbstract(object):
                 client = self.config['clients'][self.options.client]
             else:
                 LOG.error("unknown client: %r", self.options.client)
-                raise MonitDockerExit(404)
+                raise MonitDockerExit(110)
         else:
             client = self.config['clients'][self.config['clients'].keys()[0]]
 
@@ -377,7 +401,7 @@ class MonitDockerSubCmdAbstract(object):
                 r[name][section] = self._render_conf_object(value[section], c)
             else:
                 LOG.error("missing %s in %s: %r", section, xtype, name)
-                raise MonitDockerExit(404)
+                raise MonitDockerExit(110)
 
             if finalizer:
                 finalizer(name, r[name][section])
@@ -452,6 +476,10 @@ class MonitDockerSubCmdAbstract(object):
             return r
 
         for container in containers:
+            if self.options.status \
+               and container.status not in self.options.status:
+                continue
+
             if not self.has_subsets:
                 r[container.id] = container
                 continue
@@ -711,11 +739,11 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
             return self._calc_network(current.get('networks'))[1]
         else:
             LOG.error("resource unknown: %r", rsc)
-            raise MonitDockerExit(404)
+            raise MonitDockerExit(112)
 
     def before_run(self, container):
         if container['obj'].status not in ('paused', 'running'):
-            return StatusLoopContinue
+            return StatusLoopRunContinue
 
         return None
 
@@ -723,7 +751,12 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         r = ["%s" % container['name']]
 
         for rsc in self.options.resource:
-            r.append("%s:%s" % (rsc, self._get_resource_info(rsc, data, container['stats'])))
+            if rsc == 'status':
+                r.append("%s:%s" % (rsc, container['obj'].status))
+            elif data:
+                r.append("%s:%s" % (rsc, self._get_resource_info(rsc, data, container['stats'])))
+            else:
+                r.append("%s:%s" % (rsc, 'null'))
 
         sys.stdout.write('|'.join(r) + "\n")
 
@@ -731,9 +764,14 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         r = {container['name']: {}}
 
         for rsc in self.options.resource:
-            r[container['name']][rsc] = self._get_resource_info(rsc, data, container['stats'])
+            if rsc == 'status':
+                r[container['name']][rsc] = container['obj'].status
+            elif data:
+                r[container['name']][rsc] = self._get_resource_info(rsc, data, container['stats'])
+            else:
+                r[container['name']][rsc] = None
 
-        sys.stdout.write(json.dumps(r))
+        sys.stdout.write(json.dumps(r) + "\n")
 
     def run(self, container, data):
         getattr(self, "_output_%s" % getattr(self.options, 'output', 'json'))(container, data)
@@ -747,7 +785,7 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
             for name in self.options.ctn_grp:
                 if name not in self._CTN_GRPS:
                     LOG.error("unable to find container group: %r", name)
-                    raise MonitDockerExit(404)
+                    raise MonitDockerExit(110)
 
                 for subset_type, patterns in six.iteritems(self._CTN_GRPS[name]):
                     self.has_subsets = True
@@ -755,7 +793,8 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
 
         containers = self._match_containers(xall = True)
         if not containers:
-            raise MonitDockerExit(404)
+            LOG.warning("no container found")
+            raise MonitDockerExit(114)
 
         for xid, obj in six.iteritems(containers):
             if xid not in self._containers:
@@ -767,11 +806,13 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
             container = self._containers[xid]
 
             r = self.before_run(container)
-            if r is StatusLoopContinue:
+            if r in (StatusLoopContinue, StatusLoopRunContinue):
+                if r is StatusLoopRunContinue:
+                    self.run(container, {})
                 continue
 
             for line in container['obj'].stats(stream = True):
-                data  = json.loads(line)
+                data = json.loads(line)
 
                 if not container['stats']:
                     container['stats'] = data
@@ -897,7 +938,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                 cond_alias = m['cond_alias']
                 if cond_alias not in self._CONDITIONS:
                     LOG.error("unknown conditional expression alias: %r", cond_alias)
-                    raise MonitDockerExit(404)
+                    raise MonitDockerExit(110)
 
                 r['conditions'] = self._CONDITIONS[cond_alias]
             elif m['cond']:
@@ -910,7 +951,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                 cmd_alias = m['cmd_alias']
                 if cmd_alias not in self._COMMANDS:
                     LOG.error("unknown command alias: %r", cmd_alias)
-                    raise MonitDockerExit(404)
+                    raise MonitDockerExit(110)
 
                 r['commands'] = self._COMMANDS[cmd_alias]
             else:
@@ -1011,14 +1052,14 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                 val = type(ret)(expr['value'])
             except TypeError:
                 LOG.error("invalid value for expression if: %r", real_cond)
-                raise MonitDockerExit(400)
+                raise MonitDockerExit(110)
 
             if pre_val is not None:
                 try:
                     pre_val = type(ret)(pre_val)
                 except TypeError:
                     LOG.error("invalid pre value for expression if: %r", real_cond)
-                    raise MonitDockerExit(400)
+                    raise MonitDockerExit(110)
 
         if None not in (pre_op, pre_val):
             return self._condition_result(pre_op, ret, pre_val) \
@@ -1033,7 +1074,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             cmd = cmd[1:-1]
             if not cmd.strip():
                 LOG.error("missing command to execute in expression: %r", condition)
-                raise MonitDockerExit(400)
+                raise MonitDockerExit(110)
             return {'func':   self._run_exec,
                     'cmd':    cmd,
                     'args':   [],
@@ -1045,7 +1086,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                     'kwargs': command['kwargs']}
 
         LOG.error("invalid docker command: %r. (condition: %r)", cmd, condition)
-        raise MonitDockerExit(400)
+        raise MonitDockerExit(110)
 
     def _run_cmd(self, expr, container, datatypes, data = None):
         exprs = self._parse_exprs(expr, datatypes)
@@ -1078,6 +1119,15 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         return r
 
     def before_run(self, container):
+        if self.options.resource:
+            if len(self.options.resource) == 1 and self.options.resource[0] == 'status':
+                raise MonitDockerExit(int(self._get_status_rc(container['obj'].status)))
+
+            if container['obj'].status not in ('paused', 'running'):
+                return StatusLoopRunContinue
+
+            return None
+
         cmds = list(self.options.cmd)
         if cmds:
             to_pop = []
@@ -1111,7 +1161,11 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
 
             rsc = self.options.resource[0]
 
-            raise MonitDockerExit(int(self._get_resource_info(rsc, data, container['stats'])))
+            if data:
+                raise MonitDockerExit(int(self._get_resource_info(rsc, data, container['stats'])))
+            else:
+                LOG.error("no statistic for the container: %s", container['name'])
+                raise MonitDockerExit(115)
         elif self.options.cmd:
             for expr in self.options.cmd:
                 self._run_cmd(expr, container, DATATYPES, data)
