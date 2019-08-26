@@ -26,11 +26,11 @@ See [docker-compose.yml](docker-compose.yml) and MONIT\_DOCKER\_CRONS environmen
 
 ### Simple commands
 
-Restart containers with name starts with foo if memory percent > 60% or cpu percent > 90%:
+Restart containers with name starts with foo if memory usage percentage > 60% or cpu usage percentage > 90%:
 
 `monit-docker monit --name 'foo*' --cmd-if 'mem_percent > 60 ? restart' --cmd-if 'cpu_percent > 90 ? restart'`
 
-Stop containers with name starts with bar or foo and if cpu percent greather than 60% and less than 70%:
+Stop containers with name starts with bar or foo and if cpu usage percentage greater than 60% and less than 70%:
 
 `monit-docker monit --name 'bar*' --name 'foo*' --cmd-if '60 > cpu_percent < 70 ? stop'`
 
@@ -62,7 +62,7 @@ Remove force container group php if status is equal to running:
 
 `monit-docker --ctn-group php monit --cmd-if 'status == running ? @remove_force'`
 
-Restart containers group nodejs if memory percent > 10% and cpu percent > 60%:
+Restart containers group nodejs if memory usage percentage > 10% and cpu usage percentage > 60%:
 
 `monit-docker --ctn-group nodejs monit --cmd-if '@mem_gt_10pct_and_cpu_gt_60pct ? restart'`
 
@@ -78,7 +78,7 @@ Run command below to get status with exit code for container named foo\_php\_fpm
 
 `monit-docker --name foo_php_fpm monit --rsc status`
 
-An error occurred if exit code is greather than 100.
+An error occurred if exit code is greater than 100.
 
 | Exit code | Description |
 |:----------|:------------|
@@ -91,21 +91,21 @@ An error occurred if exit code is greather than 100.
 | 60        | Dead        |
 | 114       | Not found   |
 
-#### Container CPU usage percent
+#### Container CPU usage percentage
 
 Run command below to get CPU usage percentage with exit code for container named foo\_php\_fpm:
 
 `monit-docker --name foo_php_fpm monit --rsc cpu_percent`
 
-An error occurred if exit code is greather than 100.
+An error occurred if exit code is greater than 100.
 
-#### Container memory usage percent
+#### Container memory usage percentage
 
 Run command below to get memory usage percentage with exit code for container named foo\_php\_fpm:
 
 `monit-docker --name foo_php_fpm monit --rsc mem_percent`
 
-An error occurred if exit code is greather than 100.
+An error occurred if exit code is greater than 100.
 
 ### monit-docker with M/Monit
 
@@ -173,8 +173,10 @@ Get all resources statistics for all containers in text format:
 
 `monit-docker stats --output text`
 
-`flamboyant_chaplygin|mem_usage:2.52 MiB|mem_limit:7.27 GiB|mem_percent:0.03|cpu_percent:0.0|io_read:3.5 MB|io_write:0.0 B|net_tx:0.0 B|net_rx:43.5 kB|status:running`
-`practical_proskuriakova|mem_usage:2.61 MiB|mem_limit:7.27 GiB|mem_percent:0.04|cpu_percent:0.0|io_read:24.6 kB|io_write:0.0 B|net_tx:0.0 B|net_rx:43.3 kB|status:running`
+```
+flamboyant_chaplygin|mem_usage:2.52 MiB|mem_limit:7.27 GiB|mem_percent:0.03|cpu_percent:0.0|io_read:3.5 MB|io_write:0.0 B|net_tx:0.0 B|net_rx:43.5 kB|status:running
+practical_proskuriakova|mem_usage:2.61 MiB|mem_limit:7.27 GiB|mem_percent:0.04|cpu_percent:0.0|io_read:24.6 kB|io_write:0.0 B|net_tx:0.0 B|net_rx:43.3 kB|status:running
+```
 
 ### Advanced commands with configuration file or environment variable MONIT\_DOCKER\_CONFIG
 

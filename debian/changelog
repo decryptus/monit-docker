@@ -1,3 +1,9 @@
+monit-docker (0.0.22) unstable; urgency=medium
+
+  * Missing close on StringIO.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Mon, 26 Aug 2019 20:05:04 +0200
+
 monit-docker (0.0.21) unstable; urgency=medium
 
   * Reviewed README.md.

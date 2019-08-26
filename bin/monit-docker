@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.21'
+__version__ = '0.0.22'
 
 import argparse
 import codecs
@@ -419,9 +419,9 @@ class MonitDockerSubCmdAbstract(object):
             with open(self.options.conffile, 'r') as f:
                 conf = self._load_yaml(f)
         elif MONIT_DOCKER_CONFIG:
-            c = StringIO()
-            c.write(MONIT_DOCKER_CONFIG)
+            c = StringIO(MONIT_DOCKER_CONFIG)
             conf = self._load_yaml(c.getvalue())
+            c.close()
         else:
             return {}
 
@@ -1192,7 +1192,7 @@ def main(options):
     if os.path.isdir(os.path.dirname(options.logfile)):
         filehandler = WatchedFileHandler(options.logfile)
         filehandler.setFormatter(logging.Formatter(xformat,
-                                                   datefmt=datefmt))
+                                                   datefmt = datefmt))
         root_logger = logging.getLogger('')
         root_logger.addHandler(filehandler)
 
