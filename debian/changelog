@@ -1,3 +1,15 @@
+monit-docker (0.0.24) unstable; urgency=medium
+
+  * Fixed setup.py.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sat, 31 Aug 2019 15:10:27 +0200
+
+monit-docker (0.0.23) unstable; urgency=medium
+
+  * Reviewed README.md and fixed python3 compatibility.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sat, 31 Aug 2019 14:52:05 +0200
+
 monit-docker (0.0.22) unstable; urgency=medium
 
   * Missing close on StringIO.

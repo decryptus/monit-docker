@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+from __future__ import absolute_import
+
 """
 monit-docker
 """
@@ -20,7 +23,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.22'
+__version__ = '0.0.24'
 
 import argparse
 import codecs
@@ -144,7 +147,7 @@ def argv_parse_check():
     parser.add_argument("-c",
                         dest    = 'conffile',
                         default = MONIT_DOCKER_CONFFILE,
-                        help    = "Use configuration file <conffile> instead of %default")
+                        help    = "Use configuration file <conffile> instead of %(default)s")
     parser.add_argument("--client",
                         dest    = 'client',
                         default = None,
@@ -178,7 +181,7 @@ def argv_parse_check():
                         action  = 'append',
                         dest    = 'status',
                         default = [],
-                        choices = STATUS_RC.keys(),
+                        choices = list(STATUS_RC),
                         help    = "match containers by status")
     parser.add_argument("-l",
                         dest    = 'loglevel',
@@ -201,14 +204,20 @@ def argv_parse_check():
     for subcmd in six.itervalues(_SUBCMDS):
         subcmd.load_subcmd_parser(subparsers)
 
-    args          = parser.parse_args()
-    args.loglevel = getattr(logging, args.loglevel.upper(), logging.INFO)
+    options, args = parser.parse_known_args()
 
-    if getattr(args, 'subcommand') \
-       and args.subcommand in _SUBCMDS:
-        _SUBCMDS[args.subcommand].valid_subcmd_parser(parser, args)
+    if args:
+        parser.error("no argument is allowed - use option --help to get an help screen")
 
-    return args
+    options.loglevel = getattr(logging, options.loglevel.upper(), logging.INFO)
+
+    if getattr(options, 'subcommand') \
+       and options.subcommand in _SUBCMDS:
+        _SUBCMDS[options.subcommand].valid_subcmd_parser(parser, options)
+    else:
+        parser.error("too few arguments - use option --help to get an help screen")
+
+    return options
 
 
 class MonitDockerExit(SystemExit):
@@ -245,7 +254,7 @@ class MonitDockerSubCmdAbstract(object):
         return
 
     @classmethod
-    def valid_subcmd_parser(cls, parser, args):
+    def valid_subcmd_parser(cls, parser, options):
         return
 
     @staticmethod
@@ -322,7 +331,7 @@ class MonitDockerSubCmdAbstract(object):
                 LOG.error("unknown client: %r", self.options.client)
                 raise MonitDockerExit(110)
         else:
-            client = self.config['clients'][self.config['clients'].keys()[0]]
+            client = self.config['clients'][list(self.config['clients'])[0]]
 
         self.client = docker.DockerClient(**client['config'])
 
@@ -558,7 +567,7 @@ class MonitDockerSubCmdAbstract(object):
 
     def _split_search_pattern(self, pattern):
         if isinstance(pattern, list):
-            return list(itertools.chain(*map(self._split_search_pattern, pattern)))
+            return list(itertools.chain(*six.map(self._split_search_pattern, pattern)))
         elif not isinstance(pattern, six.string_types):
             pattern = self.to_text(pattern, errors='surrogate_or_strict')
 
@@ -595,9 +604,9 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
                             help    = "resource information")
 
     @classmethod
-    def valid_subcmd_parser(cls, parser, args):
-        if not args.resource:
-            args.resource = RESOURCE_CHOICES
+    def valid_subcmd_parser(cls, parser, options):
+        if not options.resource:
+            options.resource = RESOURCE_CHOICES
 
     @staticmethod
     def _calc_cpu_percent(cur_stats, pre_stats):
@@ -850,11 +859,11 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                             help    = "run docker command or execute command inside containers")
 
     @classmethod
-    def valid_subcmd_parser(cls, parser, args):
-        if args.resource and args.cmd:
+    def valid_subcmd_parser(cls, parser, options):
+        if options.resource and options.cmd:
             parser.error("rsc and cmd options can't be in the same command")
 
-        setattr(args, 'output', 'text')
+        setattr(options, 'output', 'text')
 
     def _load_conditions_conf_finalize(self, name, exprs):
         r = []
@@ -886,7 +895,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             if not isinstance(cmd, dict):
                 c = cmd
             else:
-                c = cmd.keys()[0]
+                c = list(cmd)[0]
                 if 'args' in cmd[c]:
                     xdict['args']   = cmd[c]['args']
                 if 'kwargs' in cmd[c]:

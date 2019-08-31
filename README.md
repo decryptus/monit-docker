@@ -1,5 +1,8 @@
 # monit-docker project
 
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/monit-docker.svg)](https://pypi.org/project/monit-docker/)
+[![PyPI version shields.io](https://img.shields.io/pypi/v/monit-docker.svg)](https://pypi.org/project/monit-docker/)
+
 monit-docker is a free and open-source, we develop it to monitor container status or resources
 and execute some commands inside containers or manage containers with dockerd, for example:
  - reload php-fpm if memory usage is too high
@@ -13,6 +16,10 @@ Using monit-docker in Docker with crond
 `docker-compose up -d`
 
 See [docker-compose.yml](docker-compose.yml) and MONIT\_DOCKER\_CRONS environment variable to configure commands.
+
+## Installation
+
+`pip install monit-docker`
 
 ## Environment variables
 
