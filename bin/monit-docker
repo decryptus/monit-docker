@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-from __future__ import absolute_import
-
 """
 monit-docker
 """
+
+from __future__ import absolute_import
 
 __license__ = """
     Copyright (C) 2019  doowan
@@ -23,7 +22,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.24'
+__version__ = '0.0.26'
 
 import argparse
 import codecs
@@ -34,6 +33,8 @@ import json
 import os
 import re
 import sys
+
+from collections import OrderedDict
 
 import logging
 from logging.handlers import WatchedFileHandler
@@ -348,7 +349,7 @@ class MonitDockerSubCmdAbstract(object):
                          imports = _TPL_IMPORTS).render(**xvars))
 
     def _parse_import_file(self, conf, name, config_dir, xvars = None):
-        r = {}
+        r = OrderedDict()
 
         import_key = "@import_%s" % name
 
@@ -378,7 +379,7 @@ class MonitDockerSubCmdAbstract(object):
                      imports = _TPL_IMPORTS).render(**xvars))
 
     def _load_conf_section(self, xtype, section, conf, finalizer = None, config_dir = None):
-        r = {}
+        r = OrderedDict()
 
         if not config_dir:
             config_dir = self._config_dir
@@ -476,7 +477,7 @@ class MonitDockerSubCmdAbstract(object):
         return r
 
     def _match_containers(self, xall = False):
-        r = {}
+        r = OrderedDict()
 
         containers = self.client.containers.list(**{'all': xall})
 
@@ -567,7 +568,7 @@ class MonitDockerSubCmdAbstract(object):
 
     def _split_search_pattern(self, pattern):
         if isinstance(pattern, list):
-            return list(itertools.chain(*six.map(self._split_search_pattern, pattern)))
+            return list(itertools.chain(*map(self._split_search_pattern, pattern)))
         elif not isinstance(pattern, six.string_types):
             pattern = self.to_text(pattern, errors='surrogate_or_strict')
 

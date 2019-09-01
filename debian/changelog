@@ -1,3 +1,15 @@
+monit-docker (0.0.26) unstable; urgency=medium
+
+  * Added license file.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sun, 01 Sep 2019 20:49:57 +0200
+
+monit-docker (0.0.25) unstable; urgency=medium
+
+  * Fixed python3 compatibility.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sun, 01 Sep 2019 20:47:12 +0200
+
 monit-docker (0.0.24) unstable; urgency=medium
 
   * Fixed setup.py.

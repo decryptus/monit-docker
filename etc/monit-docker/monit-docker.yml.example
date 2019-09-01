@@ -5,9 +5,11 @@ vars:
 clients:
   '@import_client':
     - clients.yml.example
-  local_unix:
+  local_https:
     config:
-      base_url: ${vars['base_url_unix']}
+      base_url: ${vars['base_url_https']}
+      tls:
+        verify: ${vars['tls_verify']}
   foo_https:
     '@import_vars': foo_https.vars.yml.example
     config:
