@@ -10,7 +10,7 @@ and execute some commands inside containers or manage containers with dockerd, f
  - restart container if status is not running
  - remove all containers
 
-## Table of Contents
+## Table of contents
 1. [Quickstart](#quickstart)
 2. [Installation](#installation)
 3. [Environment variables](#environment_variables)

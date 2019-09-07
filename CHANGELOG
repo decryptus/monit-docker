@@ -1,3 +1,9 @@
+monit-docker (0.0.30) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.30.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sat, 07 Sep 2019 22:58:52 +0200
+
 monit-docker (0.0.29) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.29.
