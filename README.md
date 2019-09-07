@@ -2,7 +2,7 @@
 
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/monit-docker.svg)](https://pypi.org/project/monit-docker/)
 [![PyPI version shields.io](https://img.shields.io/pypi/v/monit-docker.svg)](https://pypi.org/project/monit-docker/)
-[![Documentation Status](https://readthedocs.org/projects/monit-docker/badge/?version=latest)](http://monit-docker.readthedocs.io/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/monit-docker/badge/?version=latest)](https://monit-docker.readthedocs.io/)
 
 monit-docker is a free and open-source, we develop it to monitor container status or resources
 and execute some commands inside containers or manage containers with dockerd, for example:

@@ -1,3 +1,16 @@
+monit-docker (0.0.29) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.29.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sat, 07 Sep 2019 22:50:48 +0200
+
+monit-docker (0.0.28) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.28.
+  * Changed license from GPLv2 to GPLv3.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Sat, 07 Sep 2019 22:41:13 +0200
+
 monit-docker (0.0.27) unstable; urgency=medium
 
   * Reviewed documentation.

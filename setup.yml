@@ -3,10 +3,10 @@ name: monit-docker
 description: monit-docker
 author: Adrien Delle Cave
 author_email: pypi@doowan.net
-copyright: '2019  doowan'
-release: '0.0.27'
-version: '0.0.27'
-license: License GPL-2
+copyright: '2019 Adrien Delle Cave'
+release: '0.0.29'
+version: '0.0.29'
+license: License GPL-3
 url: https://github.com/decryptus/monit-docker
 python_requires:
   - '>=2.7'
@@ -16,7 +16,7 @@ python_requires:
   - '!=3.3.*'
   - '!=3.4.*'
 classifiers:
-  - 'License :: OSI Approved :: GNU General Public License v2 (GPLv2)'
+  - 'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'
   - 'Natural Language :: English'
   - 'Operating System :: Unix'
   - 'Programming Language :: Python'
