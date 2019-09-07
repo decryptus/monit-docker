@@ -1,6 +1,9 @@
 *.pyc
 *~
 *.sw*
+*.egg/
 *.egg-info
 build/
 dist/
+docs/_build/
+TODO

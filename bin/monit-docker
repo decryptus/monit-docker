@@ -22,7 +22,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.26'
+__version__ = '0.0.27'
 
 import argparse
 import codecs
@@ -42,7 +42,7 @@ from logging.handlers import WatchedFileHandler
 import six
 
 try:
-    from cStringIO import StringIO
+    from six.moves import cStringIO as StringIO
 except ImportError:
     from six import StringIO
 
@@ -233,7 +233,7 @@ class MonitDockerExprParserError(SyntaxError):
     pass
 
 
-class MonitDockerSubCmdAbstract(object):
+class MonitDockerSubCmdAbstract(object): #pylint: disable=useless-object-inheritance
     _CTN_GRPS = {}
 
     def __init__(self, options):
@@ -251,11 +251,11 @@ class MonitDockerSubCmdAbstract(object):
         self.has_subsets  = self._load_subsets()
 
     @classmethod
-    def load_subcmd_parser(cls, subparsers):
+    def load_subcmd_parser(cls, subparsers): #pylint: disable=unused-argument
         return
 
     @classmethod
-    def valid_subcmd_parser(cls, parser, options):
+    def valid_subcmd_parser(cls, parser, options): #pylint: disable=unused-argument
         return
 
     @staticmethod
@@ -274,7 +274,7 @@ class MonitDockerSubCmdAbstract(object):
         return yaml.dump(stream, Dumper = dumper, default_flow_style = default_flow_style)
 
     @staticmethod
-    def _load_clients_conf_finalize(name, conf):
+    def _load_clients_conf_finalize(name, conf): #pylint: disable=unused-argument
         if conf.get('tls') \
            and isinstance(conf['tls'], dict):
             conf['tls'] = docker.tls.TLSConfig(**conf['tls'])
@@ -569,7 +569,7 @@ class MonitDockerSubCmdAbstract(object):
     def _split_search_pattern(self, pattern):
         if isinstance(pattern, list):
             return list(itertools.chain(*map(self._split_search_pattern, pattern)))
-        elif not isinstance(pattern, six.string_types):
+        if not isinstance(pattern, six.string_types):
             pattern = self.to_text(pattern, errors='surrogate_or_strict')
 
         if u',' in pattern:
@@ -732,26 +732,26 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
     def _get_resource_info(self, rsc, current, previous):
         if rsc == 'mem_usage':
             return self._calc_mem_usage(current['memory_stats'])
-        elif rsc == 'mem_limit':
+        if rsc == 'mem_limit':
             return self._calc_mem_limit(current['memory_stats'])
-        elif rsc == 'mem_percent':
+        if rsc == 'mem_percent':
             return self._calc_mem_percent(current['memory_stats'])
-        elif rsc == 'cpu_percent':
+        if rsc == 'cpu_percent':
             return self._calc_cpu_percent(current['cpu_stats'],
                                           previous.get('cpu_stats'))
-        elif rsc == 'io_read':
+        if rsc == 'io_read':
             return self._calc_blockio(current.get('blkio_stats'))[0]
-        elif rsc == 'io_write':
+        if rsc == 'io_write':
             return self._calc_blockio(current.get('blkio_stats'))[1]
-        elif rsc == 'net_rx':
+        if rsc == 'net_rx':
             return self._calc_network(current.get('networks'))[0]
-        elif rsc == 'net_tx':
+        if rsc == 'net_tx':
             return self._calc_network(current.get('networks'))[1]
-        else:
-            LOG.error("resource unknown: %r", rsc)
-            raise MonitDockerExit(112)
 
-    def before_run(self, container):
+        LOG.error("resource unknown: %r", rsc)
+        raise MonitDockerExit(112)
+
+    def before_run(self, container): #pylint: disable=no-self-use
         if container['obj'].status not in ('paused', 'running'):
             return StatusLoopRunContinue
 
@@ -925,8 +925,6 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                                                               conf['commands'],
                                                               finalizer = self._load_commands_conf_finalize)
 
-        return
-
     def _parse_exprs(self, expr, datatypes):
         r = {'conditions': [],
              'commands': []}
@@ -1089,7 +1087,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                     'cmd':    cmd,
                     'args':   [],
                     'kwargs': {}}
-        elif cmd in DOCKER_COMMANDS:
+        if cmd in DOCKER_COMMANDS:
             return {'func':   self._run_docker_cmd,
                     'cmd':    cmd,
                     'args':   command['args'],
@@ -1173,10 +1171,11 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
 
             if data:
                 raise MonitDockerExit(int(self._get_resource_info(rsc, data, container['stats'])))
-            else:
-                LOG.error("no statistic for the container: %s", container['name'])
-                raise MonitDockerExit(115)
-        elif self.options.cmd:
+
+            LOG.error("no statistic for the container: %s", container['name'])
+            raise MonitDockerExit(115)
+
+        if self.options.cmd:
             for expr in self.options.cmd:
                 self._run_cmd(expr, container, DATATYPES, data)
 
