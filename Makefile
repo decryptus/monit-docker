@@ -102,6 +102,10 @@ push-pip:
 clean-pip:
 	$(RM_PATH) -rf build/ dist/
 
-clean: clean-docs clean-pip
+clean-python:
+	$(FIND_PATH) -type f -name "*.pyc" -delete
+	$(FIND_PATH) -type d -name __pycache__ -exec rm -rf '{}' +
+
+clean: clean-docs clean-pip clean-python
 
 .PHONY: changelog release version

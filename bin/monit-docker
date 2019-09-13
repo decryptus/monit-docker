@@ -8,7 +8,7 @@ monit-docker
 
 from __future__ import absolute_import
 
-__version__ = '0.0.30'
+__version__ = '0.0.31'
 
 import argparse
 import codecs
