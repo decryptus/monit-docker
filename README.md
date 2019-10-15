@@ -8,6 +8,7 @@
 monit-docker is a free and open-source, we develop it to monitor container status or resources
 and execute some commands inside containers or manage containers with dockerd, for example:
  - reload php-fpm if memory usage is too high
+ - reload php-fpm if no free space in /dev/shm
  - restart container if status is not running
  - remove all containers
 
@@ -64,9 +65,13 @@ You can also use status argument, for example, restart containers with status pa
 
 `monit-docker -s paused -s exited monit --cmd 'restart'`
 
-Run command in container with image name contains /php-fpm/ and if memory usage > 100 MiB:
+Reload php-fpm in container with image name contains /php-fpm/ if memory usage greater than 100 MiB:
 
 `monit-docker --image '*/php-fpm/*' monit --cmd-if 'mem_usage > 100 MiB ? (kill -USR2 1)'`
+
+Reload php-fpm in container with image name contains /php-fpm/ if /dev/shm percentage usage greater than 80%:
+
+`monit-docker --image '*/php-fpm/*' monit --cmd '(bash -c "[ $(df /dev/shm | sed \"s/\%//;\$!d\" | awk \"{print \$5}\") -gt 80 ] && kill -USR2 1")'`
 
 ### <a name="monit_advanced_commands"></a>Advanced commands with configuration file or environment variable MONIT\_DOCKER\_CONFIG
 
