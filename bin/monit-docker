@@ -8,7 +8,7 @@ monit-docker
 
 from __future__ import absolute_import
 
-__version__ = '0.0.35'
+__version__ = '0.0.36'
 
 import argparse
 import codecs
@@ -58,7 +58,8 @@ MONIT_DOCKER_CONFFILE = os.environ.get('MONIT_DOCKER_CONFFILE') or DEFAULT_CONFF
 MONIT_DOCKER_LOGFILE  = os.environ.get('MONIT_DOCKER_LOGFILE') or DEFAULT_LOGFILE
 
 _SUBCMDS              = {}
-_TPL_IMPORTS          = ('from os import environ as ENV',)
+_TPL_IMPORTS          = ('from os import environ as ENV',
+                         'from sonicprobe.helpers import to_yaml as my')
 
 DOCKER_COMMANDS       = ('start',
                          'stop',

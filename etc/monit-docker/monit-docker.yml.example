@@ -7,13 +7,13 @@ clients:
     - clients.yml.example
   local_https:
     config:
-      base_url: ${vars['base_url_https']}
+      base_url: ${vars['base_url_https'] | n,my}
       tls:
-        verify: ${vars['tls_verify']}
+        verify: ${vars.get('tls_verify', False) | n,my}
   foo_https:
     '@import_vars': foo_https.vars.yml.example
     config:
-      base_url: ${vars['base_url_https']}
+      base_url: ${vars['base_url_https'] | n,my}
 ctn-groups:
   php:
     match:

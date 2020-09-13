@@ -7,12 +7,12 @@ RUN apk -Uuv add bash \
                  libffi-dev \
                  libressl-dev \
                  musl-dev \
-                 python \
-                 python-dev \
-                 py-pip && \
+                 python3 \
+                 python3-dev \
+                 py3-pip && \
     find /var/cache/apk/ -type f -delete
 
-RUN pip install monit-docker
+RUN pip3 install monit-docker
 
 ADD docker-run.sh /run.sh
 

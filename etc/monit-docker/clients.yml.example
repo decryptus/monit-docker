@@ -1,3 +1,3 @@
 local_unix:
   config:
-    base_url: ${vars['base_url_unix']}
+    base_url: ${vars['base_url_unix'] | n,my}
