@@ -7,5 +7,6 @@ services:
       MONIT_DOCKER_CRONS: |
         */2 * * * * monit-docker monit --cmd-if 'mem_usage > 200 MiB ? (kill -USR2 1)'
         */2 * * * * monit-docker monit --cmd-if 'status not in (pause,running) ? restart'
+        */2 * * * * monit-docker monit --rsc pid
     volumes:
       - /var/run:/var/run:rw

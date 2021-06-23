@@ -12,5 +12,5 @@ Package: monit-docker
 Architecture: all
 Homepage: https://www.commandersact.com
 Depends: ${misc:Depends}, python (>= 2.7~)
-Pre-Depends: lsb-release, python-dev (>= 2.7~), python-pip, python-setuptools
+Pre-Depends: lsb-release, python-dev (>= 2.7~), python-backports.ssl-match-hostname, python-pip, python-setuptools
 Description: Fjord Technologies monit-docker package

@@ -39,11 +39,12 @@ See [docker-compose.yml](docker-compose.yml) and MONIT\_DOCKER\_CRONS environmen
 
 ## <a name="environment_variables"></a>Environment variables
 
-| Variable                | Description                 | Default |
-|:------------------------|:----------------------------|:--------|
-| `MONIT_DOCKER_CONFIG`   | Configuration file contents<br />(e.g. `export MONIT_DOCKER_CONFIG="$(cat monit-docker.yml)"`) |  |
-| `MONIT_DOCKER_CONFFILE` | Configuration file path     | /etc/monit-docker/monit-docker.yml |
-| `MONIT_DOCKER_LOGFILE`  | Log file path               | /var/log/monit-docker/monit-docker.log |
+| Variable                   | Description                 | Default |
+|:---------------------------|:----------------------------|:--------|
+| `MONIT_DOCKER_CONFIG`      | Configuration file contents<br />(e.g. `export MONIT_DOCKER_CONFIG="$(cat monit-docker.yml)"`) |  |
+| `MONIT_DOCKER_CONFFILE`    | Configuration file path     | /etc/monit-docker/monit-docker.yml |
+| `MONIT_DOCKER_LOGFILE`     | Log file path               | /var/log/monit-docker/monit-docker.log |
+| `MONIT_DOCKER_RUNTIMEDIR`  | Runtime directory path      | /run/monit-docker |
 
 ## <a name="sub-command_monit"></a>Sub-command: monit
 
@@ -64,6 +65,10 @@ Kill containers with name starts with bar and status equal to pause or running:
 You can also use status argument, for example, restart containers with status paused or exited:
 
 `monit-docker -s paused -s exited monit --cmd 'restart'`
+
+Generate containers pidfile:
+
+`monit-docker monit --rsc pid`
 
 Reload php-fpm in container with image name contains /php-fpm/ if memory usage greater than 100 MiB:
 
@@ -157,6 +162,11 @@ check program docker.foo_php_fpm.mem with path "/usr/bin/monit-docker -s running
     if status > 100 for 2 cycles then alert
     if status > 70 for 2 cycles then alert
     if status > 80 for 4 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd '(kill -USR2 1)'"
+
+check program docker.foo_php_fpm.pid with pidfile /run/monit-docker/foo_php_fpm.pid
+    group monit-docker
+    if changed pid then alert
+
 ```
 
 ## <a name="sub-command_stats"></a>Sub-command: stats
@@ -178,7 +188,8 @@ Get all resources statistics for all containers in json format:
     "io_read": "3.5 MB",
     "io_write": "0.0 B",
     "net_rx": "25.2 kB",
-    "mem_limit": "7.27 GiB"
+    "mem_limit": "7.27 GiB",
+    "pid": "3943"
   }
 }
 {
@@ -191,7 +202,8 @@ Get all resources statistics for all containers in json format:
     "io_read": "24.6 kB",
     "io_write": "0.0 B",
     "net_rx": "25.0 kB",
-    "mem_limit": "7.27 GiB"
+    "mem_limit": "7.27 GiB",
+    "pid": "3990"
   }
 }
 ```
@@ -209,4 +221,4 @@ practical_proskuriakova|mem_usage:2.61 MiB|mem_limit:7.27 GiB|mem_percent:0.04|c
 
 Get status and memory usage for group nodejs:
 
-`monit-docker --ctn-group nodejs --rsc status --rsc mem_usage`
+`monit-docker --ctn-group nodejs stats --rsc status --rsc mem_usage`

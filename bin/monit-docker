@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# Copyright 2019 Adrien Delle Cave
+# Copyright 2019-2021 Adrien Delle Cave
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
 monit-docker
@@ -8,7 +8,7 @@ monit-docker
 
 from __future__ import absolute_import
 
-__version__ = '0.0.38'
+__version__ = '0.0.41'
 
 import argparse
 import codecs
@@ -39,6 +39,8 @@ import bitmath
 
 from mako.template import Template
 
+from sonicprobe import helpers
+
 import yaml
 
 try:
@@ -47,73 +49,77 @@ except ImportError:
     from yaml import SafeLoader as YamlLoader, SafeDumper as YamlDumper
 
 
-SYSLOG_NAME           = "monit-docker"
-LOG                   = logging.getLogger(SYSLOG_NAME)
+SYSLOG_NAME             = "monit-docker"
+LOG                     = logging.getLogger(SYSLOG_NAME)
 
-DEFAULT_CONFFILE      = "/etc/monit-docker/monit-docker.yml"
-DEFAULT_LOGFILE       = "/var/log/monit-docker/monit-docker.log"
+DEFAULT_CONFFILE        = "/etc/monit-docker/monit-docker.yml"
+DEFAULT_LOGFILE         = "/var/log/monit-docker/monit-docker.log"
+DEFAULT_RUNTIMEDIR      = "/run/monit-docker"
 
-MONIT_DOCKER_CONFIG   = os.environ.get('MONIT_DOCKER_CONFIG')
-MONIT_DOCKER_CONFFILE = os.environ.get('MONIT_DOCKER_CONFFILE') or DEFAULT_CONFFILE
-MONIT_DOCKER_LOGFILE  = os.environ.get('MONIT_DOCKER_LOGFILE') or DEFAULT_LOGFILE
+MONIT_DOCKER_CONFIG     = os.environ.get('MONIT_DOCKER_CONFIG')
+MONIT_DOCKER_CONFFILE   = os.environ.get('MONIT_DOCKER_CONFFILE') or DEFAULT_CONFFILE
+MONIT_DOCKER_LOGFILE    = os.environ.get('MONIT_DOCKER_LOGFILE') or DEFAULT_LOGFILE
+MONIT_DOCKER_RUNTIMEDIR = os.environ.get('MONIT_DOCKER_RUNTIMEDIR') or DEFAULT_RUNTIMEDIR
 
-_SUBCMDS              = {}
-_TPL_IMPORTS          = ('from os import environ as ENV',
-                         'from sonicprobe.helpers import to_yaml as my')
+_SUBCMDS                = {}
+_TPL_IMPORTS            = ('from os import environ as ENV',
+                           'from sonicprobe.helpers import to_yaml as my')
 
-DOCKER_COMMANDS       = ('start',
-                         'stop',
-                         'remove',
-                         'reload',
-                         'restart',
-                         'kill',
-                         'pause',
-                         'unpause')
+DOCKER_COMMANDS         = ('start',
+                           'stop',
+                           'remove',
+                           'reload',
+                           'restart',
+                           'kill',
+                           'pause',
+                           'unpause')
 
-RESOURCE_CHOICES      = ('mem_usage',
-                         'mem_limit',
-                         'mem_percent',
-                         'cpu_percent',
-                         'io_read',
-                         'io_write',
-                         'net_tx',
-                         'net_rx',
-                         'status')
+RESOURCE_CHOICES        = ('mem_usage',
+                           'mem_limit',
+                           'mem_percent',
+                           'cpu_percent',
+                           'io_read',
+                           'io_write',
+                           'net_tx',
+                           'net_rx',
+                           'status',
+                           'pid')
 
-STATUS_RC             = {'running': 0,
-                         'created': 10,
-                         'paused': 20,
-                         'restarting': 30,
-                         'removing': 40,
-                         'exited': 50,
-                         'dead': 60}
+STATUS_RC               = {'running': 0,
+                           'created': 10,
+                           'paused': 20,
+                           'restarting': 30,
+                           'removing': 40,
+                           'exited': 50,
+                           'dead': 60}
 
-DATATYPES             = RESOURCE_CHOICES
-DATATYPES_BEFORE_RUN  = ('status',)
+DATATYPES               = RESOURCE_CHOICES
+DATATYPES_BEFORE_RUN    = ('pid',
+                           'status',)
 
-PRE_COND_RE           = (r'(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?\s*(?P<pre_value_unit>[a-zA-Z]+)?)\s+' +
-                         r'(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*')
-DATATYPE_RE           = r'(?P<datatype>[a-z_]+)\s*'
-OP_RE                 = r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*'
-VALUE_RE              = r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?\s*(?P<value_unit>[a-zA-Z]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\)))'
-CMD_RE                = r'(?P<cmd>[^@].{2,})'
-CMD_ALIAS_RE          = r'@(?P<cmd_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})'
-COND_ALIAS_RE         = r'@(?P<cond_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})'
+PRE_COND_RE             = (r'(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?\s*(?P<pre_value_unit>[a-zA-Z]+)?)\s+' +
+                           r'(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*')
+DATATYPE_RE             = r'(?P<datatype>[a-z_]+)\s*'
+OP_RE                   = r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*'
+VALUE_RE                = r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?\s*(?P<value_unit>[a-zA-Z]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\)))'
+CMD_RE                  = r'(?P<cmd>[^@].{2,})'
+CMD_ALIAS_RE            = r'@(?P<cmd_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})'
+COND_ALIAS_RE           = r'@(?P<cond_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})'
 
-COND_MATCH            = re.compile(r'^' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r'\s*$').match
+COND_MATCH              = re.compile(r'^' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r'\s*$').match
 
-CMD_MATCH             = re.compile(r'^\s*' + CMD_RE + r'\s*$').match
-CTN_GRP_MATCH         = re.compile(r'^(?P<subset>id|image|name|label)\s*:\s*(?P<pattern>.+)\s*$').match
+CMD_MATCH               = re.compile(r'^\s*' + CMD_RE + r'\s*$').match
+CTN_GRP_MATCH           = re.compile(r'^(?P<subset>id|image|name|label)\s*:\s*(?P<pattern>.+)\s*$').match
 
-EXPR_MATCH            = re.compile(r'^(?:(?:(?P<cond>' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r')\s*|' +
-                                   r'\s*' + COND_ALIAS_RE + r')\s*' +
-                                   r'\?)?\s*(?:' + CMD_ALIAS_RE + r'|' + CMD_RE + r')\s*$').match
+EXPR_MATCH              = re.compile(r'^(?:(?:(?P<cond>' + PRE_COND_RE + DATATYPE_RE + OP_RE + VALUE_RE + r')\s*|' +
+                                     r'\s*' + COND_ALIAS_RE + r')\s*' +
+                                     r'\?)?\s*(?:' + CMD_ALIAS_RE + r'|' + CMD_RE + r')\s*$').match
 
 
-StatusLoopContinue    = object()
-StatusLoopRunContinue = object()
-StatusLoopBreak       = object()
-StatusFuncReturn      = object()
+StatusLoopContinue      = object()
+StatusLoopRunContinue   = object()
+StatusLoopBreak         = object()
+StatusFuncReturn        = object()
 
 try:
     codecs.lookup_error('surrogateescape')
@@ -180,6 +186,10 @@ def argv_parse_check():
                         dest      = 'logfile',
                         default   = MONIT_DOCKER_LOGFILE,
                         help      = "Use log file <logfile> instead of %(default)s")
+    parser.add_argument("--runtimedir",
+                        dest      = 'runtimedir',
+                        default   = MONIT_DOCKER_RUNTIMEDIR,
+                        help      = "Use runtime directory <runtimedir> instead of %(default)s")
     parser.add_argument("--name",
                         action  = 'append',
                         dest    = 'name',
@@ -273,6 +283,14 @@ class MonitDockerSubCmdAbstract(object): #pylint: disable=useless-object-inherit
             raise ValueError("unknown status: %r" % status)
 
         return STATUS_RC[status]
+
+    def _write_pidfile(self, pid, container_name):
+        if not self.options.runtimedir:
+            LOG.warning("runtime directory not configured or doesn't exist")
+            return
+
+        helpers.file_w_tmp((str(pid) + '\n',),
+                           os.path.join(self.options.runtimedir, "%s.pid" % container_name))
 
     def _reset_subsets(self):
         self._subsets = {'id': [],
@@ -748,7 +766,9 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         r = ["%s" % container['name']]
 
         for rsc in self.options.resource:
-            if rsc == 'status':
+            if rsc == 'pid':
+                r.append("%s:%s" % (rsc, container['obj'].attrs['State'].get('Pid') or 'null'))
+            elif rsc == 'status':
                 r.append("%s:%s" % (rsc, container['obj'].status))
             elif data:
                 r.append("%s:%s" % (rsc, self._get_resource_info(rsc, data, container['stats'])))
@@ -761,7 +781,9 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         r = {container['name']: {}}
 
         for rsc in self.options.resource:
-            if rsc == 'status':
+            if rsc == 'pid':
+                r[container['name']][rsc] = container['obj'].attrs['State'].get('Pid')
+            elif rsc == 'status':
                 r[container['name']][rsc] = container['obj'].status
             elif data:
                 r[container['name']][rsc] = self._get_resource_info(rsc, data, container['stats'])
@@ -814,7 +836,7 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
                 if not container['stats']:
                     container['stats'] = data
                     continue
-                elif data['read'] == container['stats']['read']:
+                if data['read'] == container['stats']['read']:
                     continue
 
                 r = self.run(container, data)
@@ -1020,6 +1042,9 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         return rs
 
     def _get_datatype_info(self, datatype, container, data):
+        if datatype == 'pid':
+            return container['obj'].attrs['State'].get('Pid') or ''
+
         if datatype == 'status':
             return container['obj'].status
 
@@ -1115,8 +1140,13 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
 
     def before_run(self, container):
         if self.options.resource:
-            if len(self.options.resource) == 1 and self.options.resource[0] == 'status':
-                raise MonitDockerExit(int(self._get_status_rc(container['obj'].status)))
+            if len(self.options.resource) == 1:
+                if self.options.resource[0] == 'pid':
+                    self._write_pidfile(container['obj'].attrs['State'].get('Pid') or '',
+                                        container['name'])
+                    return StatusLoopRunContinue
+                if self.options.resource[0] == 'status':
+                    raise MonitDockerExit(int(self._get_status_rc(container['obj'].status)))
 
             if container['obj'].status not in ('paused', 'running'):
                 return StatusLoopRunContinue
@@ -1191,6 +1221,13 @@ def main(options):
                                                    datefmt = datefmt))
         root_logger = logging.getLogger('')
         root_logger.addHandler(filehandler)
+
+    if options.runtimedir and not os.path.isdir(options.runtimedir):
+        try:
+            helpers.make_dirs(options.runtimedir)
+        except Exception:
+            LOG.warning("unable to create runtime directory: %r", options.runtimedir)
+            setattr(options, 'runtimedir', None)
 
     rc           = 0
     monit_docker = None
