@@ -3,6 +3,7 @@ FROM alpine:latest
 LABEL maintainer="docker@doowan.net"
 
 RUN apk -Uuv add bash \
+                 cargo \
                  curl-dev \
                  gcc \
                  libffi-dev \

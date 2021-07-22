@@ -1,3 +1,9 @@
+monit-docker (0.0.42) unstable; urgency=medium
+
+  * Added cargo package in Dockerfile.
+
+ -- Adrien DELLE CAVE (Decryptus) <adrien.delle.cave@commandersact.com>  Thu, 22 Jul 2021 02:10:31 +0200
+
 monit-docker (0.0.41) unstable; urgency=medium
 
   * Added possibility to monitor pidfile.
