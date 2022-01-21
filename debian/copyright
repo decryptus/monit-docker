@@ -3,11 +3,11 @@ Upstream-Name: monit-docker
 Upstream-Contact: Adrien Delle Cave
 
 Files: *
-Copyright: 2019 Adrien Delle Cave
+Copyright: 2019-2022 Adrien Delle Cave
 License: GPL-3
 
 Files: debian/*
-Copyright: 2019 Adrien Delle Cave
+Copyright: 2019-2022 Adrien Delle Cave
 License: GPL-3
 
 License: GPL-3
