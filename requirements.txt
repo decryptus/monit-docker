@@ -5,4 +5,4 @@ Mako
 pyOpenSSL>=20.0.0
 PyYAML>=3.10
 six>=1.13.0
-sonicprobe>=0.3.44
+sonicprobe>=0.3.45
