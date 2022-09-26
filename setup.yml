@@ -4,8 +4,8 @@ description: monit-docker
 author: Adrien Delle Cave
 author_email: pypi@doowan.net
 copyright: '2019-2022 Adrien Delle Cave'
-release: '0.0.46'
-version: '0.0.46'
+release: '0.0.47'
+version: '0.0.47'
 license: License GPL-3
 url: https://github.com/decryptus/monit-docker
 python_requires:

@@ -52,15 +52,15 @@ See [docker-compose.yml](docker-compose.yml) and MONIT\_DOCKER\_CRONS environmen
 
 Restart containers with name starts with foo if memory usage percentage > 60% or cpu usage percentage > 90%:
 
-`monit-docker monit --name 'foo*' --cmd-if 'mem_percent > 60 ? restart' --cmd-if 'cpu_percent > 90 ? restart'`
+`monit-docker --name 'foo*' monit --cmd-if 'mem_percent > 60 ? restart' --cmd-if 'cpu_percent > 90 ? restart'`
 
 Stop containers with name starts with bar or foo and if cpu usage percentage greater than 60% and less than 70%:
 
-`monit-docker monit --name 'bar*' --name 'foo*' --cmd-if '60 > cpu_percent < 70 ? stop'`
+`monit-docker --name 'bar*' --name 'foo*' monit --cmd-if '60 > cpu_percent < 70 ? stop'`
 
 Kill containers with name starts with bar and status equal to pause or running:
 
-`monit-docker monit --name 'bar*' --cmd-if 'status in (pause,running) ? kill'`
+`monit-docker --name 'bar*' monit --cmd-if 'status in (pause,running) ? kill'`
 
 You can also use status argument, for example, restart containers with status paused or exited:
 
@@ -84,11 +84,11 @@ Reload php-fpm in container with image name contains /php-fpm/ if /dev/shm perce
 
 Restart container id 4c01db0b339c if condition alias @status\_not\_running is true:
 
-`monit-docker monit --id 4c01db0b339c --cmd-if '@status_not_running ? restart'`
+`monit-docker --id 4c01db0b339c monit --cmd-if '@status_not_running ? restart'`
 
 Execute commands alias @start\_pause containers with name starts with foo if condition alias @status\_not\_running is true:
 
-`monit-docker monit --name 'foo*' --cmd-if '@status_not_running ? @start_pause'`
+`monit-docker --name 'foo*' monit --cmd-if '@status_not_running ? @start_pause'`
 
 Remove force container group php if status is equal to running:
 
