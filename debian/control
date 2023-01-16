@@ -3,14 +3,17 @@ Section: net
 Priority: optional
 Maintainer: DevOps Team Fjord Technologies
 Uploaders: DevOps Team Fjord Technologies
-Build-Depends: debhelper (>= 7), dh-python, python (>= 2.7~), python-setuptools
-Standards-Version: 3.9.4
+Build-Depends: debhelper (>= 7), dh-python, lsb-release, python (>= 2.7~) | python2 (>= 2.7~) | python3 (>= 3.9~), python-setuptools (<< 44.1~) | python3-setuptools (>= 44.1~), python-yaml | python3-yaml, sed
+Standards-Version: 3.9.5
 X-Python-Version: >= 2.7
+X-Python3-Version: >= 3.9
+XS-Python-Version: >= 2.7
+XS-Python3-Version: >= 3.9
 Homepage: https://www.commandersact.com
 
 Package: monit-docker
 Architecture: all
 Homepage: https://www.commandersact.com
-Depends: ${misc:Depends}, python (>= 2.7~)
-Pre-Depends: libffi-dev, lsb-release, python-dev (>= 2.7~), python-backports.ssl-match-hostname, python-pip, python-setuptools
+Depends: ${misc:Depends}, python (>= 2.7~) | python2 (>= 2.7~) | python3 (>= 3.9~)
+Pre-Depends: python-dev (>= 2.7~) | python2-dev (>= 2.7~) | python3-dev (>= 3.9~), python-pip (<< 20.3~) | python3-pip (>= 20.3~), python-setuptools (<< 44.1~) | python3-setuptools (>= 44.1~)
 Description: Fjord Technologies monit-docker package

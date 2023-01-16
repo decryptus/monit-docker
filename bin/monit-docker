@@ -8,7 +8,7 @@ monit-docker
 
 from __future__ import absolute_import
 
-__version__ = '0.0.47'
+__version__ = '0.0.49'
 
 import argparse
 import codecs
@@ -633,8 +633,11 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
 
         if cur_stats.get('online_cpus'):
             online_cpus = cur_stats['online_cpus']
-        else:
+        elif cur_stats['cpu_usage'].get('percpu_usage'):
             online_cpus = len(cur_stats['cpu_usage']['percpu_usage'])
+        else:
+            LOG.warning("unable to get online cpus information")
+            return r
 
         if cpu_delta > 0.0 and sys_delta > 0.0:
             r = (cpu_delta / sys_delta) * online_cpus * 100.0

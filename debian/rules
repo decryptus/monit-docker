@@ -10,8 +10,18 @@ export PYBUILD_VERBOSE=1
 
 export PYBUILD_NAME=monit-docker
 
+DISTRIB_VERSION=$(shell lsb_release -s -r | sed -nre 's/^[^0-9]*([0-9]+).*/\1/p')
+
+ifeq ($(shell test $(DISTRIB_VERSION) -lt 11; echo $$?),0)
+	DH_WITH_PYTHON=python2
+	export PYBUILD_DISABLE_python3=1
+else
+	DH_WITH_PYTHON=python3
+	export PYBUILD_DISABLE_python2=1
+endif
+
 %:
-	dh $@ --with python2 --buildsystem=pybuild
+	dh $@ --with $(DH_WITH_PYTHON) --buildsystem=pybuild
 
 override_dh_auto_install:
 	dh_auto_install
