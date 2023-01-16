@@ -7,7 +7,6 @@ RUN apk -Uuv add bash \
                  curl-dev \
                  gcc \
                  libffi-dev \
-                 libressl-dev \
                  musl-dev \
                  python3 \
                  python3-dev \
