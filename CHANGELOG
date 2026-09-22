@@ -1,3 +1,15 @@
+monit-docker (0.0.56) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.56.
+  * Add continuous serve mode with cached read-only HTTP endpoints.
+  * Expose health, freshness-aware readiness, JSON status and Prometheus metrics.
+  * Reuse cron locking and persistent cooldowns for optional remediation.
+  * Document all metrics, units, labels and missing-data behavior.
+  * Ship a 14-panel Grafana dashboard and import instructions.
+  * Validate PromQL and Grafana imports in CI; test serve with real Docker.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 10:42:54 +0000
+
 monit-docker (0.0.55) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.55.
