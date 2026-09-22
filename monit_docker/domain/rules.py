@@ -6,6 +6,7 @@ from collections import namedtuple
 Condition = namedtuple('Condition', 'resource operator value pre_operator pre_value source')
 Action = namedtuple('Action', 'kind command args kwargs')
 ActionResult = namedtuple('ActionResult', 'container_id rule command success')
+ActionDecision = namedtuple('ActionDecision', 'container_id rule command status')
 CycleResult = namedtuple('CycleResult', 'snapshots actions')
 
 

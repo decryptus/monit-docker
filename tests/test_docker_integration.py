@@ -74,6 +74,31 @@ class DockerIntegrationTests(unittest.TestCase):
         self.assertEqual(self.executor.execute.call_count, 1)
         self.assertIsNone(self.collector.client)
 
+    def test_cron_cli_dry_run_and_persistent_cooldown_across_processes(self):
+        obj = self.create_container()
+        environment = dict(os.environ)
+        environment.pop('MONIT_DOCKER_CONFIG', None)
+        with tempfile.TemporaryDirectory() as directory:
+            state = directory + '/cron.json'
+            command = [sys.executable, '-m', 'monit_docker', '-c', directory + '/absent.yml',
+                       '--logfile', directory + '/absent/log', '--runtimedir', '',
+                       '--name', self.name, 'cron', '--state-file', state,
+                       '--cmd', '(sh -c "echo run >> /tmp/cron-count")']
+
+            def invoke(extra=()):
+                result = subprocess.run(command + list(extra), env=environment,
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        text=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return result.stdout
+
+            self.assertIn('"status": "dry-run"', invoke(['--dry-run']))
+            self.assertFalse(os.path.exists(state))
+            self.assertEqual(obj.exec_run(['test', '!', '-e', '/tmp/cron-count']).exit_code, 0)
+            self.assertIn('"status": "executed"', invoke())
+            self.assertIn('"status": "cooldown"', invoke())
+            self.assertEqual(obj.exec_run(['cat', '/tmp/cron-count']).output, b'run\n')
+
     def test_cli_propagates_actual_process_status_and_stops_following_exec(self):
         obj = self.create_container()
         environment = dict(os.environ)

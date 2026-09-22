@@ -318,6 +318,21 @@ python -m unittest discover -s tests -v
 
 Build the checked-out source with `docker build -t monit-docker:local .`. The Dockerfile installs this checkout in a virtual environment instead of fetching the published `monit-docker` package.
 
+## Lightweight cron mode
+
+Run one cycle with a process lock and persistent cooldowns, without a server:
+
+```sh
+monit-docker --name 'web*' cron --state-file /var/lib/monit-docker/web.json \
+  --cooldown 300 --dry-run --cmd-if 'mem_percent > 90 ? restart'
+```
+
+Review the JSON decisions, then remove `--dry-run` to execute eligible actions.
+The default cooldown is five minutes per rule and container. A busy job exits
+with 117; invalid or unwritable state exits with 118. Existing `monit` and `stats`
+commands retain their behavior. `monit --dry-run --cmd ...` also previews actions.
+See [cron setup, scheduling, state and failure semantics](docs/cron.md).
+
 ## Docker Hub and PyPI releases
 
 Merging a new stable version into `master` builds and tests the Docker image and

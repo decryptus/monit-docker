@@ -14,7 +14,7 @@ from threading import Lock
 from monit_docker.core.rules import RuleEvaluator
 from monit_docker.domain.errors import MonitoringError
 from monit_docker.domain.models import ContainerSnapshot
-from monit_docker.domain.rules import ActionResult, CycleResult
+from monit_docker.domain.rules import ActionDecision, ActionResult, CycleResult
 
 LOG = logging.getLogger('monit-docker')
 
@@ -26,7 +26,8 @@ class MonitoringEngine(object):
         self.evaluator = evaluator or RuleEvaluator()
         self._cycle_lock = Lock()
 
-    def run_once(self, rules=(), resources=None, on_snapshot=None):
+    def run_once(self, rules=(), resources=None, on_snapshot=None,
+                 dry_run=False, action_policy=None, on_action=None):
         """Run a fresh cycle and return raw snapshots and successful actions.
 
         Rules with only PID/status conditions run before sampling, preserving
@@ -36,6 +37,9 @@ class MonitoringEngine(object):
         Explicit resources are collected in addition to rule requirements.
         on_snapshot, if supplied, consumes each completed container in order;
         its exceptions abort the cycle after releasing collector resources.
+        dry_run reports matching actions without calling the executor. An
+        optional action_policy claims a rule before its first action, and
+        on_action receives skipped, simulated and successful action decisions.
         No stdout, process exit, scheduler or persistent state belongs here.
         """
         if not self._cycle_lock.acquire(False):
@@ -48,11 +52,12 @@ class MonitoringEngine(object):
             invalid = set(resources) - set(ContainerSnapshot.FIELDS[2:])
             if invalid:
                 raise ValueError('unknown resources: %s' % ', '.join(sorted(invalid)))
-            return self._run_cycle(rules, resources, on_snapshot)
+            return self._run_cycle(rules, resources, on_snapshot, dry_run,
+                                   action_policy, on_action)
         finally:
             self._cycle_lock.release()
 
-    def _run_cycle(self, rules, resources, on_snapshot):
+    def _run_cycle(self, rules, resources, on_snapshot, dry_run, action_policy, on_action):
         snapshots, actions = [], []
         try:
             self.collector.begin_cycle()
@@ -68,7 +73,7 @@ class MonitoringEngine(object):
                             pending.append(rule)
                         else:
                             snapshot = self.collector.describe(initial.id)
-                            self._apply(rule, snapshot, actions)
+                            self._apply(rule, snapshot, actions, dry_run, action_policy, on_action)
                     snapshot = self.collector.describe(initial.id)
                     needed = tuple(dict.fromkeys(
                         tuple(r for rule in pending for r in rule.resources) + resources))
@@ -76,7 +81,7 @@ class MonitoringEngine(object):
                         snapshot = self.collector.collect(snapshot, needed)
                         for rule in pending:
                             snapshot = self.collector.describe(initial.id, snapshot)
-                            self._apply(rule, snapshot, actions)
+                            self._apply(rule, snapshot, actions, dry_run, action_policy, on_action)
                 else:
                     snapshot = self.collector.collect(snapshot, resources)
                 snapshots.append(snapshot)
@@ -92,12 +97,21 @@ class MonitoringEngine(object):
                     raise
                 LOG.exception('collector cleanup failed; preserving the cycle error')
 
-    def _apply(self, rule, snapshot, results):
+    def _apply(self, rule, snapshot, results, dry_run, action_policy, on_action):
         if not self.evaluator.matches(rule, snapshot):
             return
+        allowed = action_policy is None or action_policy.claim(
+            snapshot.id, rule, read_only=dry_run)
+        status = 'cooldown' if not allowed else 'dry-run' if dry_run else 'execute'
         for action in rule.actions:
+            if status != 'execute':
+                if on_action:
+                    on_action(ActionDecision(snapshot.id, rule.source, action.command, status))
+                continue
             success = self.executor.execute(snapshot.id, action)
             if not success:
                 raise MonitoringError(116, 'command failed on %s: %r' %
                                       (snapshot.name, action.command))
             results.append(ActionResult(snapshot.id, rule.source, action.command, True))
+            if on_action:
+                on_action(ActionDecision(snapshot.id, rule.source, action.command, 'executed'))
