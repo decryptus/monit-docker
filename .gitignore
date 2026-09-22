@@ -9,3 +9,4 @@ dist/
 docs/_build/
 TODO
 examples/monitoring/.env
+examples/monitoring/notifications.local/

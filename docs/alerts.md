@@ -40,8 +40,8 @@ health and evaluation errors. The Grafana dashboard remains a metrics dashboard;
 these rules are managed by Prometheus, not Grafana Alerting.
 
 **No email, Slack message or other notification is sent by this example.**
-Notification routing requires an Alertmanager and Prometheus `alerting`
-configuration. Alert rules never restart containers or execute remediation.
+To enable delivery, follow the optional [email and Slack examples](notifications.md).
+Alert rules never restart containers or execute remediation.
 
 ## Agent unreachable
 

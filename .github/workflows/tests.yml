@@ -8,6 +8,52 @@ permissions:
   contents: read
 
 jobs:
+  notifications:
+    name: Email and Slack notification examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyYAML aiosmtpd==1.4.6
+      - name: Validate receiver examples and optional Compose wiring
+        env:
+          GRAFANA_ADMIN_PASSWORD: validation-only
+        run: |
+          for config in email slack email-slack; do
+            docker run --rm --entrypoint /bin/amtool \
+              -v "$PWD/examples/monitoring:/examples:ro" \
+              prom/alertmanager:v0.28.1 check-config "/examples/alertmanager.$config.yml"
+          done
+          mkdir -m 700 examples/monitoring/notifications.local
+          cp examples/monitoring/alertmanager.email-slack.yml examples/monitoring/notifications.local/alertmanager.yml
+          touch examples/monitoring/notifications.local/smtp_password examples/monitoring/notifications.local/slack_webhook_url
+          docker compose -f examples/monitoring/compose.yaml \
+            -f examples/monitoring/compose.notifications.yaml config --format json > "$RUNNER_TEMP/notifications-compose.json"
+          python - "$RUNNER_TEMP/notifications-compose.json" <<'PY'
+          import json, sys
+          config = json.load(open(sys.argv[1]))
+          prom = config['services']['prometheus']
+          mounts = {v['target']: v for v in prom['volumes']}
+          assert mounts['/etc/prometheus/prometheus.yml']['source'].endswith('/prometheus-notifications.yml')
+          assert '/etc/prometheus/alerts.yml' in mounts
+          assert prom['depends_on']['alertmanager']['condition'] == 'service_healthy'
+          assert prom['depends_on']['monit-docker']['condition'] == 'service_healthy'
+          am = config['services']['alertmanager']
+          assert am['ports'][0]['host_ip'] == '127.0.0.1'
+          assert {s['source'] for s in am['secrets']} == {'smtp_password', 'slack_webhook_url'}
+          assert all(v['target'] != '/var/run/docker.sock' for v in am['volumes'])
+          PY
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/examples/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus-notifications.yml
+      - name: Test grouped firing and resolved notifications against local receivers
+        run: python .github/scripts/check-notifications.py
+
   monitoring-compose:
     name: Compose monitoring end to end
     runs-on: ubuntu-latest

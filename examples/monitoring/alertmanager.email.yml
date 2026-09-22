@@ -1,0 +1,25 @@
+route:
+  receiver: email
+  group_by: [alertname, job, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: email
+    email_configs:
+      - to: operator@example.invalid
+        from: monitoring@example.invalid
+        smarthost: smtp.example.invalid:587
+        auth_username: monitoring@example.invalid
+        auth_password_file: /run/secrets/smtp_password
+        require_tls: true
+        send_resolved: true
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} on {{ .CommonLabels.instance }}'
+        text: |
+          {{ range .Alerts }}{{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}

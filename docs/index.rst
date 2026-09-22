@@ -27,6 +27,7 @@ For installation and the command reference, see the
    compose
    metrics
    alerts
+   notifications
    grafana
 
 .. toctree::

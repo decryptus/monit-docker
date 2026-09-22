@@ -29,11 +29,13 @@ def check_distributions(root):
     if len(wheels) != 1 or len(sources) != 1 or len(files) != 2:
         raise ValueError('expected exactly one wheel and one source distribution')
     with zipfile.ZipFile(wheels[0]) as archive:
+        _check_paths(archive.namelist())
         metadata = [name for name in archive.namelist() if name.endswith('.dist-info/METADATA')]
         if len(metadata) != 1:
             raise ValueError('wheel must have exactly one METADATA file')
         _check_metadata(archive.read(metadata[0]), version)
     with tarfile.open(sources[0], 'r:gz') as archive:
+        _check_paths(archive.getnames())
         metadata = [member for member in archive.getmembers()
                     if member.name.count('/') == 1 and member.name.endswith('/PKG-INFO')]
         if len(metadata) != 1:
@@ -41,6 +43,12 @@ def check_distributions(root):
         with archive.extractfile(metadata[0]) as stream:
             _check_metadata(stream.read(), version)
     return version
+
+
+def _check_paths(names):
+    for name in names:
+        if 'notifications.local' in name.split('/') or name.endswith('/.env'):
+            raise ValueError('private monitoring configuration must not be packaged')
 
 
 def _check_metadata(data, version):

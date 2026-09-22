@@ -1,0 +1,48 @@
+# Optional overlay: sh start.sh --notifications
+services:
+  prometheus:
+    volumes:
+      - type: bind
+        source: ./prometheus-notifications.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      alertmanager:
+        condition: service_healthy
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --cluster.listen-address=
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093'
+    volumes:
+      - type: bind
+        source: ./notifications.local/alertmanager.yml
+        target: /etc/alertmanager/alertmanager.yml
+        read_only: true
+        bind:
+          create_host_path: false
+      - alertmanager-data:/alertmanager
+    secrets:
+      - smtp_password
+      - slack_webhook_url
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:9093/-/ready']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+secrets:
+  smtp_password:
+    file: ./notifications.local/smtp_password
+  slack_webhook_url:
+    file: ./notifications.local/slack_webhook_url
+
+volumes:
+  alertmanager-data:

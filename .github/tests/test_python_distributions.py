@@ -81,6 +81,30 @@ class DistributionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'exactly one METADATA'):
             distributions.check_distributions(self.root)
 
+    def test_rejects_private_notification_files_in_published_archives(self):
+        private_paths = ['examples/monitoring/notifications.local/alertmanager.yml',
+                         'examples/monitoring/notifications.local/smtp_password',
+                         'examples/monitoring/notifications.local/slack_webhook_url',
+                         'examples/monitoring/.env']
+        for path in private_paths:
+            for kind in ('wheel', 'source'):
+                with self.subTest(path=path, kind=kind):
+                    self.write_archives()
+                    if kind == 'wheel':
+                        with zipfile.ZipFile(self.root / 'dist/monit_docker-1.2.3-py3-none-any.whl', 'a') as archive:
+                            archive.writestr(path, 'private fixture')
+                    else:
+                        source = self.root / 'dist/monit_docker-1.2.3.tar.gz'
+                        with tarfile.open(source, 'r:gz') as archive:
+                            metadata = archive.extractfile('monit_docker-1.2.3/PKG-INFO').read()
+                        with tarfile.open(source, 'w:gz') as archive:
+                            for name, data in [('PKG-INFO', metadata), (path, b'private fixture')]:
+                                info = tarfile.TarInfo('monit_docker-1.2.3/' + name)
+                                info.size = len(data)
+                                archive.addfile(info, io.BytesIO(data))
+                    with self.assertRaisesRegex(ValueError, 'private monitoring configuration'):
+                        distributions.check_distributions(self.root)
+
 
 if __name__ == '__main__':
     unittest.main()
