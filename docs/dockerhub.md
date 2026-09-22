@@ -20,7 +20,7 @@ token or put it in workflow logs.
 
 ## Release
 
-Update VERSION, RELEASE, setup.yml, bin/monit-docker and CHANGELOG consistently.
+Update VERSION, RELEASE, setup.yml, monit_docker/__init__.py and CHANGELOG consistently.
 Merge the workflow and release changes into master and wait for image validation.
 From that release commit, create and push a new tag matching VERSION:
 

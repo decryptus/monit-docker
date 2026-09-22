@@ -1,6 +1,7 @@
 monit-docker (0.0.51) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.51.
+  * Integrate the package architecture refactor and packaging fixes.
   * Reject unknown container groups before selecting containers.
   * Execute immediate rules only once when combined with resource rules.
   * Report failed actions with exit code 116 and stop further actions.
