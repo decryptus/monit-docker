@@ -34,6 +34,7 @@ class ResourceCalculatorTests(unittest.TestCase):
         subprocess.check_call([sys.executable, '-S', '-c',
             'import sys; sys.path.insert(0, sys.argv[1]); '
             'from monit_docker.core import ResourceCalculator, MonitoringEngine, RuleEvaluator; '
+            'from monit_docker.core.policy import CooldownPolicy; '
             'from monit_docker.domain import ContainerSnapshot',
             str(Path(monit_docker.__file__).resolve().parent.parent)])
 

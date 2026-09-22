@@ -59,20 +59,22 @@ The original application was a single executable. Refactoring is incremental:
 3. extract Docker collection and container selection adapters — done;
 4. extract rule parsing, evaluation, and action execution — done;
 5. introduce a one-shot engine API and use it from the CLI — done;
-6. add cron safeguards and an optional HTTP interface — next;
+6. add cron safeguards — done; add an optional HTTP interface — next;
 7. freeze the first `/v1` agent protocol before building a control plane — later.
 
 ## Current implementation and remaining work
 
 `cli.py` now handles arguments, composition, presentation, PID files and exit
-codes. Both `stats` and `monit` call `MonitoringEngine.run_once()`.
+codes. `stats`, `monit` and `cron` call `MonitoringEngine.run_once()`.
 
 - `core/engine.py` coordinates a cycle and preserves the two-phase rule order.
 - `core/rules.py` evaluates conditions against snapshots, without Docker or CLI imports.
+- `core/policy.py` identifies resolved rules and requests cooldown reservations through a state interface.
 - `adapters/configuration.py` renders the existing YAML/Mako configuration and imports.
 - `adapters/rules.py` converts legacy syntax, aliases and byte units into rule values.
 - `adapters/selection.py` compiles container groups and selectors.
 - `adapters/docker.py` owns Docker connections, objects, streams and action execution.
+- `adapters/state.py` owns the Unix process lock and atomic JSON state storage.
 - `domain/` contains snapshots, normalized rule values, cycle results and application errors.
 - `outputs/formatting.py` formats human-readable units.
 
@@ -116,7 +118,8 @@ baselines. Statistics streams close immediately after sampling, before rule
 actions; the client closes when the cycle ends, including early exits and
 failures. Cleanup errors are reported, but never replace an existing cycle error.
 Sequential calls are supported. Overlapping calls on the same engine are
-rejected; this is not a process-wide cron lock.
+rejected. The `cron` interface additionally holds a cross-process lock through
+`LocalState` for the whole cycle; the engine itself owns no filesystem lock.
 
 `run_once()` returns `CycleResult(snapshots, actions)`. Rules using only PID/status
 run first; rules needing metrics run after sampling, in their original order
@@ -125,6 +128,23 @@ collect only measurements those rules require; explicit `resources` adds
 measurements. Collection without rules defaults to all resources. An optional
 `on_snapshot` callback receives completed containers in order and allows the CLI
 to preserve its first-container exit behavior. Its exceptions still trigger cleanup.
+
+`run_once(..., dry_run=True)` evaluates and reports matching actions but never
+calls the executor; `CycleResult.actions` includes only successful executions.
+The optional `on_action` callback receives an `ActionDecision(container_id, rule,
+command, status)` for each skipped, simulated or successful action. Its exceptions
+abort the cycle with normal cleanup. Decisions use `cooldown`, `dry-run` or
+`executed` statuses and are internal values, not a frozen HTTP protocol.
+
+An optional policy exposes `claim(container_id, rule, read_only=False) -> bool`.
+The engine calls it once per matching rule before the first action. The CLI
+composes `CooldownPolicy(state, rules, seconds)` with a locked `LocalState`;
+the policy depends only on `reserve(key, now, seconds, read_only=False) -> bool`
+and an injectable clock. Identity serialization happens for all selected rules
+before the cycle. The state adapter records the cooldown durably before allowing
+execution. Failed or interrupted rule sequences retain their reservation, while
+dry runs simulate reservations in memory only. No persistence code or product
+flags enter the engine. See [cron semantics](cron.md) for retries and limits.
 
 The first failed action aborts the cycle with `MonitoringError(116, ...)`;
 absence of containers uses 114, and an exhausted statistics stream without two
@@ -165,8 +185,8 @@ Python 3.12 CI job, creating and removing its own containers to test sampling,
 actions, repeat calls and replacement. Docker-image tests run the isolated suite
 and skip source-only packaging and opt-in integration tests.
 
-Still pending: cross-process locking, dry-run/config-check commands, persisted
-delays/cooldowns, a cycle-wide deadline, the `serve` command, HTTP API, Prometheus
+Still pending: a config-check command, persisted trigger delays, a cycle-wide
+deadline, the `serve` command, HTTP API, Prometheus
 exposition and a UI. A client timeout can be configured through existing client
 settings; it is not an overall cycle deadline. Configuration is fixed for each
 constructed CLI command; automatic reload and server scheduling are not added.

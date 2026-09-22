@@ -9,6 +9,7 @@ from __future__ import absolute_import
 import argparse
 import json
 import logging
+import math
 import os
 import sys
 from logging.handlers import WatchedFileHandler
@@ -24,6 +25,7 @@ from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC
 from monit_docker.core import MonitoringEngine
+from monit_docker.core.policy import CooldownPolicy
 from monit_docker.domain.errors import CommandExecutionError, MonitoringError
 from monit_docker.outputs.formatting import format_resource
 
@@ -131,16 +133,17 @@ class MonitDockerExit(SystemExit):
 class MonitDockerSubCmdStats(object):
     CMD_NAME = 'stats'
     CMD_HELP = 'display stats information'
+    USE_RULES = False
 
     def __init__(self, options):
         self.options = options
         config = Configuration(options.conffile, MONIT_DOCKER_CONFIG).load(
-            include_rules=self.CMD_NAME == 'monit')
+            include_rules=self.USE_RULES)
         selector = ContainerSelector(
             selectors=dict((kind, getattr(options, kind)) for kind in ('id', 'name', 'label', 'image')),
             statuses=options.status, groups=config.get('ctn-groups'), selected_groups=options.ctn_grp)
         self.rules = ()
-        if self.CMD_NAME == 'monit':
+        if self.USE_RULES:
             parser = RuleParser(config.get('commands'), config.get('conditions'))
             self.rules = tuple(parser.parse(expression) for expression in options.cmd)
         collector = DockerCollector(client_factory(config, options.client, options.client_from_env), selector)
@@ -185,24 +188,31 @@ class MonitDockerSubCmdStats(object):
             sys.stdout.write('|'.join(values) + '\n')
 
     def __call__(self):
+        dry_run = getattr(self.options, 'dry_run', False)
         return self.engine.run_once(rules=self.rules, resources=self.options.resource,
-                                    on_snapshot=None if self.rules else self._output_snapshot)
+                                    on_snapshot=None if self.rules else self._output_snapshot,
+                                    dry_run=dry_run,
+                                    on_action=self._output_action if dry_run else None)
+
+    @staticmethod
+    def _output_action(decision):
+        sys.stdout.write(json.dumps(decision._asdict()) + '\n')
 
 
 class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
     CMD_NAME = 'monit'
     CMD_HELP = 'return stats information with return code'
+    USE_RULES = True
+    ALLOW_RESOURCE_QUERY = True
 
     @classmethod
     def load_subcmd_parser(cls, subparsers):
         parser = subparsers.add_parser(cls.CMD_NAME,
                                        help = cls.CMD_HELP)
-        parser.add_argument("--rsc",
-                            action  = 'append',
-                            dest    = 'resource',
-                            default = [],
-                            choices = RESOURCE_CHOICES,
-                            help    = "resource information")
+        parser.set_defaults(resource=[])
+        if cls.ALLOW_RESOURCE_QUERY:
+            parser.add_argument("--rsc", action='append', dest='resource',
+                                choices=RESOURCE_CHOICES, help='resource information')
         parser.add_argument("--cmd",
                             "--cmd-if",
                             action  = 'append',
@@ -213,6 +223,9 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                             action  = 'store_true',
                             default = False,
                             help    = "return the first failed container exec's exit code instead of 116")
+        parser.add_argument('--dry-run', action='store_true',
+                            help='show matching actions as JSON without executing them')
+        return parser
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
@@ -220,6 +233,8 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             parser.error("rsc and cmd options can't be in the same command")
         if options.propagate_exit_code and not options.cmd:
             parser.error("--propagate-exit-code requires --cmd or --cmd-if")
+        if options.dry_run and not options.cmd:
+            parser.error('--dry-run requires --cmd or --cmd-if')
 
         setattr(options, 'output', 'text')
 
@@ -257,6 +272,39 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         super(MonitDockerSubCmdMonit, self)._output_snapshot(snapshot)
 
 
+class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
+    CMD_NAME = 'cron'
+    CMD_HELP = 'run one locked monitoring cycle with persistent action cooldowns'
+    ALLOW_RESOURCE_QUERY = False
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = super(MonitDockerSubCmdCron, cls).load_subcmd_parser(subparsers)
+        parser.add_argument('--state-file', required=True,
+                            help='persistent JSON state; use one file per Docker host and job')
+        parser.add_argument('--cooldown', type=float, default=300,
+                            help='minimum seconds between attempts of the same rule (default: 300)')
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        super(MonitDockerSubCmdCron, cls).valid_subcmd_parser(parser, options)
+        if not options.cmd:
+            parser.error('cron requires --cmd or --cmd-if')
+        if not options.state_file.strip():
+            parser.error('--state-file must not be empty')
+        if not math.isfinite(options.cooldown) or options.cooldown < 0:
+            parser.error('--cooldown must be a finite non-negative number')
+
+    def __call__(self):
+        from monit_docker.adapters.state import LocalState
+        with LocalState(self.options.state_file) as state:
+            policy = CooldownPolicy(state, self.rules, self.options.cooldown)
+            return self.engine.run_once(rules=self.rules, resources=(),
+                                        dry_run=self.options.dry_run, action_policy=policy,
+                                        on_action=self._output_action)
+
+
+_SUBCMDS['cron'] = MonitDockerSubCmdCron
 _SUBCMDS['monit'] = MonitDockerSubCmdMonit
 _SUBCMDS['stats'] = MonitDockerSubCmdStats
 

@@ -268,6 +268,26 @@ class EngineTests(unittest.TestCase):
         collector.collect.assert_not_called()
         collector.end_cycle.assert_called_once_with()
 
+    def test_dry_run_reports_decisions_without_successful_action_results(self):
+        obj = container()
+        engine, _, client = self.make_engine(obj)
+        decisions = []
+        result = engine.run_once(rules=(RuleParser().parse('restart'),),
+                                 dry_run=True, on_action=decisions.append)
+        self.assertEqual(result.actions, ())
+        self.assertEqual([d.status for d in decisions], ['dry-run'])
+        obj.restart.assert_not_called()
+        client.api.close.assert_called_once_with()
+
+    def test_action_observer_failure_closes_cycle_without_undoing_action(self):
+        obj = container()
+        engine, _, client = self.make_engine(obj)
+        with self.assertRaisesRegex(RuntimeError, 'observer'):
+            engine.run_once(rules=(RuleParser().parse('restart'),),
+                            on_action=Mock(side_effect=RuntimeError('observer')))
+        obj.restart.assert_called_once_with()
+        client.api.close.assert_called_once_with()
+
     def test_selection_filters_and_short_id_work_without_stale_groups(self):
         web, db = container('web'), container('db')
         web.id = '123456789012' + 'a' * 52
