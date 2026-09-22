@@ -21,6 +21,7 @@ RUN python3 -m venv "${VIRTUAL_ENV}"
 WORKDIR /opt/monit-docker-src
 COPY requirements.txt setup.py setup.yml README.md ./
 COPY bin/ ./bin/
+COPY monit_docker/ ./monit_docker/
 # setup.py imports yaml while preparing package metadata.
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir --no-build-isolation .

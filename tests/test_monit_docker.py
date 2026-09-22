@@ -1,6 +1,4 @@
 """Regression tests using the real CLI and a simulated Docker client."""
-import importlib.machinery
-import importlib.util
 import json
 from pathlib import Path
 import tempfile
@@ -11,11 +9,7 @@ from docker.errors import APIError
 from docker.models.containers import ExecResult
 
 
-SOURCE = Path(__file__).resolve().parents[1] / 'bin' / 'monit-docker'
-loader = importlib.machinery.SourceFileLoader('monit_docker', str(SOURCE))
-spec = importlib.util.spec_from_loader(loader.name, loader)
-md = importlib.util.module_from_spec(spec)
-loader.exec_module(md)
+from monit_docker import cli as md
 
 
 def container(name='demo', cpu=256):
