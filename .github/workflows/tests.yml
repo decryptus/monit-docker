@@ -8,6 +8,105 @@ permissions:
   contents: read
 
 jobs:
+  notifications:
+    name: Email and Slack notification examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyYAML aiosmtpd==1.4.6
+      - name: Validate receiver examples and optional Compose wiring
+        env:
+          GRAFANA_ADMIN_PASSWORD: validation-only
+        run: |
+          for config in email slack email-slack redis; do
+            docker run --rm --entrypoint /bin/amtool \
+              -v "$PWD/examples/monitoring:/examples:ro" \
+              prom/alertmanager:v0.28.1 check-config "/examples/alertmanager.$config.yml"
+          done
+          mkdir -m 700 examples/monitoring/notifications.local
+          cp examples/monitoring/alertmanager.email-slack.yml examples/monitoring/notifications.local/alertmanager.yml
+          touch examples/monitoring/notifications.local/smtp_password examples/monitoring/notifications.local/slack_webhook_url
+          docker compose -f examples/monitoring/compose.yaml \
+            -f examples/monitoring/compose.notifications.yaml config --format json > "$RUNNER_TEMP/notifications-compose.json"
+          python - "$RUNNER_TEMP/notifications-compose.json" <<'PY'
+          import json, sys
+          config = json.load(open(sys.argv[1]))
+          prom = config['services']['prometheus']
+          mounts = {v['target']: v for v in prom['volumes']}
+          assert mounts['/etc/prometheus/prometheus.yml']['source'].endswith('/prometheus-notifications.yml')
+          assert '/etc/prometheus/alerts.yml' in mounts
+          assert prom['depends_on']['alertmanager']['condition'] == 'service_healthy'
+          assert prom['depends_on']['monit-docker']['condition'] == 'service_healthy'
+          am = config['services']['alertmanager']
+          assert am['ports'][0]['host_ip'] == '127.0.0.1'
+          assert {s['source'] for s in am['secrets']} == {'smtp_password', 'slack_webhook_url'}
+          assert all(v['target'] != '/var/run/docker.sock' for v in am['volumes'])
+          PY
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/examples/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus-notifications.yml
+      - name: Test grouped firing and resolved notifications against local receivers
+        run: python .github/scripts/check-notifications.py
+
+  redis-notifications:
+    name: Alertmanager to Redis end to end
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COMPOSE_PROJECT_NAME: monit-redis-ci
+      GRAFANA_ADMIN_PASSWORD: validation-only
+      REDIS_STREAM_MAXLEN: '5'
+      REDIS_TEST_OVERRIDE: /tmp/monit-redis-test.yaml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare disposable receiver configuration
+        run: |
+          mkdir -m 700 examples/monitoring/notifications.local
+          sed -e 's/group_wait: 30s/group_wait: 1s/' -e 's/group_interval: 5m/group_interval: 2s/' \
+            examples/monitoring/alertmanager.redis.yml > examples/monitoring/notifications.local/alertmanager.yml
+          printf '%s' 'ci-only-token-0123456789abcdef0123456789abcdef' > examples/monitoring/notifications.local/redis_webhook_token
+          printf '%s' 'redis://redis:6379/0' > examples/monitoring/notifications.local/redis_url
+          touch examples/monitoring/notifications.local/smtp_password examples/monitoring/notifications.local/slack_webhook_url
+          chmod 644 examples/monitoring/notifications.local/*
+          printf 'services:\n  redis-webhook:\n    ports: ["127.0.0.1:9080:9080"]\n' > "$REDIS_TEST_OVERRIDE"
+      - name: Build and start the documented Redis stack
+        run: |
+          sh examples/monitoring/start.sh --redis
+          docker compose -f examples/monitoring/compose.yaml -f examples/monitoring/compose.notifications.yaml \
+            -f examples/monitoring/compose.redis.yaml -f "$REDIS_TEST_OVERRIDE" up -d --wait --wait-timeout 120
+      - name: Check receiver contracts in the actual image
+        run: |
+          docker compose -f examples/monitoring/compose.yaml -f examples/monitoring/compose.notifications.yaml \
+            -f examples/monitoring/compose.redis.yaml exec -T redis-webhook python - < .github/scripts/test-redis-webhook.py
+      - name: Test DWho HTTP config and template against a local receiver
+        run: |
+          docker compose -f examples/monitoring/compose.yaml -f examples/monitoring/compose.notifications.yaml \
+            -f examples/monitoring/compose.redis.yaml run --rm --no-deps \
+            -v "$PWD:/source:ro" redis-webhook python /source/.github/scripts/test-dwho-http.py
+      - name: Test delivery, failure recovery and stream persistence
+        run: python .github/scripts/check-redis-notifications.py
+      - name: Inspect failed services
+        if: failure()
+        run: |
+          docker compose -f examples/monitoring/compose.yaml -f examples/monitoring/compose.notifications.yaml \
+            -f examples/monitoring/compose.redis.yaml logs --tail=100
+      - name: Remove disposable stack and volumes
+        if: always()
+        run: |
+          docker compose -f examples/monitoring/compose.yaml -f examples/monitoring/compose.notifications.yaml \
+            -f examples/monitoring/compose.redis.yaml down --volumes --remove-orphans
+
   monitoring-compose:
     name: Compose monitoring end to end
     runs-on: ubuntu-latest

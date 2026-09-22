@@ -1,0 +1,22 @@
+{
+  "version": "4",
+  "receiver": "example",
+  "status": "firing",
+  "groupKey": "{}:{alertname=\"MonitDockerContainerMemoryHigh\"}",
+  "truncatedAlerts": 0,
+  "groupLabels": {"alertname": "MonitDockerContainerMemoryHigh"},
+  "commonLabels": {"alertname": "MonitDockerContainerMemoryHigh", "severity": "warning"},
+  "commonAnnotations": {},
+  "externalURL": "http://alertmanager:9093",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {"alertname": "MonitDockerContainerMemoryHigh", "name": "example-container", "severity": "warning"},
+      "annotations": {"summary": "Example notification only"},
+      "startsAt": "2026-01-01T12:00:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://prometheus:9090",
+      "fingerprint": "example-only"
+    }
+  ]
+}

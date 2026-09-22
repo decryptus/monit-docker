@@ -42,6 +42,8 @@ Three alert rules are loaded automatically. Open
 **http://127.0.0.1:9090/alerts** to see agent availability, collection readiness
 and high container memory alerts. See the [alert guide](alerts.md) for thresholds,
 diagnosis and customization. This example sends no outbound notifications.
+To opt in to email, Slack or both, use the [notification guide](notifications.md)
+and `sh start.sh --notifications` after configuring your receivers.
 
 ## What runs and where data lives
 
@@ -149,4 +151,4 @@ To enable actions later, follow [serve's optional remediation guide](serve.md#op
 add explicit rules, a persistent state-directory mount and `--state-file`, and
 start with `--dry-run`. Prometheus alerts only report conditions; they do not
 execute agent actions. Notification delivery requires a separately configured
-Alertmanager.
+Alertmanager; [email and Slack examples](notifications.md) are included.

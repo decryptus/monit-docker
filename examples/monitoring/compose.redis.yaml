@@ -1,0 +1,54 @@
+# Add after compose.yaml and compose.notifications.yaml, or sh start.sh --redis.
+services:
+  alertmanager:
+    secrets:
+      - redis_webhook_token
+    depends_on:
+      redis-webhook:
+        condition: service_healthy
+
+  redis-webhook:
+    build: ./redis-webhook
+    restart: unless-stopped
+    environment:
+      REDIS_STREAM: ${REDIS_STREAM:-monit-docker:alerts}
+      REDIS_STREAM_MAXLEN: ${REDIS_STREAM_MAXLEN:-10000}
+    secrets:
+      - redis_url
+      - redis_webhook_token
+    networks: [default, redis-notifications]
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:9080/readyz", timeout=5).read()']
+      interval: 10s
+      timeout: 6s
+      retries: 12
+    stop_grace_period: 15s
+
+  redis:
+    image: redis:7.2.6-alpine
+    command: [redis-server, --appendonly, 'yes', --appendfsync, everysec]
+    restart: unless-stopped
+    networks: [redis-notifications]
+    volumes:
+      - redis-notifications-data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+networks:
+  redis-notifications:
+    internal: true
+
+secrets:
+  redis_url:
+    file: ./notifications.local/redis_url
+  redis_webhook_token:
+    file: ./notifications.local/redis_webhook_token
+
+volumes:
+  redis-notifications-data:

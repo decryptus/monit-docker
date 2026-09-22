@@ -27,6 +27,9 @@ For installation and the command reference, see the
    compose
    metrics
    alerts
+   notifications
+   redis-notifications
+   dwho-http-notifications
    grafana
 
 .. toctree::

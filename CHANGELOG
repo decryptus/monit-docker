@@ -1,3 +1,14 @@
+monit-docker (0.0.60) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.60.
+  * Add optional Alertmanager email and Slack notification examples.
+  * Deliver grouped firing and resolved alerts to Redis Streams using DWho.
+  * Add a configured DWho HTTP sender with JSON templates and Bearer credentials.
+  * Document activation, secrets, retention, persistence and delivery failures.
+  * Test real delivery, authentication, outage recovery and notification packaging.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 16:31:23 +0000
+
 monit-docker (0.0.59) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.59.

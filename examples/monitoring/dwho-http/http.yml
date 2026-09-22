@@ -1,0 +1,5 @@
+general:
+  enabled: true
+  uri: https://example.invalid/notifications
+  template: http.json
+  tags: [all]
