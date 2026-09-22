@@ -1,3 +1,14 @@
+monit-docker (0.0.59) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.59.
+  * Load three Prometheus alerts for agent availability, collection and memory.
+  * Suppress dependent alerts when the agent or measurements are unavailable.
+  * Document thresholds, diagnosis, customization and notification boundaries.
+  * Cover alert behavior with 15 scenarios and 50 regression assertions.
+  * Verify real rule evaluation and agent recovery in the Compose stack.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 14:36:20 -0000
+
 monit-docker (0.0.58) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.58.
