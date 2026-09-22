@@ -801,14 +801,15 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         return StatusLoopBreak
 
     def __call__(self):
-        if self.options.ctn_grp and self._CTN_GRPS:
-            self._reset_subsets()
-
+        if self.options.ctn_grp:
             for name in self.options.ctn_grp:
                 if name not in self._CTN_GRPS:
                     LOG.error("unable to find container group: %r", name)
                     raise MonitDockerExit(110)
 
+            self._reset_subsets()
+
+            for name in self.options.ctn_grp:
                 for subset_type, patterns in six.iteritems(self._CTN_GRPS[name]):
                     self.has_subsets = True
                     self._subsets[subset_type].extend(patterns)
@@ -998,10 +999,14 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             kwargs = {}
 
         LOG.info("execute %r in %s", cmd, container['name'])
-        r = container['obj'].exec_run(cmd)
+        try:
+            r = container['obj'].exec_run(cmd, *args, **kwargs)
+        except APIError as e:
+            LOG.error("unable to execute %r in %s: %r", cmd, container['name'], e)
+            return False
         LOG.info("%r executed in %s: %r", cmd, container['name'], r)
 
-        return True
+        return r.exit_code == 0
 
     @staticmethod
     def _run_docker_cmd(cmd, container, args = None, kwargs = None):
@@ -1100,8 +1105,8 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                 raise MonitDockerExit(110)
             return {'func':   self._run_exec,
                     'cmd':    cmd,
-                    'args':   [],
-                    'kwargs': {}}
+                    'args':   command['args'],
+                    'kwargs': command['kwargs']}
         if cmd in DOCKER_COMMANDS:
             return {'func':   self._run_docker_cmd,
                     'cmd':    cmd,
@@ -1138,6 +1143,9 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                                  container = container,
                                  args      = cmd['args'],
                                  kwargs    = cmd['kwargs']))
+            if not r[-1]:
+                LOG.error("command failed on %s: %r", container['name'], cmd['cmd'])
+                raise MonitDockerExit(116)
 
         return r
 
@@ -1166,13 +1174,12 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                     raise
                 except MonitDockerDataTypeError:
                     continue
-                except Exception as e:
-                    LOG.debug(e)
-
                 to_pop.append(i)
 
             for i in reversed(to_pop):
                 cmds.pop(i)
+
+            container['pending_cmds'] = cmds
 
             if not cmds:
                 return StatusLoopContinue
@@ -1190,13 +1197,16 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             rsc = self.options.resource[0]
 
             if data:
-                raise MonitDockerExit(int(self._get_resource_info(rsc, data, container['stats'])))
+                value = self._get_resource_info(rsc, data, container['stats'])
+                # Exit codes 101+ are reserved for errors. Docker CPU usage can
+                # exceed 100% on multi-core hosts; keep raw values in stats/rules.
+                raise MonitDockerExit(max(0, min(100, int(value))))
 
             LOG.error("no statistic for the container: %s", container['name'])
             raise MonitDockerExit(115)
 
         if self.options.cmd:
-            for expr in self.options.cmd:
+            for expr in container.get('pending_cmds', self.options.cmd):
                 self._run_cmd(expr, container, DATATYPES, data)
 
             return StatusLoopBreak
