@@ -14,6 +14,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  packages:
+    name: Build and test Python distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build tools
+        run: python -m pip install build twine
+      - name: Build wheel from source distribution and check metadata
+        run: |
+          python -m build
+          python -m twine check --strict dist/*
+          python .github/scripts/check-python-distributions.py
+      - name: Test the installed wheel outside the source checkout
+        env:
+          EXPECTED_VERSION: ${{ github.workspace }}/VERSION
+        run: |
+          python -m venv "$RUNNER_TEMP/pypi-test"
+          "$RUNNER_TEMP/pypi-test/bin/python" -m pip install dist/*.whl
+          mkdir -p "$RUNNER_TEMP/pypi-tests"
+          cp -R tests "$RUNNER_TEMP/pypi-tests/tests"
+          cd "$RUNNER_TEMP/pypi-tests"
+          "$RUNNER_TEMP/pypi-test/bin/python" -c 'import os; from pathlib import Path; from importlib.metadata import version; import monit_docker; expected = Path(os.environ["EXPECTED_VERSION"]).read_text().strip(); assert monit_docker.__version__ == version("monit-docker") == expected'
+          "$RUNNER_TEMP/pypi-test/bin/python" -m unittest discover -s tests -v
+          "$RUNNER_TEMP/pypi-test/bin/monit-docker" --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -56,12 +93,14 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: image
+    needs: [image, packages]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
+    outputs:
+      publish: ${{ steps.release.outputs.publish }}
     concurrency:
       group: monit-docker-release
       cancel-in-progress: false
@@ -110,3 +149,28 @@ jobs:
           docker tag monit-docker:test "decryptus/monit-docker:$TAG"
           docker push "decryptus/monit-docker:${TAG#v}"
           docker push "decryptus/monit-docker:$TAG"
+
+  pypi:
+    name: Publish Python distributions to PyPI
+    needs: [packages, publish]
+    if: github.event_name == 'push' && needs.publish.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/monit-docker/
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: monit-docker-pypi
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Publish tested distributions with Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
