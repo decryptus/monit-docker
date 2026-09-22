@@ -24,6 +24,7 @@ For installation and the command reference, see the
    :caption: Serve mode
 
    serve
+   compose
    metrics
    grafana
 

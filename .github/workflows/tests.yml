@@ -8,6 +8,37 @@ permissions:
   contents: read
 
 jobs:
+  monitoring-compose:
+    name: Compose monitoring end to end
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COMPOSE_PROJECT_NAME: monit-compose-ci
+      MONIT_COMPOSE_FIXTURE: monit-compose-fixture
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Start the documented stack
+        run: |
+          docker run -d --name "$MONIT_COMPOSE_FIXTURE" alpine:3.20 sleep 900
+          sh examples/monitoring/start.sh
+          docker compose -f examples/monitoring/compose.yaml --env-file examples/monitoring/.env config --quiet
+      - name: Verify collection, Grafana queries, failures and persistent history
+        run: python3 .github/scripts/check-monitoring-compose.py
+      - name: Inspect failed services
+        if: failure()
+        run: |
+          docker compose -f examples/monitoring/compose.yaml --env-file examples/monitoring/.env ps --all
+          docker compose -f examples/monitoring/compose.yaml --env-file examples/monitoring/.env logs --tail=100
+      - name: Clean up disposable test resources
+        if: always()
+        run: |
+          if [ -f examples/monitoring/.env ]; then
+            docker compose -f examples/monitoring/compose.yaml --env-file examples/monitoring/.env down --volumes --remove-orphans
+          fi
+          docker rm -f "$MONIT_COMPOSE_FIXTURE" || true
+
   documentation:
     name: Documentation build and internal references
     runs-on: ubuntu-latest

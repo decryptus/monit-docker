@@ -5,6 +5,10 @@ to visualize the [documented metrics](metrics.md). This is a Classic JSON model
 dashboard with built-in stat/time-series panels; it needs no Grafana plugins.
 The JSON is included in the repository and source distribution.
 
+Starting from scratch? The [Docker Compose quickstart](compose.md) configures
+serve, Prometheus and this dashboard together. Use the manual import below when
+you already have Prometheus and Grafana.
+
 ## Preview
 
 These are real Grafana 12.2.0 renders of the example dashboard, using **synthetic

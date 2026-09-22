@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: monit-docker
+    folder: monit-docker
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
