@@ -19,8 +19,9 @@ continues to write to Redis; it does not run this HTTP sender automatically.
 ## Configure and send
 
 From `examples/monitoring`, install the same pinned dependencies used by the Redis
-receiver into a virtual environment (Python 3.12). They include the merged dwho
-commit with the strict `send()` API, pending its next PyPI release:
+receiver into a virtual environment (Python 3.12). They include
+[dwho 0.3.61 from PyPI](https://pypi.org/project/dwho/0.3.61/), which provides the
+strict `send()` API:
 
 ```sh
 python3.12 -m venv /tmp/monit-dwho-example
