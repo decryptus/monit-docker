@@ -8,6 +8,9 @@ Install version 0.0.56 or newer using the
 [installation instructions](https://github.com/decryptus/monit-docker#installation). The process needs Docker
 access. Prometheus and Grafana are optional: you can use the HTTP endpoints alone.
 
+For all three services with the dashboard already loaded, use the
+[Docker Compose quickstart](compose.md).
+
 `serve` uses the same monitoring engine as `monit` and `cron`. It runs an
 immediate cycle, then waits 30 seconds after each completed cycle by default.
 Cycles are sequential, including when collection takes longer than the interval.

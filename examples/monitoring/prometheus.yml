@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: monit-docker
+    static_configs:
+      - targets: ['monit-docker:9808']
