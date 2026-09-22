@@ -24,7 +24,7 @@ from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC
 from monit_docker.core import MonitoringEngine
-from monit_docker.domain.errors import MonitoringError
+from monit_docker.domain.errors import CommandExecutionError, MonitoringError
 from monit_docker.outputs.formatting import format_resource
 
 SYSLOG_NAME = 'monit-docker'
@@ -209,11 +209,17 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                             dest    = 'cmd',
                             default = [],
                             help    = "run docker command or execute command inside containers")
+        parser.add_argument("--propagate-exit-code",
+                            action  = 'store_true',
+                            default = False,
+                            help    = "return the first failed container exec's exit code instead of 116")
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
         if options.resource and options.cmd:
             parser.error("rsc and cmd options can't be in the same command")
+        if options.propagate_exit_code and not options.cmd:
+            parser.error("--propagate-exit-code requires --cmd or --cmd-if")
 
         setattr(options, 'output', 'text')
 
@@ -288,6 +294,9 @@ def main(options):
         LOG.error(e.explanation)
     except DockerException as e:
         rc = 170
+        LOG.error(e)
+    except CommandExecutionError as e:
+        rc = e.exit_code if getattr(options, 'propagate_exit_code', False) else e.code
         LOG.error(e)
     except MonitoringError as e:
         rc = e.code

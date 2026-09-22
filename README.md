@@ -250,6 +250,52 @@ Get status and memory usage for group nodejs:
 
 If a command fails, `monit-docker` exits with code **116** and stops the current invocation; later commands and containers are not processed. Commands inside containers must complete successfully (exit code 0). Detached or streaming exec aliases do not supply a completion status and are not supported as successful monitored actions.
 
+### Propagate a container command's exit code
+
+With `monit --propagate-exit-code`, a failed synchronous command executed inside
+a container returns its own exit code instead of 116:
+
+```bash
+monit-docker --name my-container monit --propagate-exit-code \
+  --cmd '(sh -c "exit 42")'
+echo $? # 42
+```
+
+The option is available with `monit --cmd` and `monit --cmd-if`, including command
+aliases. It cannot be used with `stats` or resource-only checks.
+
+| Outcome | Default | With `--propagate-exit-code` |
+| --- | --- | --- |
+| All executed commands succeed | 0 | 0 |
+| A completed container command exits with code 1–255 | 116 | The command's code |
+| An action fails without a valid completed exit code | 116 | 116 |
+| Configuration, selection or Docker connection error | Existing error code | Existing error code |
+
+Execution stops at the first failure. With several commands or containers, the
+first failing command's code is returned; later actions are not attempted.
+The existing execution order is preserved: rules using only PID/status run
+before rules requiring measurements, for each container in Docker's listing
+order. Use an exact `--name` or `--id` selector when checking one service.
+
+If selected containers exist but no condition matches, the result is 0 because
+no action failed. No matching container still returns 114. Detached/streaming
+commands and invalid or unavailable exit codes remain errors (116); their
+statuses are not propagated or wrapped. Docker lifecycle actions such as
+`restart` retain their existing failure behavior.
+
+For a Monit program check, the default nonzero code already supports a generic
+`if status != 0` alert. Enable propagation when different command statuses need
+different handling, for example a script using 2 for a critical result:
+
+```monit
+check program docker.my_container.health with path "/usr/bin/monit-docker --name my-container monit --propagate-exit-code --cmd '(/usr/local/bin/check-health)'"
+    if status = 2 then alert
+```
+
+Propagated codes may overlap with monit-docker's own error codes. Consult the
+logs to distinguish a command status from an agent error when the numbers match.
+The flag is opt-in, so existing integrations keep returning 116 for failed actions.
+
 An unknown `--ctn-group` is a configuration error (110), including when no groups are configured. Commands already evaluated before resource collection are not evaluated again after collection.
 
 `reload` refreshes the Docker SDK object's metadata only; it does not reload application workers or configuration. For PHP-FPM, use `(kill -USR2 1)` only when its master is PID 1 inside the container, as explained in [PHP-FPM graceful reload](#php-fpm-graceful-reload). Otherwise, send `SIGUSR2` to the actual PHP-FPM master PID.

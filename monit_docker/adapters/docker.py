@@ -6,12 +6,13 @@ import logging
 import os
 import sys
 from collections import OrderedDict
+from numbers import Integral
 
 import docker
 from docker.errors import APIError
 
 from monit_docker.core.metrics import ResourceCalculator
-from monit_docker.domain.errors import MonitoringError
+from monit_docker.domain.errors import CommandExecutionError, MonitoringError
 from monit_docker.domain.models import ContainerSnapshot
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import DOCKER_COMMANDS
@@ -123,7 +124,15 @@ class DockerActionExecutor(object):
             if action.kind == 'exec':
                 result = obj.exec_run(action.command, *args, **kwargs)
                 LOG.info('%r executed in %s: %r', action.command, obj.name, result)
-                return result.exit_code == 0
+                exit_code = result.exit_code
+                if isinstance(exit_code, bool) or not isinstance(exit_code, Integral) or not 0 <= exit_code <= 255:
+                    # Detached/streaming execs have no completed status. Never
+                    # propagate an unavailable or invalid status as success.
+                    return False
+                if exit_code:
+                    raise CommandExecutionError(exit_code, 'command failed on %s: %r (exit code %s)' %
+                                                (obj.name, action.command, exit_code))
+                return True
             if action.kind != 'docker' or action.command not in DOCKER_COMMANDS:
                 raise ValueError('unsupported Docker action: %r' % (action,))
             getattr(obj, action.command)(*args, **kwargs)

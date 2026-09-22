@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from docker.errors import APIError
+from docker.errors import APIError, DockerException
 from docker.models.containers import ExecResult
 
 
@@ -196,6 +196,102 @@ class RegressionTests(unittest.TestCase):
             self.assertEqual(md.main(md.argv_parse_check()), 0)
         self.assertEqual((Path(self.temp.name) / 'demo.pid').read_text(), '123\n')
         self.assertEqual(write.call_args.args[0], 'demo|pid:123\n')
+
+    def test_exec_exit_codes_with_and_without_propagation(self):
+        for propagate in (False, True):
+            for code in (0, 1, 42, 116, 137, 255):
+                with self.subTest(propagate=propagate, code=code):
+                    obj = container()
+                    obj.exec_run.return_value = ExecResult(code, b'')
+                    self.client.containers.list.return_value = [obj]
+                    flags = ['--propagate-exit-code'] if propagate else []
+                    expected = code if propagate or code == 0 else 116
+                    self.assertEqual(self.invoke('monit', *flags, '--cmd', '(probe)'), expected)
+
+    def test_propagation_stops_at_first_failure_across_containers(self):
+        first, second, third = container('one'), container('two'), container('three')
+        second.exec_run.return_value = ExecResult(42, b'failed')
+        third.exec_run.return_value = ExecResult(7, b'failed')
+        self.client.containers.list.return_value = [first, second, third]
+        self.assertEqual(self.invoke('monit', '--propagate-exit-code',
+                                     '--cmd', '(probe)', '--cmd', 'restart'), 42)
+        first.restart.assert_called_once_with()
+        second.restart.assert_not_called()
+        third.exec_run.assert_not_called()
+        self.client.api.close.assert_called_once_with()
+
+    def test_propagation_works_for_aliases_and_stops_later_alias_actions(self):
+        self.conf.write_text('commands:\n  probe:\n    exec: ["(one)", "(two)", restart]\n')
+        obj = self.client.containers.list.return_value[0]
+        obj.exec_run.side_effect = [ExecResult(0, b'ok'), ExecResult(7, b'failed')]
+        self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', '@probe'), 7)
+        self.assertEqual(obj.exec_run.call_count, 2)
+        obj.restart.assert_not_called()
+
+    def test_metric_rule_propagates_exec_failure(self):
+        obj = self.client.containers.list.return_value[0]
+        obj.exec_run.return_value = ExecResult(42, b'failed')
+        self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd-if',
+                                     'mem_percent > 60 ? (probe)'), 42)
+        obj.stats.assert_called_once_with(stream=True)
+        self.client.api.close.assert_called_once_with()
+
+    def test_unmatched_rule_is_success_without_executing_a_command(self):
+        obj = self.client.containers.list.return_value[0]
+        self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd-if',
+                                     'status == paused ? (probe)'), 0)
+        obj.exec_run.assert_not_called()
+
+    def test_propagation_does_not_change_action_api_error_codes(self):
+        for command, method in [('(probe)', 'exec_run'), ('restart', 'restart')]:
+            with self.subTest(command=command):
+                obj = container()
+                getattr(obj, method).side_effect = APIError('failed')
+                self.client.containers.list.return_value = [obj]
+                self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', command), 116)
+
+    def test_propagation_does_not_change_collection_or_configuration_errors(self):
+        with patch.object(self.client.containers, 'list', side_effect=APIError('failed')):
+            self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', '(probe)'), 180)
+        with patch.object(md.docker, 'from_env', side_effect=DockerException('failed')):
+            self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', '(probe)'), 170)
+        self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', '@missing'), 110)
+        self.client.containers.list.return_value = []
+        self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', '(probe)'), 114)
+
+    def test_missing_or_invalid_exec_status_is_not_propagated_or_wrapped(self):
+        for status in (None, -1, 256, '42', True, False, 0.0, 42.5):
+            with self.subTest(status=status):
+                obj = container()
+                obj.exec_run.return_value = ExecResult(status, b'')
+                self.client.containers.list.return_value = [obj]
+                self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', '(probe)'), 116)
+
+    def test_streaming_or_detached_exec_without_status_remains_an_error(self):
+        for option in ('stream', 'detach'):
+            with self.subTest(option=option):
+                self.conf.write_text('commands:\n  probe:\n    exec:\n'
+                                     '      - "(probe)":\n          kwargs:\n            %s: true\n' % option)
+                obj = container()
+                obj.exec_run.return_value = ExecResult(None, None)
+                self.client.containers.list.return_value = [obj]
+                self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', '@probe'), 116)
+
+    def test_cleanup_failure_does_not_replace_propagated_status(self):
+        obj = self.client.containers.list.return_value[0]
+        obj.exec_run.return_value = ExecResult(42, b'failed')
+        self.client.api.close.side_effect = RuntimeError('cleanup failed')
+        with self.assertLogs('monit-docker', level='ERROR'):
+            self.assertEqual(self.invoke('monit', '--propagate-exit-code', '--cmd', '(probe)'), 42)
+
+    def test_propagation_requires_command_mode(self):
+        for args in [('monit', '--propagate-exit-code'),
+                     ('monit', '--propagate-exit-code', '--rsc', 'cpu_percent'),
+                     ('stats', '--propagate-exit-code')]:
+            with self.subTest(args=args), patch.object(md.sys.stderr, 'write'), self.assertRaises(SystemExit) as error:
+                self.invoke(*args)
+            self.assertEqual(error.exception.code, 2)
+        self.client.containers.list.assert_not_called()
 
 
 if __name__ == '__main__':

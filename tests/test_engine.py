@@ -10,7 +10,7 @@ from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.core import MonitoringEngine
-from monit_docker.domain.errors import MonitoringError
+from monit_docker.domain.errors import CommandExecutionError, MonitoringError
 from monit_docker.domain.models import ContainerSnapshot
 from monit_docker.domain.rules import CycleResult
 
@@ -196,6 +196,17 @@ class EngineTests(unittest.TestCase):
         first.restart.assert_called_once_with()
         first.kill.assert_not_called()
         second.restart.assert_not_called()
+        client.api.close.assert_called_once_with()
+
+    def test_engine_preserves_exec_status_without_changing_agent_error_code(self):
+        from docker.models.containers import ExecResult
+        obj = container()
+        obj.exec_run.return_value = ExecResult(42, b'failed')
+        engine, _, client = self.make_engine(obj)
+        with self.assertRaises(CommandExecutionError) as error:
+            engine.run_once(rules=(RuleParser().parse('(probe)'),))
+        self.assertEqual(error.exception.code, 116)
+        self.assertEqual(error.exception.exit_code, 42)
         client.api.close.assert_called_once_with()
 
     def test_metadata_rules_run_before_metrics_regardless_of_argument_order(self):

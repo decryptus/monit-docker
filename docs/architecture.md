@@ -132,6 +132,14 @@ distinct samples uses 115. A failed cycle raises rather than returning a partial
 `CycleResult`; already completed actions are not rolled back. Docker transport
 exceptions propagate to the caller (the CLI retains its 170/180 exit mapping).
 
+A completed container exec with a nonzero status raises `CommandExecutionError`,
+a `MonitoringError` subclass whose agent `code` stays 116 and whose `exit_code`
+holds the container command's status (1–255). The Docker adapter creates this
+transport-neutral error; the engine propagates it after cleanup. Only the CLI
+maps it to a process exit status when `--propagate-exit-code` is enabled. The
+engine has no CLI-specific propagation flag, and Docker/configuration errors
+keep their existing mapping. Invalid or unavailable exec statuses remain 116.
+
 ## Compatibility and validation
 
 Existing CLI flags, text/JSON formatting, rule phase ordering, aliases, unit
