@@ -37,11 +37,6 @@ class RegressionTests(unittest.TestCase):
         self.client = Mock()
         self.client.containers.list.return_value = [container()]
         self.addCleanup(patch.stopall)
-        for cls, attr in [(md.MonitDockerSubCmdAbstract, '_CTN_GRPS'),
-                          (md.MonitDockerSubCmdMonit, '_COMMANDS'),
-                          (md.MonitDockerSubCmdMonit, '_CONDITIONS'),
-                          (md.MonitDockerSubCmdMonit, '_EXPRS')]:
-            patch.object(cls, attr, {}).start()
         patch.object(md, 'MONIT_DOCKER_CONFIG', None).start()
         patch.object(md.docker, 'from_env', return_value=self.client).start()
 
@@ -124,6 +119,47 @@ class RegressionTests(unittest.TestCase):
                                      'status not in (paused,running) ? restart'), 0)
         obj.restart.assert_not_called()
         obj.stats.assert_not_called()
+
+    def test_group_from_previous_invocation_is_not_reused(self):
+        self.conf.write_text('ctn-groups:\n  web:\n    match: ["name:demo"]\n')
+        self.assertEqual(self.invoke('--ctn-group', 'web', 'monit', '--cmd', 'restart'), 0)
+        self.conf.write_text('{}\n')
+        self.client.reset_mock()
+        self.assertEqual(self.invoke('--ctn-group', 'web', 'monit', '--cmd', 'restart'), 110)
+        self.client.containers.list.assert_not_called()
+
+    def test_command_alias_cache_is_isolated_between_invocations(self):
+        obj = self.client.containers.list.return_value[0]
+        self.conf.write_text('commands:\n  act:\n    exec: [restart]\n')
+        self.assertEqual(self.invoke('monit', '--cmd', '@act'), 0)
+        self.conf.write_text('commands:\n  act:\n    exec: [pause]\n')
+        self.assertEqual(self.invoke('monit', '--cmd', '@act'), 0)
+        obj.restart.assert_called_once_with()
+        obj.pause.assert_called_once_with()
+        self.conf.write_text('{}\n')
+        self.assertEqual(self.invoke('monit', '--cmd', '@act'), 110)
+
+    def test_condition_alias_is_isolated_between_invocations(self):
+        obj = self.client.containers.list.return_value[0]
+        self.conf.write_text('conditions:\n  ready:\n    expr: ["status == running"]\n')
+        self.assertEqual(self.invoke('monit', '--cmd-if', '@ready ? restart'), 0)
+        self.conf.write_text('conditions:\n  ready:\n    expr: ["status == paused"]\n')
+        self.assertEqual(self.invoke('monit', '--cmd-if', '@ready ? restart'), 0)
+        obj.restart.assert_called_once_with()
+        self.conf.write_text('{}\n')
+        self.assertEqual(self.invoke('monit', '--cmd-if', '@ready ? restart'), 110)
+
+    def test_json_uses_validated_raw_snapshot_then_formats(self):
+        with patch.object(md, 'ContainerSnapshot', wraps=md.ContainerSnapshot) as model:
+            with patch.object(md.sys.stdout, 'write') as write:
+                self.assertEqual(self.invoke('stats', '--rsc', 'mem_usage'), 0)
+            self.assertEqual(model.call_args.kwargs['mem_usage'], 80)
+            self.assertEqual(json.loads(write.call_args.args[0])['demo']['mem_usage'], '80.00 B')
+
+    def test_monit_text_preserves_raw_units(self):
+        with patch.object(md.sys.stdout, 'write') as write:
+            self.assertEqual(self.invoke('monit', '--rsc', 'mem_usage', '--rsc', 'mem_limit'), 0)
+        self.assertEqual(write.call_args.args[0], 'demo|mem_usage:80|mem_limit:100\n')
 
 
 if __name__ == '__main__':

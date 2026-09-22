@@ -41,6 +41,8 @@ import yaml
 
 from monit_docker import __version__
 from monit_docker.core import ResourceCalculator
+from monit_docker.domain import ContainerSnapshot
+from monit_docker.outputs.formatting import format_resource
 
 try:
     from yaml import CSafeLoader as YamlLoader, CSafeDumper as YamlDumper
@@ -230,8 +232,6 @@ class MonitDockerExprParserError(SyntaxError):
 
 
 class MonitDockerSubCmdAbstract(object): #pylint: disable=useless-object-inheritance
-    _CTN_GRPS = {}
-
     def __init__(self, options):
         self.options      = options
         self.config       = {}
@@ -240,6 +240,8 @@ class MonitDockerSubCmdAbstract(object): #pylint: disable=useless-object-inherit
         self._config_dir  = ""
         self._containers  = {}
         self._subsets     = {}
+        self._CTN_GRPS    = {}
+        self._calculator  = ResourceCalculator()
 
         self._reset_subsets()
         self.load_conf()
@@ -613,47 +615,11 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
         if not options.resource:
             options.resource = RESOURCE_CHOICES
 
-    @staticmethod
-    def _calc_cpu_percent(cur_stats, pre_stats):
-        return ResourceCalculator.cpu_percent(cur_stats, pre_stats)
-
-    def _calc_mem_usage(self, data):
-        return ResourceCalculator(human_readable=self.CMD_NAME != 'monit').memory_usage(data)
-
-    def _calc_mem_limit(self, data):
-        return ResourceCalculator(human_readable=self.CMD_NAME != 'monit').memory_limit(data)
-
-    @staticmethod
-    def _calc_mem_percent(data):
-        return ResourceCalculator.memory_percent(data)
-
-    def _calc_network(self, data):
-        return ResourceCalculator(human_readable=self.CMD_NAME != 'monit').network(data)
-
-    def _calc_blockio(self, data):
-        return ResourceCalculator(human_readable=self.CMD_NAME != 'monit').block_io(data)
-
     def _get_resource_info(self, rsc, current, previous):
-        if rsc == 'mem_usage':
-            return self._calc_mem_usage(current['memory_stats'])
-        if rsc == 'mem_limit':
-            return self._calc_mem_limit(current['memory_stats'])
-        if rsc == 'mem_percent':
-            return self._calc_mem_percent(current['memory_stats'])
-        if rsc == 'cpu_percent':
-            return self._calc_cpu_percent(current['cpu_stats'],
-                                          previous.get('cpu_stats'))
-        if rsc == 'io_read':
-            return self._calc_blockio(current.get('blkio_stats'))[0]
-        if rsc == 'io_write':
-            return self._calc_blockio(current.get('blkio_stats'))[1]
-        if rsc == 'net_rx':
-            return self._calc_network(current.get('networks'))[0]
-        if rsc == 'net_tx':
-            return self._calc_network(current.get('networks'))[1]
-
-        LOG.error("resource unknown: %r", rsc)
-        raise MonitDockerExit(112)
+        if rsc not in RESOURCE_CHOICES or rsc in ('pid', 'status'):
+            LOG.error("resource unknown: %r", rsc)
+            raise MonitDockerExit(112)
+        return self._calculator.get(rsc, current, previous)
 
     def before_run(self, container): #pylint: disable=no-self-use
         if container['obj'].status not in ('paused', 'running'):
@@ -661,33 +627,48 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
 
         return None
 
+    def _snapshot(self, container, data):
+        values = {'id': container['id'], 'name': container['name'],
+                  'status': container['obj'].status,
+                  'pid': container['obj'].attrs['State'].get('Pid')}
+        for rsc in self.options.resource:
+            if rsc not in ('pid', 'status'):
+                values[rsc] = (self._get_resource_info(rsc, data, container['stats'])
+                               if data else None)
+        return ContainerSnapshot(**values)
+
+    def _display_value(self, resource, value):
+        return value if self.CMD_NAME == 'monit' else format_resource(resource, value)
+
     def _output_text(self, container, data):
-        r = ["%s" % container['name']]
+        snapshot = self._snapshot(container, data)
+        r = ["%s" % snapshot.name]
 
         for rsc in self.options.resource:
             if rsc == 'pid':
-                r.append("%s:%s" % (rsc, container['obj'].attrs['State'].get('Pid') or 'null'))
+                r.append("%s:%s" % (rsc, snapshot.pid or 'null'))
             elif rsc == 'status':
-                r.append("%s:%s" % (rsc, container['obj'].status))
+                r.append("%s:%s" % (rsc, snapshot.status))
             elif data:
-                r.append("%s:%s" % (rsc, self._get_resource_info(rsc, data, container['stats'])))
+                r.append("%s:%s" % (rsc, self._display_value(rsc, getattr(snapshot, rsc))))
             else:
                 r.append("%s:%s" % (rsc, 'null'))
 
         sys.stdout.write('|'.join(r) + "\n")
 
     def _output_json(self, container, data):
-        r = {container['name']: {}}
+        snapshot = self._snapshot(container, data)
+        r = {snapshot.name: {}}
 
         for rsc in self.options.resource:
             if rsc == 'pid':
-                r[container['name']][rsc] = container['obj'].attrs['State'].get('Pid')
+                r[snapshot.name][rsc] = snapshot.pid
             elif rsc == 'status':
-                r[container['name']][rsc] = container['obj'].status
+                r[snapshot.name][rsc] = snapshot.status
             elif data:
-                r[container['name']][rsc] = self._get_resource_info(rsc, data, container['stats'])
+                r[snapshot.name][rsc] = self._display_value(rsc, getattr(snapshot, rsc))
             else:
-                r[container['name']][rsc] = None
+                r[snapshot.name][rsc] = None
 
         sys.stdout.write(json.dumps(r) + "\n")
 
@@ -747,9 +728,11 @@ class MonitDockerSubCmdStats(MonitDockerSubCmdAbstract):
 class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
     CMD_NAME    = 'monit'
     CMD_HELP    = "return stats information with return code"
-    _COMMANDS   = {}
-    _CONDITIONS = {}
-    _EXPRS      = {}
+    def __init__(self, options):
+        self._COMMANDS = {}
+        self._CONDITIONS = {}
+        self._EXPRS = {}
+        super(MonitDockerSubCmdMonit, self).__init__(options)
 
     @classmethod
     def load_subcmd_parser(cls, subparsers):

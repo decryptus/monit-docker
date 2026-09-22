@@ -2,16 +2,9 @@
 
 from __future__ import absolute_import
 
-import bitmath
-import six
-
 
 class ResourceCalculator(object):
     """Convert Docker stats samples into normalized resource values."""
-
-    def __init__(self, human_readable=False, logger=None):
-        self.human_readable = human_readable
-        self.logger = logger
 
     @staticmethod
     def cpu_percent(current, previous):
@@ -48,36 +41,20 @@ class ResourceCalculator(object):
             usage -= data['stats']['total_cache']
         return usage
 
-    @staticmethod
-    def _format_bytes(value, decimals=2, minimum_kb=False):
-        if value < 1:
-            result = bitmath.Byte(value)
-        elif minimum_kb:
-            result = bitmath.Byte(value).to_kB().best_prefix()
-        else:
-            result = bitmath.Byte(value).best_prefix()
-        template = '{value:.%df} {unit}' % decimals
-        return result.format(template).replace('Byte', 'B')
-
     def memory_usage(self, data):
-        value = self._memory_usage_bytes(data)
-        return self._format_bytes(value) if self.human_readable else value
+        return self._memory_usage_bytes(data)
 
     def memory_limit(self, data):
-        value = data.get('limit', 0)
-        return self._format_bytes(value) if self.human_readable else value
+        return data.get('limit', 0)
 
     def network(self, data):
         received = 0
         transmitted = 0
         if data:
-            for value in six.itervalues(data):
+            for value in data.values():
                 received += value['rx_bytes']
                 transmitted += value['tx_bytes']
-        if not self.human_readable:
-            return received, transmitted
-        return (self._format_bytes(received, decimals=1, minimum_kb=True),
-                self._format_bytes(transmitted, decimals=1, minimum_kb=True))
+        return received, transmitted
 
     def block_io(self, data):
         read = 0
@@ -88,10 +65,7 @@ class ResourceCalculator(object):
                     read += value['value']
                 elif value['op'] == 'Write':
                     written += value['value']
-        if not self.human_readable:
-            return read, written
-        return (self._format_bytes(read, decimals=1, minimum_kb=True),
-                self._format_bytes(written, decimals=1, minimum_kb=True))
+        return read, written
 
     def get(self, resource, current, previous):
         if resource == 'mem_usage':
@@ -101,7 +75,7 @@ class ResourceCalculator(object):
         if resource == 'mem_percent':
             return self.memory_percent(current['memory_stats'])
         if resource == 'cpu_percent':
-            return self.cpu_percent(current['cpu_stats'], previous.get('cpu_stats'))
+            return self.cpu_percent(current['cpu_stats'], (previous or {}).get('cpu_stats'))
         if resource == 'io_read':
             return self.block_io(current.get('blkio_stats'))[0]
         if resource == 'io_write':
