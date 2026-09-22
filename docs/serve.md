@@ -61,7 +61,7 @@ For a local Docker Engine using `/var/run/docker.sock`:
 docker run --rm --name monit-docker-serve \
   -p 127.0.0.1:9808:9808 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  decryptus/monit-docker:0.0.56 monit-docker serve --bind 0.0.0.0
+  decryptus/monit-docker:0.0.57 monit-docker serve --bind 0.0.0.0
 ```
 
 Leave this running and use the same `curl` checks from a second terminal on the

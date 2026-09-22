@@ -79,7 +79,7 @@ For a local Docker Engine using `/var/run/docker.sock`:
 ```sh
 docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  decryptus/monit-docker:0.0.56 monit-docker stats --output json
+  decryptus/monit-docker:0.0.57 monit-docker stats --output json
 ```
 
 The command after the image selects a one-shot invocation instead of the image's

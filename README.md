@@ -420,6 +420,11 @@ See [serve usage and API](docs/serve.md), the [complete metrics reference](docs/
 and [Grafana setup](docs/grafana.md). An [importable Grafana dashboard](examples/grafana/monit-docker.json)
 includes agent health, CPU, memory, network, block I/O and action decisions.
 
+![Grafana overview with synthetic demonstration data](https://raw.githubusercontent.com/decryptus/monit-docker/master/docs/images/grafana-overview.png)
+
+*Real Grafana rendering with synthetic demonstration data. See the
+[gallery and setup guide](docs/grafana.md) for details and larger panel views.*
+
 ## Docker Hub and PyPI releases
 
 Merging a new stable version into `master` builds and tests the Docker image and
