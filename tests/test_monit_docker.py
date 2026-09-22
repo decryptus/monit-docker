@@ -10,6 +10,7 @@ from docker.models.containers import ExecResult
 
 
 from monit_docker import cli as md
+from monit_docker.adapters import docker as docker_adapter
 
 
 def container(name='demo', cpu=256):
@@ -150,7 +151,7 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(self.invoke('monit', '--cmd-if', '@ready ? restart'), 110)
 
     def test_json_uses_validated_raw_snapshot_then_formats(self):
-        with patch.object(md, 'ContainerSnapshot', wraps=md.ContainerSnapshot) as model:
+        with patch.object(docker_adapter, 'ContainerSnapshot', wraps=docker_adapter.ContainerSnapshot) as model:
             with patch.object(md.sys.stdout, 'write') as write:
                 self.assertEqual(self.invoke('stats', '--rsc', 'mem_usage'), 0)
             self.assertEqual(model.call_args.kwargs['mem_usage'], 80)
@@ -160,6 +161,41 @@ class RegressionTests(unittest.TestCase):
         with patch.object(md.sys.stdout, 'write') as write:
             self.assertEqual(self.invoke('monit', '--rsc', 'mem_usage', '--rsc', 'mem_limit'), 0)
         self.assertEqual(write.call_args.args[0], 'demo|mem_usage:80|mem_limit:100\n')
+
+    def test_invalid_later_rule_prevents_any_earlier_action_or_connection(self):
+        obj = self.client.containers.list.return_value[0]
+        self.assertEqual(self.invoke('monit', '--cmd', 'restart', '--cmd', '@missing'), 110)
+        obj.restart.assert_not_called()
+        self.client.containers.list.assert_not_called()
+        md.docker.from_env.assert_not_called()
+
+    def test_status_exit_closes_client_and_does_not_sample(self):
+        obj = self.client.containers.list.return_value[0]
+        obj.status = 'exited'
+        self.assertEqual(self.invoke('monit', '--rsc', 'status'), 50)
+        self.client.api.close.assert_called_once_with()
+        obj.stats.assert_not_called()
+
+    def test_same_command_instance_can_run_twice(self):
+        argv = ['monit-docker', '-c', str(self.conf), 'monit', '--cmd', 'restart']
+        with patch.object(md.sys, 'argv', argv):
+            command = md.MonitDockerSubCmdMonit(md.argv_parse_check())
+        first = self.client.containers.list.return_value[0]
+        command()
+        second = container()
+        self.client.containers.list.return_value = [second]
+        command()
+        first.restart.assert_called_once_with()
+        second.restart.assert_called_once_with()
+        self.assertEqual(self.client.api.close.call_count, 2)
+
+    def test_pid_output_and_pidfile_keep_their_format(self):
+        argv = ['monit-docker', '-c', str(self.conf), '--runtimedir', self.temp.name,
+                '--logfile', str(Path(self.temp.name) / 'missing' / 'log'), 'monit', '--rsc', 'pid']
+        with patch.object(md.sys, 'argv', argv), patch.object(md.sys.stdout, 'write') as write:
+            self.assertEqual(md.main(md.argv_parse_check()), 0)
+        self.assertEqual((Path(self.temp.name) / 'demo.pid').read_text(), '123\n')
+        self.assertEqual(write.call_args.args[0], 'demo|pid:123\n')
 
 
 if __name__ == '__main__':
