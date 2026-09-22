@@ -5,8 +5,8 @@ It uses their existing YAML/Mako loader, selector compiler and rule parser witho
 connecting to Docker or executing container actions. It creates no agent log,
 runtime directory, lock or state file.
 
-This command is introduced after v0.0.60. Until its release, use a checkout that
-contains the command (`python -m monit_docker` from that checkout).
+Requires monit-docker v0.0.61 or newer. Upgrade with
+`python -m pip install --upgrade monit-docker`.
 
 ## Usage
 
