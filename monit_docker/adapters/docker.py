@@ -1,0 +1,134 @@
+"""Docker connection, sampling and action execution stay at this boundary."""
+
+import copy
+import json
+import logging
+import os
+import sys
+from collections import OrderedDict
+
+import docker
+from docker.errors import APIError
+
+from monit_docker.core.metrics import ResourceCalculator
+from monit_docker.domain.errors import MonitoringError
+from monit_docker.domain.models import ContainerSnapshot
+from monit_docker.adapters.selection import ContainerSelector
+from monit_docker.adapters.syntax import DOCKER_COMMANDS
+
+LOG = logging.getLogger('monit-docker')
+
+
+def client_factory(config, name=None, from_env=False):
+    """Resolve configuration now, create a fresh connection for each cycle."""
+    clients = config.get('clients')
+    if from_env or not clients:
+        def connect():
+            if not os.environ.get('DOCKER_HOST'):
+                os.environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
+            return docker.from_env()
+        return connect
+    if name and name not in clients:
+        raise MonitoringError(110, 'unknown client: %r' % name)
+    settings = copy.deepcopy(clients[name or next(iter(clients))]['config'])
+
+    def connect():
+        options = copy.deepcopy(settings)
+        if isinstance(options.get('tls'), dict) and options['tls']:
+            options['tls'] = docker.tls.TLSConfig(**options['tls'])
+        return docker.DockerClient(**options)
+    return connect
+
+
+class DockerCollector(object):
+    def __init__(self, connect, selector=None):
+        self.connect = connect
+        self.selector = selector or ContainerSelector()
+        self.client = None
+        self._containers = OrderedDict()
+        self.calculator = ResourceCalculator()
+
+    def begin_cycle(self):
+        if self.client is not None:
+            raise RuntimeError('Docker collector already has an active cycle')
+        self._containers.clear()
+        self.client = self.connect()
+
+    def select(self):
+        for obj in self.client.containers.list(all=True):
+            if self.selector.statuses and obj.status not in self.selector.statuses:
+                continue
+            # Avoid Docker image lookups unless an image selector needs them.
+            tags = obj.image.tags if self.selector.patterns['image'] else ()
+            labels = obj.labels.values() if self.selector.patterns['label'] else ()
+            if self.selector.matches(obj.id, obj.name, obj.status, labels, tags):
+                self._containers[obj.id] = obj
+        return tuple(self.describe(identifier) for identifier in self._containers)
+
+    def describe(self, identifier, snapshot=None):
+        obj = self._containers[identifier]
+        values = snapshot.to_dict() if snapshot is not None else {}
+        values.update(id=obj.id, name=obj.name, status=obj.status,
+                      pid=obj.attrs['State'].get('Pid'))
+        return ContainerSnapshot(**values)
+
+    def collect(self, snapshot, resources):
+        metrics = tuple(resource for resource in resources if resource not in ('pid', 'status'))
+        if snapshot.status not in ('running', 'paused') or not metrics:
+            return snapshot
+        stream = self._containers[snapshot.id].stats(stream=True)
+        try:
+            previous = None
+            for line in stream:
+                current = json.loads(line)
+                if previous is None:
+                    previous = current
+                    continue
+                if current['read'] == previous['read']:
+                    continue
+                values = snapshot.to_dict()
+                values.update((resource, self.calculator.get(resource, current, previous))
+                              for resource in metrics)
+                return ContainerSnapshot(**values)
+            raise MonitoringError(115, 'no complete statistics for the container: %s' % snapshot.name)
+        finally:
+            failed = sys.exc_info()[0] is not None
+            try:
+                close = getattr(stream, 'close', None)
+                if close:
+                    close()
+            except Exception:
+                if not failed:
+                    raise
+                LOG.exception('stats cleanup failed; preserving the sampling error')
+
+    def end_cycle(self):
+        client, self.client = self.client, None
+        self._containers.clear()
+        if client is not None:
+            client.api.close()
+
+
+
+class DockerActionExecutor(object):
+    def __init__(self, collector):
+        self.collector = collector
+
+    def execute(self, identifier, action):
+        """Execute against this cycle's selected object, never a cached prior one."""
+        obj = self.collector._containers[identifier]
+        args, kwargs = copy.deepcopy(action.args), copy.deepcopy(action.kwargs)
+        try:
+            LOG.info('execute %r on %s', action.command, obj.name)
+            if action.kind == 'exec':
+                result = obj.exec_run(action.command, *args, **kwargs)
+                LOG.info('%r executed in %s: %r', action.command, obj.name, result)
+                return result.exit_code == 0
+            if action.kind != 'docker' or action.command not in DOCKER_COMMANDS:
+                raise ValueError('unsupported Docker action: %r' % (action,))
+            getattr(obj, action.command)(*args, **kwargs)
+            LOG.info('%s executed on %s', action.command, obj.name)
+            return True
+        except APIError as error:
+            LOG.error('unable to execute %r on %s: %r', action.command, obj.name, error)
+            return False

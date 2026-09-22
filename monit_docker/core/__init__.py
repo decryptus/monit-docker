@@ -3,5 +3,7 @@
 from __future__ import absolute_import
 
 from .metrics import ResourceCalculator
+from .engine import MonitoringEngine
+from .rules import RuleEvaluator
 
-__all__ = ('ResourceCalculator',)
+__all__ = ('ResourceCalculator', 'MonitoringEngine', 'RuleEvaluator')

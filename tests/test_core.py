@@ -33,7 +33,7 @@ class ResourceCalculatorTests(unittest.TestCase):
     def test_core_and_domain_import_without_third_party_dependencies(self):
         subprocess.check_call([sys.executable, '-S', '-c',
             'import sys; sys.path.insert(0, sys.argv[1]); '
-            'from monit_docker.core import ResourceCalculator; '
+            'from monit_docker.core import ResourceCalculator, MonitoringEngine, RuleEvaluator; '
             'from monit_docker.domain import ContainerSnapshot',
             str(Path(monit_docker.__file__).resolve().parent.parent)])
 
