@@ -1,3 +1,18 @@
+monit-docker (0.0.52) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.52.
+  * Share MonitoringEngine.run_once() between the existing CLI commands.
+  * Separate configuration, Docker collection, rule evaluation and actions.
+  * Refresh containers and sampling state for every monitoring cycle.
+  * Close statistics streams and clients on success, early exit and failure.
+  * Reject invalid selected rules before executing any actions.
+  * Avoid statistics streams for metadata-only reads; report incomplete samples.
+  * Add repeated-cycle, failure handling and real-Docker integration tests.
+  * Document the engine contract and PHP-FPM graceful reload with SIGUSR2.
+  * Automate version tags and Docker Hub publication after release validation.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 08:57:02 -0000
+
 monit-docker (0.0.51) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.51.
