@@ -318,10 +318,12 @@ python -m unittest discover -s tests -v
 
 Build the checked-out source with `docker build -t monit-docker:local .`. The Dockerfile installs this checkout in a virtual environment instead of fetching the published `monit-docker` package.
 
-## Docker Hub releases
+## Docker Hub and PyPI releases
 
-Pushing a stable `vX.Y.Z` release tag builds, tests and publishes
-`decryptus/monit-docker:X.Y.Z` and `decryptus/monit-docker:vX.Y.Z`.
-Branches and pull requests only validate the image; `latest` is not updated.
-See [Docker Hub setup and release instructions](docs/dockerhub.md), including
-the required `DOCKERHUB_TOKEN` repository secret.
+Merging a new stable version into `master` builds and tests the Docker image and
+Python distributions, creates the `vX.Y.Z` tag, then publishes
+`decryptus/monit-docker:X.Y.Z`, `decryptus/monit-docker:vX.Y.Z` and the Python
+package on PyPI. Manual stable tag pushes are also supported.
+Pull requests validate without publishing; Docker Hub's `latest` is not updated.
+See the [Docker Hub setup](docs/dockerhub.md) for `DOCKERHUB_TOKEN` and the
+[PyPI setup](docs/pypi.md) for password-free Trusted Publishing.

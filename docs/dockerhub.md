@@ -9,6 +9,11 @@ is published as
 Pull requests do not publish images. As in covenant, `latest` is not
 updated: use an explicit image version when deploying a release.
 
+The workflow also validates Python distributions before publishing either format.
+After Docker Hub publication succeeds, it publishes the tested wheel and source
+archive to PyPI. Complete the [PyPI Trusted Publisher setup](pypi.md) before the
+next release. A PyPI upload failure does not roll back the Docker images or tag.
+
 ## One-time setup
 
 1. Ensure the Docker Hub repository `decryptus/monit-docker` exists.
