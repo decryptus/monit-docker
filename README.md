@@ -186,7 +186,7 @@ check program docker.foo_php_fpm.mem with path "/usr/bin/monit-docker -s running
     if status > 70 for 2 cycles then alert
     if status > 80 for 4 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd '(kill -USR2 1)'"
 
-check program docker.foo_php_fpm.pid with pidfile /run/monit-docker/foo_php_fpm.pid
+check process docker.foo_php_fpm.pid with pidfile /run/monit-docker/foo_php_fpm.pid
     group monit-docker
     if changed pid then alert
 
