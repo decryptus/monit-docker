@@ -1,3 +1,15 @@
+monit-docker (0.0.55) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.55.
+  * Add one-shot cron monitoring with a nonblocking process lock.
+  * Persist rule cooldowns atomically before executing container actions.
+  * Add dry-run previews for cron and monit without executing actions.
+  * Fail closed on corrupt state or storage errors.
+  * Document scheduling, recovery and cooldown semantics.
+  * Add regression and real-Docker coverage for cron safeguards.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 10:14:27 +0000
+
 monit-docker (0.0.54) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.54.
