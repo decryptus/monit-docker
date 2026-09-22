@@ -34,12 +34,12 @@ conditions:
       - mem_usage > 100 MiB
   status_not_running:
     expr:
-      - status not in (pause,running)
+      - status not in (paused,running)
 commands:
   start_pause:
     exec:
       - start
-      - (echo 'foo' > /tmp/bar)
+      - (sh -c "echo foo > /tmp/bar")
       - pause
   pause_restart:
     exec:

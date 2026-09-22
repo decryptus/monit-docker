@@ -58,9 +58,9 @@ Stop containers with name starts with bar or foo and if cpu usage percentage gre
 
 `monit-docker --name 'bar*' --name 'foo*' monit --cmd-if '60 > cpu_percent < 70 ? stop'`
 
-Kill containers with name starts with bar and status equal to pause or running:
+Kill containers with name starts with bar and status equal to paused or running:
 
-`monit-docker --name 'bar*' monit --cmd-if 'status in (pause,running) ? kill'`
+`monit-docker --name 'bar*' monit --cmd-if 'status in (paused,running) ? kill'`
 
 You can also use status argument, for example, restart containers with status paused or exited:
 
@@ -131,6 +131,8 @@ Run command below to get CPU usage percentage with exit code for container named
 
 An error occurred if exit code is greater than 100.
 
+CPU percentages returned as exit codes are capped at 100 to avoid collisions with error codes and Unix exit-code overflow. The `stats` sub-command and conditional rules retain the raw CPU percentage, which may exceed 100 on multi-core hosts.
+
 ##### Container memory usage percentage
 
 Run command below to get memory usage percentage with exit code for container named foo\_php\_fpm:
@@ -155,7 +157,7 @@ check program docker.foo_php_fpm.cpu with path "/usr/bin/monit-docker -s running
     group monit-docker
     if status > 100 for 2 cycles then alert
     if status > 70 for 2 cycles then alert
-    if status > 80 for 4 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd reload"
+    if status > 80 for 4 cycles then exec "/usr/bin/monit-docker --name foo_php_fpm monit --cmd '(kill -USR2 1)'"
 
 check program docker.foo_php_fpm.mem with path "/usr/bin/monit-docker -s running --name foo_php_fpm monit --rsc mem_percent"
     group monit-docker
@@ -222,3 +224,32 @@ practical_proskuriakova|mem_usage:2.61 MiB|mem_limit:7.27 GiB|mem_percent:0.04|c
 Get status and memory usage for group nodejs:
 
 `monit-docker --ctn-group nodejs stats --rsc status --rsc mem_usage`
+
+## Action failures and command behavior
+
+If a command fails, `monit-docker` exits with code **116** and stops the current invocation; later commands and containers are not processed. Commands inside containers must complete successfully (exit code 0). Detached or streaming exec aliases do not supply a completion status and are not supported as successful monitored actions.
+
+An unknown `--ctn-group` is a configuration error (110), including when no groups are configured. Commands already evaluated before resource collection are not evaluated again after collection.
+
+`reload` refreshes the Docker SDK object's metadata only. To reload an application, explicitly send its supported signal or execute its reload command inside the container. For example, `(kill -USR2 1)` applies only when PID 1 is an application that handles that signal, such as PHP-FPM.
+
+Commands inside parentheses use Docker exec, without an implicit shell. For redirections, pipes or shell expansion, explicitly use a shell, for example `(sh -c "echo foo > /tmp/bar")`.
+
+## Development
+
+Install the dependencies and run the regression tests with Python 3:
+
+```sh
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -v
+```
+
+Build the checked-out source with `docker build -t monit-docker:local .`. The Dockerfile installs this checkout in a virtual environment instead of fetching the published `monit-docker` package.
+
+## Docker Hub releases
+
+Pushing a stable `vX.Y.Z` release tag builds, tests and publishes
+`decryptus/monit-docker:X.Y.Z` and `decryptus/monit-docker:vX.Y.Z`.
+Branches and pull requests only validate the image; `latest` is not updated.
+See [Docker Hub setup and release instructions](docs/dockerhub.md), including
+the required `DOCKERHUB_TOKEN` repository secret.
