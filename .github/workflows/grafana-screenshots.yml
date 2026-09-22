@@ -34,7 +34,7 @@ jobs:
             -v "$RUNNER_TEMP/monit-demo:/demo" prom/prometheus:v3.5.0 \
             --config.file=/demo/prometheus.yml --storage.tsdb.path=/demo/prom-data
           docker run -d --name demo-renderer --network monit-captures --shm-size=1g \
-            -e AUTH_TOKEN=monit-demo-renderer grafana/grafana-image-renderer:5.12.4
+            -e AUTH_TOKEN=monit-demo-renderer grafana/grafana-image-renderer:v5.12.4
           docker run -d --name demo-grafana --network monit-captures \
             -p 127.0.0.1:3000:3000 \
             -e GF_SECURITY_ADMIN_PASSWORD=monit-demo-only \
