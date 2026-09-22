@@ -121,9 +121,9 @@ def main():
     assert folder['title'] == 'Persistence probe', 'Grafana database was lost'
     wait_for(collected, 'collection resumes after recreation')
     wait_for(lambda: query('up{job="monit-docker"} == 1'), 'scraping recovers after recreation')
+    wait_for(rules_healthy, 'alert rules evaluate successfully after recreation')
     wait_for(lambda: alert_rules()['MonitDockerAgentDown']['state'] == 'inactive',
              'the agent-down alert clears after recovery')
-    assert rules_healthy()
     print('Verified: history, Grafana data and credentials survive down/up', flush=True)
 
 
