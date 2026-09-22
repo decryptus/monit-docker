@@ -1,0 +1,60 @@
+name: Grafana screenshots
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/grafana-screenshots.yml'
+      - '.github/scripts/grafana-demo.py'
+      - 'examples/grafana/monit-docker.json'
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare synthetic time series
+        run: |
+          python3 .github/scripts/grafana-demo.py prepare "$RUNNER_TEMP/monit-demo"
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint promtool \
+            -v "$RUNNER_TEMP/monit-demo:/demo" prom/prometheus:v3.5.0 \
+            tsdb create-blocks-from openmetrics /demo/demo.openmetrics /demo/prom-data
+      - name: Render the actual dashboard with demonstration data
+        run: |
+          trap 'docker rm -f demo-grafana demo-prometheus demo-renderer >/dev/null 2>&1 || true; docker network rm monit-captures >/dev/null 2>&1 || true' EXIT
+          docker network create monit-captures
+          docker run -d --name demo-prometheus --network monit-captures \
+            --user "$(id -u):$(id -g)" -p 127.0.0.1:9090:9090 \
+            -v "$RUNNER_TEMP/monit-demo:/demo" prom/prometheus:v3.5.0 \
+            --config.file=/demo/prometheus.yml --storage.tsdb.path=/demo/prom-data
+          docker run -d --name demo-renderer --network monit-captures --shm-size=1g \
+            -e AUTH_TOKEN=monit-demo-renderer grafana/grafana-image-renderer:5.12.4
+          docker run -d --name demo-grafana --network monit-captures \
+            -p 127.0.0.1:3000:3000 \
+            -e GF_SECURITY_ADMIN_PASSWORD=monit-demo-only \
+            -e GF_ANALYTICS_REPORTING_ENABLED=false \
+            -e GF_ANALYTICS_CHECK_FOR_UPDATES=false \
+            -e GF_PLUGINS_PREINSTALL_DISABLED=true \
+            -e GF_RENDERING_SERVER_URL=http://demo-renderer:8081/render \
+            -e GF_RENDERING_CALLBACK_URL=http://demo-grafana:3000/ \
+            -e GF_RENDERING_RENDERER_TOKEN=monit-demo-renderer \
+            -v "$RUNNER_TEMP/monit-demo/provisioning:/etc/grafana/provisioning:ro" \
+            -v "$RUNNER_TEMP/monit-demo/dashboards:/demo-dashboards:ro" \
+            grafana/grafana:12.2.0
+          python3 .github/scripts/grafana-demo.py render "$RUNNER_TEMP/monit-demo" || {
+            docker logs demo-grafana
+            docker logs demo-renderer
+            exit 1
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grafana-screenshots
+          path: ${{ runner.temp }}/monit-demo/screenshots/
+          if-no-files-found: error
+          retention-days: 14
