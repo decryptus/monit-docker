@@ -5,6 +5,9 @@ MONIT_DOCKER_INTEGRATION=1 python -m unittest discover -s tests -p test_docker_i
 """
 
 import os
+import subprocess
+import sys
+import tempfile
 import unittest
 import uuid
 from unittest.mock import Mock
@@ -70,6 +73,26 @@ class DockerIntegrationTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 116)
         self.assertEqual(self.executor.execute.call_count, 1)
         self.assertIsNone(self.collector.client)
+
+    def test_cli_propagates_actual_process_status_and_stops_following_exec(self):
+        obj = self.create_container()
+        environment = dict(os.environ)
+        environment.pop('MONIT_DOCKER_CONFIG', None)
+        with tempfile.TemporaryDirectory() as directory:
+            base = [sys.executable, '-m', 'monit_docker', '-c', directory + '/absent.yml',
+                    '--logfile', directory + '/absent/log', '--runtimedir', '',
+                    '--name', self.name, 'monit']
+            for code, propagate in ((0, True), (1, True), (42, True), (255, True), (42, False)):
+                with self.subTest(code=code, propagate=propagate):
+                    flags = ['--propagate-exit-code'] if propagate else []
+                    command = base + flags + ['--cmd', '(sh -c "exit %s")' % code]
+                    if code:
+                        command += ['--cmd', '(touch /tmp/monit-unexpected-action)']
+                    result = subprocess.run(command, env=environment, stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE, text=True, timeout=30)
+                    expected = code if propagate or code == 0 else 116
+                    self.assertEqual(result.returncode, expected, result.stderr)
+            self.assertEqual(obj.exec_run(['test', '!', '-e', '/tmp/monit-unexpected-action']).exit_code, 0)
 
 
 if __name__ == '__main__':

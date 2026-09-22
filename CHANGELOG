@@ -1,3 +1,14 @@
+monit-docker (0.0.53) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.53.
+  * Fix the Monit PID-file example to use check process (#6).
+  * Add opt-in --propagate-exit-code for synchronous container commands (#7).
+  * Preserve the default action error code 116 and stop at the first failure.
+  * Document aliases, multiple containers, unavailable statuses and error codes.
+  * Test propagation, failure boundaries and real Docker CLI process exit codes.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 09:18:20 -0000
+
 monit-docker (0.0.52) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.52.
