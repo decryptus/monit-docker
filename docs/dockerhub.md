@@ -2,9 +2,11 @@
 
 On pull requests and pushes to master, the Docker Hub workflow builds a Linux
 amd64 image and runs the regression tests, installed package version check and CLI
-startup check. A new stable release tag `vX.Y.Z` publishes the same tested image as
+startup check. After successful validation on master, a missing stable release
+tag `vX.Y.Z` is created from VERSION on the tested commit, and the same tested image
+is published as
 `decryptus/monit-docker:X.Y.Z` and `decryptus/monit-docker:vX.Y.Z`.
-Branches and pull requests do not publish images. As in covenant, `latest` is not
+Pull requests do not publish images. As in covenant, `latest` is not
 updated: use an explicit image version when deploying a release.
 
 ## One-time setup
@@ -21,14 +23,21 @@ token or put it in workflow logs.
 ## Release
 
 Update VERSION, RELEASE, setup.yml, monit_docker/__init__.py and CHANGELOG consistently.
-Merge the workflow and release changes into master and wait for image validation.
-From that release commit, create and push a new tag matching VERSION:
+Merge the release changes into master. The workflow tests the image, creates the
+matching tag automatically and publishes the versioned image. There is no manual
+`git tag` or `git push` step. The version itself is not incremented automatically.
+No extra GitHub secret is required: the publish job uses GITHUB_TOKEN with
+contents: write to create the tag. Repository rules must allow this tag creation.
 
-```sh
-release_version="$(cat VERSION)"
-git tag -a "v${release_version}" -m "version: ${release_version}"
-git push origin "v${release_version}"
-```
+If the version tag already exists on an ancestor commit, publication is skipped.
+An existing tag on the exact tested commit permits retrying a failed publication;
+a tag outside the commit's history fails the workflow. Existing tags are never
+moved. Publication jobs are serialized to prevent competing tag creation.
+
+Manual stable tag pushes remain supported. Automatically created tags do not
+trigger another workflow with GITHUB_TOKEN, so Docker Hub publication happens
+in the same run (see [GitHub's trigger documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)).
+The workflow creates a Git tag; it does not create a GitHub Release page.
 
 Do not move or reuse existing tags. The tagged commit must contain this workflow;
 older tags are not published retroactively. Only stable vX.Y.Z tags are accepted.
