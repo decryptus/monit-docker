@@ -5,9 +5,15 @@ MONIT_DOCKER_INTEGRATION=1 python -m unittest discover -s tests -p test_docker_i
 """
 
 import os
+import json
+import signal
+import socket
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
+import urllib.request
 import unittest
 import uuid
 from unittest.mock import Mock
@@ -73,6 +79,44 @@ class DockerIntegrationTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 116)
         self.assertEqual(self.executor.execute.call_count, 1)
         self.assertIsNone(self.collector.client)
+
+    def test_serve_collects_real_container_and_stops_on_sigterm(self):
+        self.create_container()
+        environment = dict(os.environ)
+        environment.pop('MONIT_DOCKER_CONFIG', None)
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            port = listener.getsockname()[1]
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryFile() as errors:
+            command = [sys.executable, '-m', 'monit_docker', '-c', directory + '/absent.yml',
+                       '--logfile', directory + '/absent/log', '--runtimedir', '',
+                       '--name', self.name, 'serve', '--port', str(port),
+                       '--interval', '0.1', '--rsc', 'mem_usage']
+            process = subprocess.Popen(command, env=environment, stdout=subprocess.DEVNULL, stderr=errors)
+            try:
+                deadline = time.monotonic() + 20
+                data = None
+                while time.monotonic() < deadline and process.poll() is None:
+                    try:
+                        with urllib.request.urlopen('http://127.0.0.1:%s/v1/status' % port, timeout=1) as response:
+                            data = json.load(response)
+                        if data['ready']:
+                            break
+                    except (OSError, urllib.error.URLError):
+                        pass
+                    time.sleep(0.1)
+                errors.seek(0)
+                self.assertTrue(data and data['ready'], errors.read().decode())
+                self.assertEqual(data['containers'][0]['name'], self.name)
+                self.assertIsNotNone(data['containers'][0]['mem_usage'])
+                with urllib.request.urlopen('http://127.0.0.1:%s/metrics' % port, timeout=2) as response:
+                    self.assertIn(b'monit_docker_container_memory_usage_bytes{', response.read())
+                process.send_signal(signal.SIGTERM)
+                self.assertEqual(process.wait(timeout=20), 0)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=5)
 
     def test_cron_cli_dry_run_and_persistent_cooldown_across_processes(self):
         obj = self.create_container()
