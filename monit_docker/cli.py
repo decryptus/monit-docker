@@ -304,6 +304,73 @@ class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
                                         on_action=self._output_action)
 
 
+class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
+    CMD_NAME = 'serve'
+    CMD_HELP = 'monitor continuously and expose cached status and Prometheus metrics'
+    USE_RULES = True
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help=cls.CMD_HELP)
+        parser.add_argument('--bind', default='127.0.0.1', help='IPv4 listen address (default: 127.0.0.1)')
+        parser.add_argument('--port', type=int, default=9808, help='HTTP port (default: 9808)')
+        parser.add_argument('--interval', type=float, default=30, help='seconds to wait after each cycle (default: 30)')
+        parser.add_argument('--stale-after', type=float, default=None, help='maximum cache age in seconds (default: max(90, 3 * interval))')
+        parser.add_argument('--rsc', action='append', dest='resource', default=[], choices=RESOURCE_CHOICES)
+        parser.add_argument('--cmd', '--cmd-if', action='append', default=[], help='optional remediation rule')
+        parser.add_argument('--state-file', help='persistent cooldown state; required with rules')
+        parser.add_argument('--cooldown', type=float, default=300, help='seconds between attempts of the same rule (default: 300)')
+        parser.add_argument('--dry-run', action='store_true', help='evaluate remediation rules without executing them')
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        import ipaddress
+        try:
+            ipaddress.IPv4Address(options.bind)
+        except ValueError:
+            parser.error('--bind must be an IPv4 address')
+        if not 1 <= options.port <= 65535:
+            parser.error('--port must be between 1 and 65535')
+        if not math.isfinite(options.interval) or options.interval < 0.1:
+            parser.error('--interval must be finite and at least 0.1 seconds')
+        if options.stale_after is None:
+            options.stale_after = max(90, 3 * options.interval)
+        if not math.isfinite(options.stale_after) or options.stale_after < options.interval:
+            parser.error('--stale-after must be finite and at least --interval')
+        if not math.isfinite(options.cooldown) or options.cooldown < 0:
+            parser.error('--cooldown must be finite and non-negative')
+        if options.cmd and not options.state_file:
+            parser.error('serve with rules requires --state-file')
+        if options.state_file is not None and not options.state_file.strip():
+            parser.error('--state-file must not be empty')
+        if options.dry_run and not options.cmd:
+            parser.error('--dry-run requires --cmd or --cmd-if')
+        options.resource = options.resource or RESOURCE_CHOICES
+
+    def _cycle(self, observer):
+        def run(policy=None):
+            return self.engine.run_once(rules=self.rules, resources=self.options.resource,
+                                        dry_run=self.options.dry_run, action_policy=policy,
+                                        on_action=observer)
+        try:
+            if self.options.state_file:
+                from monit_docker.adapters.state import LocalState
+                with LocalState(self.options.state_file) as state:
+                    return run(CooldownPolicy(state, self.rules, self.options.cooldown))
+            return run()
+        except APIError as error:
+            raise MonitoringError(180, str(error))
+        except DockerException as error:
+            raise MonitoringError(170, str(error))
+
+    def __call__(self):
+        from monit_docker.service import MonitorService
+        from monit_docker.adapters.http import run_server
+        monitor = MonitorService(self._cycle, self.options.interval, self.options.stale_after)
+        run_server(monitor, self.options.bind, self.options.port)
+
+
+_SUBCMDS['serve'] = MonitDockerSubCmdServe
 _SUBCMDS['cron'] = MonitDockerSubCmdCron
 _SUBCMDS['monit'] = MonitDockerSubCmdMonit
 _SUBCMDS['stats'] = MonitDockerSubCmdStats

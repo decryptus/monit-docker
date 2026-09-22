@@ -8,6 +8,27 @@ permissions:
   contents: read
 
 jobs:
+  monitoring-examples:
+    name: Grafana import and PromQL validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate dashboard queries
+        run: |
+          python3 .github/scripts/check-grafana-dashboard.py rules "$RUNNER_TEMP/grafana-rules.json"
+          docker run --rm --entrypoint promtool \
+            -v "$RUNNER_TEMP/grafana-rules.json:/rules.json:ro" \
+            prom/prometheus:v3.5.0 check rules /rules.json
+      - name: Import dashboard into a disposable Grafana
+        run: |
+          trap 'docker rm -f monit-grafana >/dev/null 2>&1 || true' EXIT
+          docker run -d --name monit-grafana -p 127.0.0.1:3000:3000 \
+            -e GF_SECURITY_ADMIN_PASSWORD=monit-ci-only grafana/grafana:12.2.0
+          python3 .github/scripts/check-grafana-dashboard.py import
+
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15

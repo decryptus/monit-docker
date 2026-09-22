@@ -333,6 +333,21 @@ with 117; invalid or unwritable state exits with 118. Existing `monit` and `stat
 commands retain their behavior. `monit --dry-run --cmd ...` also previews actions.
 See [cron setup, scheduling, state and failure semantics](docs/cron.md).
 
+## Continuous monitoring, Prometheus and Grafana
+
+```sh
+monit-docker --name 'web*' serve --interval 30
+```
+
+The read-only HTTP listener defaults to `127.0.0.1:9808`: `/healthz`, `/readyz`,
+`/v1/status` and `/metrics`. Requests read the latest completed cycle from memory.
+Metrics are not persisted locally; Prometheus stores history. Optional remediation
+rules reuse cron locking and persistent cooldowns.
+
+See [serve usage and API](docs/serve.md), the [complete metrics reference](docs/metrics.md),
+and [Grafana setup](docs/grafana.md). An [importable Grafana dashboard](examples/grafana/monit-docker.json)
+includes agent health, CPU, memory, network, block I/O and action decisions.
+
 ## Docker Hub and PyPI releases
 
 Merging a new stable version into `master` builds and tests the Docker image and

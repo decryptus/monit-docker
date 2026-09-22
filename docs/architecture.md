@@ -59,13 +59,13 @@ The original application was a single executable. Refactoring is incremental:
 3. extract Docker collection and container selection adapters — done;
 4. extract rule parsing, evaluation, and action execution — done;
 5. introduce a one-shot engine API and use it from the CLI — done;
-6. add cron safeguards — done; add an optional HTTP interface — next;
-7. freeze the first `/v1` agent protocol before building a control plane — later.
+6. add cron safeguards and an optional HTTP interface — done;
+7. document the initial read-only `/v1/status` protocol — done; external control plane — later.
 
 ## Current implementation and remaining work
 
 `cli.py` now handles arguments, composition, presentation, PID files and exit
-codes. `stats`, `monit` and `cron` call `MonitoringEngine.run_once()`.
+codes. `stats`, `monit`, `cron` and `serve` call `MonitoringEngine.run_once()`.
 
 - `core/engine.py` coordinates a cycle and preserves the two-phase rule order.
 - `core/rules.py` evaluates conditions against snapshots, without Docker or CLI imports.
@@ -77,6 +77,9 @@ codes. `stats`, `monit` and `cron` call `MonitoringEngine.run_once()`.
 - `adapters/state.py` owns the Unix process lock and atomic JSON state storage.
 - `domain/` contains snapshots, normalized rule values, cycle results and application errors.
 - `outputs/formatting.py` formats human-readable units.
+- `service.py` schedules sequential cycles and owns a synchronized in-memory cache.
+- `adapters/http.py` reads that cache through bounded read-only HTTP handlers.
+- `outputs/prometheus.py` renders cached values using Prometheus text exposition.
 
 Core and domain have no third-party dependencies. Docker SDK objects never
 leave their adapter. Missing or unrequested measurements remain `None`; raw
@@ -185,10 +188,17 @@ Python 3.12 CI job, creating and removing its own containers to test sampling,
 actions, repeat calls and replacement. Docker-image tests run the isolated suite
 and skip source-only packaging and opt-in integration tests.
 
+The serve scheduler waits after each cycle and never overlaps cycles. HTTP
+requests do not enter the engine. Success atomically replaces the cache; failures
+and stale data remove exposed container measurements. Readiness uses monotonic
+age, while API timestamps use wall time. Cooldown storage remains a separate
+adapter, acquired per cycle. Metrics history is delegated to Prometheus.
+The initial read-only API is documented in [serve.md](serve.md); internal domain
+types remain private. Grafana dashboards consume metrics rather than Python imports.
+
 Still pending: a config-check command, persisted trigger delays, a cycle-wide
-deadline, the `serve` command, HTTP API, Prometheus
-exposition and a UI. A client timeout can be configured through existing client
-settings; it is not an overall cycle deadline. Configuration is fixed for each
-constructed CLI command; automatic reload and server scheduling are not added.
+deadline and an embedded UI. A client timeout can be configured through existing
+client settings; it is not an overall cycle deadline. Configuration is fixed for
+each constructed CLI command; automatic reload is not added.
 Legacy Python versions advertised by the package are not exercised by the CI
 matrix, which currently runs Python 3.10 and 3.12.
