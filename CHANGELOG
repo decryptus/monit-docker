@@ -1,3 +1,14 @@
+monit-docker (0.0.58) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.58.
+  * Ship an optional serve, Prometheus and Grafana Docker Compose stack.
+  * Provision the existing dashboard and preserve history in named volumes.
+  * Generate private Grafana credentials once and wait for healthy services.
+  * Document startup, customization, credentials and data lifecycle.
+  * Exercise real collection, Grafana queries, failures and persistence in CI.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 11:45:50 +0000
+
 monit-docker (0.0.57) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.57.
