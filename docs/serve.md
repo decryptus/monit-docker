@@ -1,5 +1,13 @@
 # Continuous monitoring and HTTP endpoints
 
+Choose **serve mode** when you want monitoring to keep running and expose HTTP
+status or Prometheus metrics. For a command that runs once and exits, including
+scheduled jobs, use [simple mode](simple.md).
+
+Install version 0.0.56 or newer using the
+[installation instructions](https://github.com/decryptus/monit-docker#installation). The process needs Docker
+access. Prometheus and Grafana are optional: you can use the HTTP endpoints alone.
+
 `serve` uses the same monitoring engine as `monit` and `cron`. It runs an
 immediate cycle, then waits 30 seconds after each completed cycle by default.
 Cycles are sequential, including when collection takes longer than the interval.
@@ -8,13 +16,29 @@ a request never collects Docker statistics or executes a remediation action.
 
 ## Start a local monitor
 
+In a terminal, start monitoring all containers and leave the command running:
+
 ```sh
-monit-docker --name 'web*' serve --interval 30
+monit-docker serve --interval 30
+```
+
+In a **second terminal**, check the endpoints:
+
+```sh
 curl http://127.0.0.1:9808/healthz
-curl http://127.0.0.1:9808/readyz
+curl -i http://127.0.0.1:9808/readyz
 curl http://127.0.0.1:9808/v1/status
 curl http://127.0.0.1:9808/metrics
 ```
+
+Wait for `/readyz` to return HTTP 200 and `{"ready": true}`. A 503 response
+means that no successful fresh result is available yet. At least one container
+must match. If it stays unready, inspect `/v1/status` and the logs, then see
+[troubleshooting](troubleshooting.md). Stop the monitor with Ctrl+C.
+
+To select particular containers, use for example
+`monit-docker --name 'web*' serve --interval 30`; replace the pattern with names
+that exist on your Docker daemon.
 
 Global configuration and selectors precede `serve`. The default listen address
 is `127.0.0.1` and port is `9808`. `--bind` accepts an IPv4 address and `--port`
@@ -28,6 +52,38 @@ place an authenticated TLS reverse proxy in front; setting `--bind 0.0.0.0`
 explicitly exposes the endpoint data on every IPv4 interface. Container names,
 IDs, statuses and measurements are visible. Configuration, command text and raw
 exception messages are not exposed by the API.
+
+## Run serve in Docker
+
+For a local Docker Engine using `/var/run/docker.sock`:
+
+```sh
+docker run --rm --name monit-docker-serve \
+  -p 127.0.0.1:9808:9808 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  decryptus/monit-docker:0.0.56 monit-docker serve --bind 0.0.0.0
+```
+
+Leave this running and use the same `curl` checks from a second terminal on the
+host. The listener binds inside the container, while the published host port is
+restricted to loopback. Docker socket access allows control of that daemon.
+This example observes only; if you add rules, also mount a persistent state
+directory and set `--state-file` inside it.
+
+## Add history and charts
+
+1. Configure [Prometheus scraping](metrics.md#prometheus-configuration) and check
+   that `up{job="monit-docker"}` and `monit_docker_ready{job="monit-docker"}` are 1.
+   The supplied localhost target works when Prometheus runs on the host alongside
+   the native process or the Docker example's published port.
+2. Add Prometheus as a Grafana data source and [import the example dashboard](grafana.md).
+3. Select the data source and filters. Wait for multiple scrapes before expecting
+   network/I/O rates or action rates to appear.
+
+If Prometheus runs in a separate container, its loopback is different. Use a
+reachable private address or shared container network and adjust the scrape
+target accordingly. Prometheus keeps the history; `serve` keeps only its latest
+result in memory.
 
 ## Optional remediation
 

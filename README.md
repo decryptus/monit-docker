@@ -5,37 +5,102 @@
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/decryptus/monit-docker)](https://hub.docker.com/r/decryptus/monit-docker)
 [![Documentation Status](https://readthedocs.org/projects/monit-docker/badge/?version=latest)](https://monit-docker.readthedocs.io/)
 
-monit-docker is a free and open-source, we develop it to monitor container status or resources
-and execute some commands inside containers or manage containers with dockerd, for example:
- - reload php-fpm if memory usage is too high
- - reload php-fpm if no free space in /dev/shm
- - restart container if status is not running
- - remove all containers
+monit-docker is a free, open-source tool for checking Docker containers and
+optionally taking action when a condition matches, such as restarting a stopped
+container or reloading PHP-FPM when memory usage is high.
+
+**Choose one of two modes.** Both use the same container selectors and rule syntax.
+
+| Mode | Use it for | How it runs | What you need |
+| --- | --- | --- | --- |
+| **Simple** | Read statistics, check a status, or execute a rule | One command, then exit; optionally repeat with cron | Docker access and monit-docker |
+| **Serve** | Monitor continuously and expose status and metrics over HTTP | A process that stays running | Docker access and monit-docker; optionally Prometheus for history and Grafana for charts |
+
+The simple mode remains a complete way to use the tool. It requires no HTTP
+server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
+`cron` when you need locking and persistent cooldowns between actions.
 
 ## Table of contents
-1. [Quickstart](#quickstart)
-2. [Installation](#installation)
-3. [Environment variables](#environment_variables)
-4. [Sub-command: monit](#sub-command_monit)
+
+1. [Installation](#installation)
+2. [Quickstart: simple or serve](#quickstart)
+3. [Simple mode guide](docs/simple.md)
+4. [Serve mode guide](docs/serve.md)
+5. [Prometheus metrics](docs/metrics.md) and [Grafana dashboard](docs/grafana.md)
+6. [Troubleshooting](docs/troubleshooting.md)
+7. [Environment variables](#environment_variables)
+8. [Sub-command: monit](#sub-command_monit)
     1. [Basic commands](#monit_basic_commands)
     2. [Advanced commands](#monit_advanced_commands)
     3. [Container informations with exit codes](#monit_container_informations)
     4. [monit-docker with M/Monit](#monit_with_mmonit)
-5. [Sub-command: stats](#sub-command_stats)
+9. [Sub-command: stats](#sub-command_stats)
     1. [Basic commands](#stats_basic_commands)
     2. [Advanced commands](#stats_advanced_commands)
-
-## <a name="quickstart"></a>Quickstart
-
-Using monit-docker in Docker with crond
-
-`docker-compose up -d`
-
-See [docker-compose.yml](docker-compose.yml) and MONIT\_DOCKER\_CRONS environment variable to configure commands.
+10. [Scheduling with cron](docs/cron.md)
 
 ## <a name="installation"></a>Installation
 
-`pip install monit-docker`
+The examples below use Python 3 (CI tests Python 3.10 and 3.12). You need a Docker
+daemon accessible to the account running monit-docker. For a local installation:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install monit-docker
+monit-docker --help
+```
+
+Both modes are included in the same package. For an existing installation, use
+`python -m pip install --upgrade monit-docker`; `serve` requires version 0.0.56
+or newer. To run the published Docker image, see the
+[simple](docs/simple.md#run-a-single-command-in-docker) or
+[serve](docs/serve.md#run-serve-in-docker) example. Use a versioned image tag;
+the release workflow does not update `latest`.
+
+## <a name="quickstart"></a>Quickstart
+
+### Simple mode: run a command and exit
+
+Read the available statistics without taking any action:
+
+```sh
+monit-docker stats --output json
+```
+
+To check one container, replace `my-container` with an existing name:
+
+```sh
+monit-docker --name my-container monit --rsc status
+echo $?  # 0 means running; 114 means no matching container
+```
+
+Continue with the [simple mode guide](docs/simple.md) for rule previews,
+actions and scheduling. No background process is needed.
+
+### Serve mode: keep monitoring and expose HTTP endpoints
+
+In one terminal, leave this command running:
+
+```sh
+monit-docker serve --interval 30
+```
+
+In a **second terminal**, check the first completed cycle:
+
+```sh
+curl -i http://127.0.0.1:9808/readyz
+curl http://127.0.0.1:9808/metrics
+```
+
+`/readyz` returns 200 when monitoring has succeeded and the data is fresh; it
+returns 503 until then. At least one container must match. Without action rules,
+`serve` only observes containers. Stop it with Ctrl+C.
+
+Continue with the [serve guide](docs/serve.md), then optionally connect
+[Prometheus](docs/metrics.md#prometheus-configuration) and import the
+[Grafana dashboard](docs/grafana.md). The latest measurements are kept in memory;
+Prometheus provides history.
 
 ## <a name="environment_variables"></a>Environment variables
 
@@ -56,7 +121,7 @@ Restart containers with name starts with foo if memory usage percentage > 60% or
 
 Stop containers with name starts with bar or foo and if cpu usage percentage greater than 60% and less than 70%:
 
-`monit-docker --name 'bar*' --name 'foo*' monit --cmd-if '60 > cpu_percent < 70 ? stop'`
+`monit-docker --name 'bar*' --name 'foo*' monit --cmd-if '60 < cpu_percent < 70 ? stop'`
 
 Kill containers with name starts with bar and status equal to paused or running:
 
@@ -101,7 +166,7 @@ Reload php-fpm in container with image name contains /php-fpm/ if /dev/shm perce
 
 ### <a name="monit_advanced_commands"></a>Advanced commands with configuration file or environment variable MONIT\_DOCKER\_CONFIG
 
-##### Run commands with aliases declared in configuration file (e.g.: [monit-docker.yml.example](etc/monit-docker/monit-docker.yml.example)):
+#### Run commands with aliases declared in configuration file (e.g.: [monit-docker.yml.example](etc/monit-docker/monit-docker.yml.example)):
 
 Restart container id 4c01db0b339c if condition alias @status\_not\_running is true:
 
@@ -125,7 +190,7 @@ Remove force all containers:
 
 ### <a name="monit_container_informations"></a>Container informations with exit codes
 
-##### Container status
+#### Container status
 
 Run command below to get status with exit code for container named foo\_php\_fpm:
 
@@ -144,7 +209,7 @@ An error occurred if exit code is greater than 100.
 | 60        | Dead        |
 | 114       | Not found   |
 
-##### Container CPU usage percentage
+#### Container CPU usage percentage
 
 Run command below to get CPU usage percentage with exit code for container named foo\_php\_fpm:
 
@@ -154,7 +219,7 @@ An error occurred if exit code is greater than 100.
 
 CPU percentages returned as exit codes are capped at 100 to avoid collisions with error codes and Unix exit-code overflow. The `stats` sub-command and conditional rules retain the raw CPU percentage, which may exceed 100 on multi-core hosts.
 
-##### Container memory usage percentage
+#### Container memory usage percentage
 
 Run command below to get memory usage percentage with exit code for container named foo\_php\_fpm:
 
@@ -166,7 +231,7 @@ An error occurred if exit code is greater than 100.
 
 We can also monitoring containers cpu\_percent and mem\_percent resources with [M/Monit](https://mmonit.com).
 
-##### Configuration examples
+#### Configuration examples
 
 ```
 check program docker.foo_php_fpm.status with path "/usr/bin/monit-docker --name foo_php_fpm monit --rsc status"
@@ -314,6 +379,13 @@ Install the dependencies and run the regression tests with Python 3:
 ```sh
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests -v
+```
+
+Build the documentation and check for broken internal references:
+
+```sh
+python -m pip install -r docs/requirements.txt
+python -m sphinx -n -W --keep-going -b html docs docs/_build/html
 ```
 
 Build the checked-out source with `docker build -t monit-docker:local .`. The Dockerfile installs this checkout in a virtual environment instead of fetching the published `monit-docker` package.

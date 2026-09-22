@@ -8,7 +8,7 @@ used from cron, a local HTTP server, or an external control plane.
 
 ```mermaid
 flowchart TD
-    CLI["Interfaces: CLI and future HTTP"] --> Core["Core: cycles, rules, decisions"]
+    CLI["Interfaces: CLI and HTTP"] --> Core["Core: cycles, rules, decisions"]
     Core --> Domain["Domain models"]
     Adapters["Docker, YAML, state adapters"] --> Domain
     CLI --> Adapters
@@ -25,7 +25,7 @@ The Community repository owns the single-host agent:
 - one-shot execution suitable for cron;
 - local monitoring and remediation rules;
 - local state required for safe delays and cooldowns;
-- a future lightweight read-only UI and versioned HTTP API;
+- a versioned read-only HTTP API and a possible future lightweight UI;
 - Prometheus exposition.
 
 These capabilities must remain usable without a remote service or account.

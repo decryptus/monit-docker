@@ -1,2 +1,4 @@
-m2r2
+Sphinx
+myst-parser
+sphinxcontrib-mermaid
 PyYAML>=3.10

@@ -1,6 +1,6 @@
 # Grafana example dashboard
 
-Import [examples/grafana/monit-docker.json](../examples/grafana/monit-docker.json)
+Import [examples/grafana/monit-docker.json](https://github.com/decryptus/monit-docker/blob/master/examples/grafana/monit-docker.json)
 to visualize the [documented metrics](metrics.md). This is a Classic JSON model
 dashboard with built-in stat/time-series panels; it needs no Grafana plugins.
 The JSON is included in the repository and source distribution.

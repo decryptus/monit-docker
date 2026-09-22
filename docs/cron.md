@@ -1,5 +1,9 @@
 # One-shot monitoring from cron
 
+This is an optional part of [simple mode](simple.md): the operating system's cron
+repeats a command that runs once and exits. For a process that keeps monitoring
+and exposes HTTP endpoints, use [serve mode](serve.md).
+
 `monit-docker cron` runs one monitoring cycle and exits. It uses the same engine,
 selectors and rule syntax as `monit`, with a process lock and persistent cooldowns.
 It starts no server, requires no account and adds no runtime dependencies.
@@ -40,7 +44,7 @@ monit-docker --name 'web*' monit --dry-run --cmd-if 'mem_percent > 90 ? restart'
 Remove `--dry-run` after reviewing the decisions. For example, run every minute
 with five minutes between attempts of the same rule on the same container:
 
-```cron
+```text
 * * * * * /usr/local/bin/monit-docker --name 'web*' cron --state-file /var/lib/monit-docker/web.json --cooldown 300 --cmd-if 'mem_percent > 90 ? restart'
 ```
 
@@ -126,5 +130,5 @@ their meaning.
 There is no background scheduler or HTTP listener. This step does not add a
 cycle-wide deadline, delayed triggering, hysteresis, or a continuous-failure
 threshold. Existing Docker client timeouts still apply; a hung cycle can hold its
-lock until it exits or is terminated. `serve` will reuse the engine and policy
-interfaces separately.
+lock until it exits or is terminated. [Serve mode](serve.md) reuses the same
+engine and cooldown policy for continuous monitoring.
