@@ -1,3 +1,12 @@
+monit-docker (0.0.54) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.54.
+  * Publish tested Python distributions to PyPI using Trusted Publishing.
+  * Validate archive metadata and test the installed wheel before release.
+  * Document registry setup, automatic releases and publication retries.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 09:46:49 +0000
+
 monit-docker (0.0.53) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.53.
