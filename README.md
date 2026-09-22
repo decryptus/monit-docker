@@ -25,6 +25,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 1. [Installation](#installation)
 2. [Quickstart: simple or serve](#quickstart)
 3. [Simple mode guide](docs/simple.md)
+   - [Wait for sustained conditions before acting](docs/trigger-delay.md)
 4. [Serve mode guide](docs/serve.md)
    - [Ready-to-run Docker Compose stack](docs/compose.md)
    - [Prometheus alerts and thresholds](docs/alerts.md)
@@ -426,6 +427,9 @@ monit-docker --name 'web*' cron --state-file /var/lib/monit-docker/web.json \
 ```
 
 Review the JSON decisions, then remove `--dry-run` to execute eligible actions.
+To wait for a sustained condition before acting, add `--trigger-after` and
+`--max-gap`; see the [trigger delay guide](docs/trigger-delay.md) for cron and serve.
+
 The default cooldown is five minutes per rule and container. A busy job exits
 with 117; invalid or unwritable state exits with 118. Existing `monit` and `stats`
 commands retain their behavior. `monit --dry-run --cmd ...` also previews actions.

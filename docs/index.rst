@@ -18,6 +18,7 @@ For installation and the command reference, see the
 
    simple
    cron
+   trigger-delay
 
 .. toctree::
    :maxdepth: 2

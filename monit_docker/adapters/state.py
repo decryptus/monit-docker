@@ -1,4 +1,4 @@
-"""Local Unix process lock and atomic JSON cooldown storage (stdlib only)."""
+"""Local Unix process lock and atomic JSON rule state (stdlib only)."""
 
 import errno
 import json
@@ -19,6 +19,8 @@ class LocalState(object):
         self.path = os.path.join(self.directory, os.path.basename(absolute))
         self.lock_fd = None
         self.entries = {}
+        self.observations = {}
+        self.version = 1
 
     def __enter__(self):
         import fcntl
@@ -57,6 +59,8 @@ class LocalState(object):
 
     def _load(self):
         self.entries = {}
+        self.observations = {}
+        self.version = 1
         try:
             fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0))
         except OSError as error:
@@ -67,8 +71,10 @@ class LocalState(object):
             if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                 raise ValueError('state must be a regular file')
             data = json.load(stream)
-        if (not isinstance(data, dict) or set(data) != {'version', 'cooldowns'}
-                or type(data['version']) is not int or data['version'] != 1
+        if (not isinstance(data, dict) or type(data.get('version')) is not int
+                or data['version'] not in (1, 2)
+                or set(data) != ({'version', 'cooldowns'} if data['version'] == 1
+                                 else {'version', 'cooldowns', 'observations'})
                 or not isinstance(data['cooldowns'], dict)):
             raise ValueError('unsupported state schema')
         for key, value in data['cooldowns'].items():
@@ -77,6 +83,29 @@ class LocalState(object):
                     or value < 0):
                 raise ValueError('invalid cooldown entry')
         self.entries = data['cooldowns']
+        if data['version'] == 2:
+            observations = data['observations']
+            if not isinstance(observations, dict):
+                raise ValueError('invalid observations')
+            for key, value in observations.items():
+                if (not re.fullmatch(r'[0-9a-f]{64}', key)
+                        or not isinstance(value, list) or len(value) != 2
+                        or any(isinstance(v, bool) or not isinstance(v, (int, float))
+                               or not math.isfinite(v) or v < 0 for v in value)
+                        or value[0] > value[1]):
+                    raise ValueError('invalid observation entry')
+            self.observations = observations
+        self.version = data['version']
+
+    def replace_observations(self, observations, read_only=False):
+        if self.lock_fd is None:
+            raise RuntimeError('state must be locked before use')
+        if observations == self.observations:
+            return
+        if not read_only:
+            self._save(self.entries, observations)
+        self.observations = dict(observations)
+        self.version = 2
 
     def reserve(self, key, now, seconds, read_only=False):
         if self.lock_fd is None:
@@ -94,13 +123,16 @@ class LocalState(object):
         self.entries = entries
         return True
 
-    def _save(self, entries):
+    def _save(self, entries, observations=None):
         temporary = None
         try:
+            data = {'version': self.version, 'cooldowns': entries}
+            if observations is not None or self.version == 2:
+                data.update(version=2, observations=(self.observations if observations is None
+                                                     else observations))
             fd, temporary = tempfile.mkstemp(prefix='.monit-state-', dir=self.directory)
             with os.fdopen(fd, 'w') as stream:
-                json.dump({'version': 1, 'cooldowns': entries}, stream,
-                          sort_keys=True, allow_nan=False)
+                json.dump(data, stream, sort_keys=True, allow_nan=False)
                 stream.write('\n')
                 stream.flush()
                 os.fsync(stream.fileno())

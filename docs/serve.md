@@ -96,6 +96,9 @@ monit-docker --name 'web*' serve --interval 30 \
   --dry-run --cmd-if 'mem_percent > 90 ? restart'
 ```
 
+For sustained conditions, add [`--trigger-after` and `--max-gap`](trigger-delay.md);
+they use the same persistent tracking as cron.
+
 Rules require an explicit `--state-file`, including in dry run. Review behavior,
 then remove `--dry-run` to execute actions. Each cycle acquires the same state
 lock and reserves the same persistent cooldowns as [cron](cron.md). The lock is
@@ -114,7 +117,7 @@ mode; there is no process-exit propagation option.
 
 The latest successful cycle's snapshots are held in a synchronized memory cache.
 They are replaced as a complete set; requests never see half of a cycle. The
-cache holds no history and is empty after a restart. Only cooldown reservations
+cache holds no history and is empty after a restart. Cooldown reservations and optional [trigger observations](trigger-delay.md)
 are persisted; Prometheus can store time-series history externally.
 
 `--stale-after` defaults to `max(90, 3 * interval)` seconds and must be at least
@@ -163,7 +166,7 @@ ignore additional fields, so later additions need not change the URL version.
 | `age_seconds` | Monotonic age of the last success, or null |
 | `last_error_code` | Agent error code for the last failed cycle, otherwise null |
 | `cycles_total` / `errors_total` | Completed / failed cycles since process start |
-| `actions` | Counters for `executed`, `cooldown` and `dry-run` decisions |
+| `actions` | Counters for `executed`, `cooldown`, `pending` and `dry-run` decisions |
 | `containers` | Fresh complete snapshot list; empty when not ready |
 
 Each container has `id`, `name`, `status`, `pid`, `mem_usage`, `mem_limit`,

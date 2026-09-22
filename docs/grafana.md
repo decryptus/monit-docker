@@ -61,7 +61,7 @@ it creates no alert rules, notification channels or infrastructure.
 | Memory usage and limit | Per-container usage and reported limit, in bytes |
 | Network throughput | Received/transmitted bytes per second using `rate()` |
 | Block I/O throughput | Read/written bytes per second using `rate()` |
-| Action decisions per second | Rates of executed, cooldown-skipped and dry-run decisions |
+| Action decisions per second | Rates of executed, cooldown-skipped, pending and dry-run decisions |
 | Containers by status | Counts grouped by Docker status |
 | Cycle failures per second | Per-agent failure rate |
 
