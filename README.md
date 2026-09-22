@@ -65,6 +65,9 @@ the release workflow does not update `latest`.
 
 ## <a name="quickstart"></a>Quickstart
 
+Before running configured rules, use [`check-config`](docs/check-config.md) to validate
+the YAML, imports, selectors and aliases without connecting to Docker.
+
 ### Simple mode: run a command and exit
 
 Read the available statistics without taking any action:

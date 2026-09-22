@@ -36,6 +36,7 @@ For installation and the command reference, see the
    :maxdepth: 1
    :caption: Help and development
 
+   check-config
    troubleshooting
    architecture
    dockerhub

@@ -1,3 +1,14 @@
+monit-docker (0.0.61) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.61.
+  * Add offline check-config for simple, cron and serve configurations.
+  * Validate imports, templates, selectors, aliases and supplied rule expressions.
+  * Report text or JSON diagnostics without contacting Docker or creating state.
+  * Document validation scope, exit codes and trusted-template requirements.
+  * Cover dormant errors, malformed input, file precedence and side-effect guards.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 17:11:27 +0000
+
 monit-docker (0.0.60) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.60.

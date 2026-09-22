@@ -196,8 +196,12 @@ adapter, acquired per cycle. Metrics history is delegated to Prometheus.
 The initial read-only API is documented in [serve.md](serve.md); internal domain
 types remain private. Grafana dashboards consume metrics rather than Python imports.
 
-Still pending: a config-check command, persisted trigger delays, a cycle-wide
-deadline and an embedded UI. A client timeout can be configured through existing
+`check-config` now composes an opt-in checked configuration loader, the existing
+selector and rule parsers, and offline condition checks. It bypasses runtime/log
+initialization and Docker client construction; text/JSON diagnostics are owned by
+the CLI. See [configuration validation](check-config.md).
+
+Still pending: persisted trigger delays, a cycle-wide deadline and an embedded UI. A client timeout can be configured through existing
 client settings; it is not an overall cycle deadline. Configuration is fixed for
 each constructed CLI command; automatic reload is not added.
 Legacy Python versions advertised by the package are not exercised by the CI

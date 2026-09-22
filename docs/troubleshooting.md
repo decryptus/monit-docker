@@ -1,6 +1,7 @@
 # Troubleshooting
 
-Start with the command output and logs. In `serve` mode, also inspect
+For configuration errors, start with [`check-config`](check-config.md), which works
+without a Docker connection. Then inspect the command output and logs. In `serve` mode, also inspect
 `http://127.0.0.1:9808/v1/status`: `last_error_code` describes the last failed
 cycle. A reachable HTTP endpoint alone does not mean Docker monitoring works.
 
