@@ -1,3 +1,17 @@
+monit-docker (0.0.51) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.51.
+  * Integrate the package architecture refactor and packaging fixes.
+  * Reject unknown container groups before selecting containers.
+  * Execute immediate rules only once when combined with resource rules.
+  * Report failed actions with exit code 116 and stop further actions.
+  * Bound percentage exit codes to 0-100; preserve raw statistics and rules.
+  * Correct paused-state and application reload examples.
+  * Build the Docker image from the checked-out source in a virtual environment.
+  * Add regression tests and Docker Hub publishing for validated version tags.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 06:06:06 -0000
+
 monit-docker (0.0.50) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.50.
