@@ -18,7 +18,7 @@
 import os
 import yaml
 
-root_dir     = os.path.abspath('..')
+root_dir     = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 setup_config = os.path.join(root_dir, 'setup.yml')
 setup_cfg    = yaml.safe_load(open(setup_config, 'r').read())
 
@@ -44,7 +44,8 @@ release = setup_cfg['release']
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'm2r2',
+    'myst_parser',
+    'sphinxcontrib.mermaid',
     'sphinx.ext.autodoc',
     #'sphinx.ext.napoleon',
 ]
@@ -55,7 +56,9 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = ['.rst', '.md']
+source_suffix = {'.rst': 'restructuredtext', '.md': 'markdown'}
+myst_fence_as_directive = ['mermaid']
+myst_heading_anchors = 3
 #source_suffix = '.md'
 
 # The master toctree document.
@@ -66,7 +69,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -93,7 +96,7 @@ html_theme = 'alabaster'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.

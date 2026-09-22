@@ -1,3 +1,15 @@
+monit-docker (0.0.57) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.57.
+  * Explain simple one-shot usage and continuous serve mode as two clear paths.
+  * Add guided setup, versioned Docker examples and troubleshooting.
+  * Fix documentation navigation, Markdown links and architecture rendering.
+  * Validate the documentation build and internal references in CI.
+  * Include Grafana screenshots with explicitly synthetic demonstration data.
+  * Add a reproducible Grafana screenshot workflow using the official renderer.
+
+ -- Codex <codex@openai.com>  Tue, 22 Sep 2026 11:19:21 +0000
+
 monit-docker (0.0.56) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.56.

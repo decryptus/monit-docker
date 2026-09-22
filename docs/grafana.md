@@ -1,9 +1,26 @@
 # Grafana example dashboard
 
-Import [examples/grafana/monit-docker.json](../examples/grafana/monit-docker.json)
+Import [examples/grafana/monit-docker.json](https://github.com/decryptus/monit-docker/blob/master/examples/grafana/monit-docker.json)
 to visualize the [documented metrics](metrics.md). This is a Classic JSON model
 dashboard with built-in stat/time-series panels; it needs no Grafana plugins.
 The JSON is included in the repository and source distribution.
+
+## Preview
+
+These are real Grafana 12.2.0 renders of the example dashboard, using **synthetic
+demonstration data** for six fictional containers. They are not production
+measurements or performance benchmarks. Five containers have resource samples;
+the stopped `backup` container appears only in the status/count panels.
+
+![Grafana overview with synthetic demonstration data](images/grafana-overview.png)
+
+CPU detail, showing the fictional containers over one hour:
+
+![CPU panel with synthetic demonstration data](images/grafana-cpu.png)
+
+Network receive/transmit throughput from synthetic byte counters:
+
+![Network panel with synthetic demonstration data](images/grafana-network.png)
 
 ## Prerequisites and import
 
@@ -59,3 +76,16 @@ The Job selector similarly needs the agent to have emitted readiness at least on
 Grafana queries Prometheus history; restarting monit-docker clears its in-memory
 cache but does not delete that history. Container restarts can reset byte counters;
 `rate()` handles those resets. Names and replacement IDs create new time series.
+
+## Regenerate the screenshots
+
+In the repository's GitHub **Actions**, run **Grafana screenshots**, then download
+the `grafana-screenshots` artifact. The workflow also runs on pull requests that
+change the dashboard or capture generator. It starts disposable Prometheus,
+Grafana and [Grafana Image Renderer](https://grafana.com/docs/grafana/latest/setup-grafana/image-rendering/)
+containers, validates every panel query, and exports three PNGs. It uses generated
+history only and never connects to a user's Docker daemon or monitoring system.
+
+The source dashboard's queries and panel layout are preserved. A separate demo
+copy sets the title, time range and data source selection. Review new images
+before replacing `docs/images/grafana-*.png`; the workflow does not commit files.
