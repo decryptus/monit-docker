@@ -89,6 +89,11 @@ jobs:
         run: |
           docker compose -f examples/monitoring/compose.yaml -f examples/monitoring/compose.notifications.yaml \
             -f examples/monitoring/compose.redis.yaml exec -T redis-webhook python - < .github/scripts/test-redis-webhook.py
+      - name: Test DWho HTTP config and template against a local receiver
+        run: |
+          docker compose -f examples/monitoring/compose.yaml -f examples/monitoring/compose.notifications.yaml \
+            -f examples/monitoring/compose.redis.yaml run --rm --no-deps \
+            -v "$PWD:/source:ro" redis-webhook python /source/.github/scripts/test-dwho-http.py
       - name: Test delivery, failure recovery and stream persistence
         run: python .github/scripts/check-redis-notifications.py
       - name: Inspect failed services

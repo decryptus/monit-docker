@@ -1,0 +1,10 @@
+{
+  "method": "post",
+  "timeout": 5,
+  "verify": true,
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": ${json.dumps("Bearer " + http_token)}
+  },
+  "payload": ${json.dumps(notification)}
+}

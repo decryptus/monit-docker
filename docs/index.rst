@@ -29,6 +29,7 @@ For installation and the command reference, see the
    alerts
    notifications
    redis-notifications
+   dwho-http-notifications
    grafana
 
 .. toctree::

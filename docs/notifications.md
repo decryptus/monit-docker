@@ -162,6 +162,11 @@ exactly-once delivery.
 To feed another application, add the optional [Alertmanager to Redis receiver](redis-notifications.md).
 It can share a receiver with email and Slack, and starts with `sh start.sh --redis`.
 
+## Custom HTTP APIs with DWho
+
+The [DWho HTTP example](dwho-http-notifications.md) shows registry-based selection,
+a YAML config, a JSON template and a standalone sender for custom APIs.
+
 ## Tests
 
 CI validates the Compose overlay and all receiver configurations, then runs the
