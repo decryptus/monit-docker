@@ -70,7 +70,26 @@ def main():
         return status['ready'] and any(c['id'] == fixture_id and c['mem_usage'] is not None
                                        for c in status['containers'])
 
+    def alert_rules():
+        result = request(prometheus + '/api/v1/rules?type=alert')
+        assert result['status'] == 'success'
+        groups = [g for g in result['data']['groups'] if g['name'] == 'monit-docker']
+        assert len(groups) == 1, 'Expected the shipped alert group'
+        assert groups[0]['interval'] == 30
+        rules = {r['name']: r for r in groups[0]['rules']}
+        assert {name: rule['duration'] for name, rule in rules.items()} == {
+            'MonitDockerAgentDown': 120,
+            'MonitDockerCollectionNotReady': 180,
+            'MonitDockerContainerMemoryHigh': 300,
+        }
+        return rules
+
+    def rules_healthy():
+        return all(r['health'] == 'ok' and not r.get('lastError')
+                   for r in alert_rules().values())
+
     wait_for(collected, 'serve collected the real fixture')
+    wait_for(rules_healthy, 'all three alert rules are loaded and evaluate successfully')
     wait_for(lambda: query(info_query), 'Prometheus scraped the fixture')
     wait_for(lambda: query('monit_docker_container_memory_usage_bytes{id="%s"}' % fixture_id,
                            through_grafana=True), 'Grafana queries real memory measurements')
@@ -90,6 +109,9 @@ def main():
     wait_for(lambda: query('up{job="monit-docker"} == 0'),
              'Prometheus detects an unavailable agent while Grafana stays online')
     assert request(grafana + '/api/health')['database'] == 'ok'
+    wait_for(lambda: alert_rules()['MonitDockerAgentDown']['state'] in ('pending', 'firing'),
+             'the loaded agent-down rule detects the stopped agent')
+    assert alert_rules()['MonitDockerCollectionNotReady']['state'] == 'inactive'
 
     subprocess.run(['docker', 'compose', 'down'], cwd=STACK, check=True)
     subprocess.run(['sh', 'start.sh'], cwd=STACK, check=True)
@@ -99,6 +121,9 @@ def main():
     assert folder['title'] == 'Persistence probe', 'Grafana database was lost'
     wait_for(collected, 'collection resumes after recreation')
     wait_for(lambda: query('up{job="monit-docker"} == 1'), 'scraping recovers after recreation')
+    wait_for(lambda: alert_rules()['MonitDockerAgentDown']['state'] == 'inactive',
+             'the agent-down alert clears after recovery')
+    assert rules_healthy()
     print('Verified: history, Grafana data and credentials survive down/up', flush=True)
 
 

@@ -95,6 +95,8 @@ increase(monit_docker_cycle_errors_total[1h])
 
 Also alert on `up{job="monit-docker"} == 0` for an unreachable/stopped process;
 an unavailable target cannot emit its own readiness value.
+The [alert guide](alerts.md) provides tested rules for availability, collection
+readiness and memory usage, including how missing data affects each alert.
 
 An [example Grafana dashboard](https://github.com/decryptus/monit-docker/blob/master/examples/grafana/monit-docker.json) is included;
 see [import instructions and panel descriptions](grafana.md).

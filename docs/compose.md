@@ -38,6 +38,11 @@ Allow roughly one to two minutes for several scrapes before interpreting rate
 panels. The [gallery](grafana.md) illustrates the layout with synthetic data;
 this Compose example uses your actual measurements.
 
+Three alert rules are loaded automatically. Open
+**http://127.0.0.1:9090/alerts** to see agent availability, collection readiness
+and high container memory alerts. See the [alert guide](alerts.md) for thresholds,
+diagnosis and customization. This example sends no outbound notifications.
+
 ## What runs and where data lives
 
 | Service | Local address | Stored data |
@@ -142,4 +147,6 @@ file remains the one validated by the dashboard tests.
 
 To enable actions later, follow [serve's optional remediation guide](serve.md#optional-remediation):
 add explicit rules, a persistent state-directory mount and `--state-file`, and
-start with `--dry-run`. This example does not configure alerts or notifications.
+start with `--dry-run`. Prometheus alerts only report conditions; they do not
+execute agent actions. Notification delivery requires a separately configured
+Alertmanager.

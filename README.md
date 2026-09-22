@@ -27,6 +27,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 3. [Simple mode guide](docs/simple.md)
 4. [Serve mode guide](docs/serve.md)
    - [Ready-to-run Docker Compose stack](docs/compose.md)
+   - [Prometheus alerts and thresholds](docs/alerts.md)
 5. [Prometheus metrics](docs/metrics.md) and [Grafana dashboard](docs/grafana.md)
 6. [Troubleshooting](docs/troubleshooting.md)
 7. [Environment variables](#environment_variables)
@@ -92,6 +93,9 @@ sh start.sh
 Open `http://127.0.0.1:3000` as `admin` using the generated password in `.env`.
 See the [Compose guide](docs/compose.md) for prerequisites, ports and persistent
 history. This stack observes real containers and executes no remediation rules.
+It also loads [three Prometheus alerts](docs/alerts.md) for an unreachable agent,
+unhealthy collection and high container memory usage. View them in Prometheus;
+outbound notifications require separate Alertmanager configuration.
 
 To run only the agent after the Python installation above:
 

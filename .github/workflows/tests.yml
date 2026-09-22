@@ -54,7 +54,7 @@ jobs:
       - run: python -m sphinx -n -W --keep-going -b html docs docs/_build/html
 
   monitoring-examples:
-    name: Grafana import and PromQL validation
+    name: Grafana import, PromQL and alert regression tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -67,6 +67,14 @@ jobs:
           docker run --rm --entrypoint promtool \
             -v "$RUNNER_TEMP/grafana-rules.json:/rules.json:ro" \
             prom/prometheus:v3.5.0 check rules /rules.json
+      - name: Validate Prometheus configuration and alert behavior
+        run: |
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/examples/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/examples/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0 test rules /etc/prometheus/alerts.test.yml
       - name: Import dashboard into a disposable Grafana
         run: |
           trap 'docker rm -f monit-grafana >/dev/null 2>&1 || true' EXIT

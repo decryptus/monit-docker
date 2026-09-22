@@ -1,0 +1,447 @@
+# Run with promtool test rules examples/monitoring/alerts.test.yml
+rule_files:
+- alerts.yml
+evaluation_interval: 30s
+tests:
+- name: 'Agent outage: pending, firing at two minutes, recovery'
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 0+0x5 1+0x3
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 0+0x9
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x9
+  alert_rule_test:
+  - eval_time: 1m30s
+    alertname: MonitDockerAgentDown
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: MonitDockerAgentDown
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: critical
+      exp_annotations:
+        summary: monit-docker agent agent-a:9808 is unreachable
+        description: Prometheus has been unable to scrape this agent for 2 minutes. Check the agent process, address
+          and network.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#agent-unreachable
+  - eval_time: 2m30s
+    alertname: MonitDockerAgentDown
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: critical
+      exp_annotations:
+        summary: monit-docker agent agent-a:9808 is unreachable
+        description: Prometheus has been unable to scrape this agent for 2 minutes. Check the agent process, address
+          and network.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#agent-unreachable
+  - eval_time: 3m
+    alertname: MonitDockerAgentDown
+    exp_alerts: []
+  - eval_time: 2m30s
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 2m30s
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+- name: Brief outage resets the pending timer
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 0 0 0 1 0 0 0 0 1
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x8
+  alert_rule_test:
+  - eval_time: 3m30s
+    alertname: MonitDockerAgentDown
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: MonitDockerAgentDown
+    exp_alerts: []
+- name: 'Failed or stale collection: three minutes and recovery'
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x9
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 0+0x6 1+0x2
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x9
+  alert_rule_test:
+  - eval_time: 2m30s
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+      exp_annotations:
+        summary: monit-docker collection on agent-a:9808 is not ready
+        description: The agent is reachable but has not reported fresh, successful collection for 3 minutes. Check
+          /v1/status, agent logs and Docker access.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#collection-not-ready
+  - eval_time: 3m30s
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: MonitDockerAgentDown
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+- name: Readiness metric missing on an otherwise reachable target
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x8
+  alert_rule_test:
+  - eval_time: 2m30s
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+      exp_annotations:
+        summary: monit-docker collection on agent-a:9808 is not ready
+        description: The agent is reachable but has not reported fresh, successful collection for 3 minutes. Check
+          /v1/status, agent logs and Docker access.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#collection-not-ready
+  - eval_time: 4m
+    alertname: MonitDockerAgentDown
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+- name: Readiness disappears then returns
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x9
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1 stale _ _ _ _ _ _ 1 1
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 3m30s
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+      exp_annotations:
+        summary: monit-docker collection on agent-a:9808 is not ready
+        description: The agent is reachable but has not reported fresh, successful collection for 3 minutes. Check
+          /v1/status, agent logs and Docker access.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#collection-not-ready
+  - eval_time: 4m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+- name: Short collection failures do not fire and reset the timer
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x12
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 0 0 0 0 0 1 0 0 0 0 0 1 1
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+- name: 'High memory: five minutes, exact threshold and recovery'
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x13
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x13
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x10 90 89 89
+  alert_rule_test:
+  - eval_time: 4m30s
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+        id: abc
+        name: web
+      exp_annotations:
+        summary: Container web on agent-a:9808 has high memory usage
+        description: Container abc has used more than 90% of its reported memory limit for 5 minutes. Check its
+          workload and memory limit.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#container-memory-high
+  - eval_time: 5m30s
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+- name: Exactly ninety percent never fires
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x12
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x12
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 90+0x12
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+- name: Memory spike resets before five minutes
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x20
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x20
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x8 89 95+0x8 89 89
+  alert_rule_test:
+  - eval_time: 9m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+- name: Lost readiness clears memory alert and restarts its timer
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x23
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x10 0 1+0x11
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x23
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+        id: abc
+        name: web
+      exp_annotations:
+        summary: Container web on agent-a:9808 has high memory usage
+        description: Container abc has used more than 90% of its reported memory limit for 5 minutes. Check its
+          workload and memory limit.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#container-memory-high
+  - eval_time: 5m30s
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+  - eval_time: 10m30s
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+        id: abc
+        name: web
+      exp_annotations:
+        summary: Container web on agent-a:9808 has high memory usage
+        description: Container abc has used more than 90% of its reported memory limit for 5 minutes. Check its
+          workload and memory limit.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#container-memory-high
+- name: Lost scrape clears memory alert even with old high samples
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x10 0+0x6
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x17
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x17
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+        id: abc
+        name: web
+      exp_annotations:
+        summary: Container web on agent-a:9808 has high memory usage
+        description: Container abc has used more than 90% of its reported memory limit for 5 minutes. Check its
+          workload and memory limit.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#container-memory-high
+  - eval_time: 5m30s
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+  - eval_time: 7m30s
+    alertname: MonitDockerAgentDown
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: critical
+      exp_annotations:
+        summary: monit-docker agent agent-a:9808 is unreachable
+        description: Prometheus has been unable to scrape this agent for 2 minutes. Check the agent process, address
+          and network.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#agent-unreachable
+  - eval_time: 8m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 8m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+- name: 'Container disappears: stale memory clears alert'
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x13
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x13
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x10 stale _ _
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+        id: abc
+        name: web
+      exp_annotations:
+        summary: Container web on agent-a:9808 has high memory usage
+        description: Container abc has used more than 90% of its reported memory limit for 5 minutes. Check its
+          workload and memory limit.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#container-memory-high
+  - eval_time: 5m30s
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+- name: Memory absent is unknown, with no memory alert
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x12
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x12
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: MonitDockerAgentDown
+    exp_alerts: []
+- name: Independent agents and jobs never borrow readiness
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 1+0x12
+  - series: monit_docker_ready{job="monit-docker",instance="agent-a:9808"}
+    values: 0+0x12
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x12
+  - series: up{job="monit-docker",instance="agent-b:9808"}
+    values: 1+0x12
+  - series: monit_docker_ready{job="monit-docker",instance="agent-b:9808"}
+    values: 1+0x12
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-b:9808",id="abc",name="web"}
+    values: 95+0x12
+  - series: up{job="monit-docker",instance="agent-c:9808"}
+    values: 0+0x12
+  - series: monit_docker_ready{job="monit-docker",instance="agent-c:9808"}
+    values: 0+0x12
+  - series: monit_docker_container_memory_usage_percent{job="monit-docker",instance="agent-c:9808",id="abc",name="web"}
+    values: 95+0x12
+  - series: up{job="another-job",instance="agent-a:9808"}
+    values: 1+0x12
+  - series: monit_docker_ready{job="another-job",instance="agent-a:9808"}
+    values: 1+0x12
+  - series: monit_docker_container_memory_usage_percent{job="another-job",instance="agent-a:9808",id="abc",name="web"}
+    values: 95+0x12
+  - series: up{job="another-job",instance="other:9808"}
+    values: 0+0x12
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-a:9808
+        severity: warning
+      exp_annotations:
+        summary: monit-docker collection on agent-a:9808 is not ready
+        description: The agent is reachable but has not reported fresh, successful collection for 3 minutes. Check
+          /v1/status, agent logs and Docker access.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#collection-not-ready
+  - eval_time: 6m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-b:9808
+        severity: warning
+        id: abc
+        name: web
+      exp_annotations:
+        summary: Container web on agent-b:9808 has high memory usage
+        description: Container abc has used more than 90% of its reported memory limit for 5 minutes. Check its
+          workload and memory limit.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#container-memory-high
+  - eval_time: 6m
+    alertname: MonitDockerAgentDown
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent-c:9808
+        severity: critical
+      exp_annotations:
+        summary: monit-docker agent agent-c:9808 is unreachable
+        description: Prometheus has been unable to scrape this agent for 2 minutes. Check the agent process, address
+          and network.
+        runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#agent-unreachable
+- name: Removed targets are outside the configured-target alert scope
+  interval: 30s
+  input_series:
+  - series: up{job="monit-docker",instance="agent-a:9808"}
+    values: 0 0 stale _ _ _ _ _ _ _ _ _ _
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: MonitDockerAgentDown
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: MonitDockerCollectionNotReady
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: MonitDockerContainerMemoryHigh
+    exp_alerts: []
