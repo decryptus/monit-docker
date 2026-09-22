@@ -1,5 +1,5 @@
-# Includes the merged strict send()/Streams API, pending its next PyPI release.
-dwho @ https://github.com/decryptus/dwho/archive/1328e566023948927384bf130ae602b98e71d114.tar.gz
+# Published release with the strict send()/Streams API.
+dwho==0.3.61
 httpdis==0.6.27
 sonicprobe==0.3.52
 redis==5.2.1

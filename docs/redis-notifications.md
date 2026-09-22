@@ -41,10 +41,15 @@ integration has its own delivery outcome; sending to several destinations is not
 an atomic transaction.
 
 The receiver is built locally. Its `requirements.txt` pins HTTPdis, sonicprobe,
-redis-py, and the merged dwho commit
-[`1328e566`](https://github.com/decryptus/dwho/commit/1328e566023948927384bf130ae602b98e71d114).
-That commit supplies the strict `send()` and Streams APIs; the next dwho PyPI
-release has not yet been substituted for this immutable source dependency.
+redis-py, and [dwho 0.3.61 from PyPI](https://pypi.org/project/dwho/0.3.61/).
+This release supplies the strict `send()` and Streams APIs. To update an existing
+receiver image after pulling these examples, run from `examples/monitoring`:
+
+```sh
+docker compose -f compose.yaml -f compose.notifications.yaml -f compose.redis.yaml \
+  build redis-webhook
+sh start.sh --redis
+```
 
 ## Read notifications
 
