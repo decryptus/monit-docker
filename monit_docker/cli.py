@@ -370,6 +370,48 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         run_server(monitor, self.options.bind, self.options.port)
 
 
+class MonitDockerSubCmdCheckConfig(object):
+    CMD_NAME = 'check-config'
+    CMD_HELP = 'validate configuration and rules without connecting to Docker'
+
+    def __init__(self, options):
+        self.options = options
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help=cls.CMD_HELP)
+        parser.add_argument('--output', choices=('text', 'json'), default='text')
+        parser.add_argument('--cmd', '--cmd-if', action='append', dest='cmd', default=[],
+                            help='validate an additional rule without executing it')
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        pass
+
+    def __call__(self):
+        from monit_docker.adapters.validation import check_configuration, ConfigurationCheckError
+        result = {'valid': False, 'errors': [], 'summary': {}}
+        try:
+            result['summary'] = check_configuration(
+                self.options.conffile, MONIT_DOCKER_CONFIG,
+                selectors=dict((kind, getattr(self.options, kind)) for kind in ('id', 'name', 'label', 'image')),
+                selected_groups=self.options.ctn_grp, client=self.options.client,
+                from_env=self.options.client_from_env, expressions=self.options.cmd)
+            result['valid'] = True
+        except ConfigurationCheckError as error:
+            result['errors'].append({'location': error.location, 'message': str(error)})
+        if self.options.output == 'json':
+            sys.stdout.write(json.dumps(result) + '\n')
+        elif result['valid']:
+            sys.stdout.write('Configuration valid: %s\n' % ', '.join(
+                '%s=%s' % (name, result['summary'][name]) for name in sorted(result['summary'])))
+        else:
+            for error in result['errors']:
+                sys.stdout.write('Configuration invalid: %s: %s\n' % (error['location'], error['message']))
+        return 0 if result['valid'] else 110
+
+
+_SUBCMDS['check-config'] = MonitDockerSubCmdCheckConfig
 _SUBCMDS['serve'] = MonitDockerSubCmdServe
 _SUBCMDS['cron'] = MonitDockerSubCmdCron
 _SUBCMDS['monit'] = MonitDockerSubCmdMonit
@@ -380,6 +422,10 @@ def main(options):
     """
     Main function
     """
+    # Offline validation must not create log/runtime/state files.
+    if options.subcommand == 'check-config':
+        return MonitDockerSubCmdCheckConfig(options)()
+
     xformat     = "%(levelname)s:%(asctime)-15s: %(message)s"
     datefmt     = '%Y-%m-%d %H:%M:%S'
     logging.basicConfig(level   = options.loglevel,
