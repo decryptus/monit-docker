@@ -50,12 +50,7 @@ build-git-commit:
         $(GIT_PATH) commit -a -F - || true
 
 build-git-version:
-	if [ -d "bin" ]; then \
-    	$(FIND_PATH) bin/ -type f | while read file; \
-    	do \
-        	$(SED_PATH) -i -e "s/^\(__version__\s*=\s*\)['\"]\(.*\)['\"]/\1'${PROJECT_VERSION}'/" "$$file"; \
-    	done \
-	fi ;
+	$(SED_PATH) -i -e "s/^\(__version__\s*=\s*\)['\"]\(.*\)['\"]/\1'${PROJECT_VERSION}'/" monit_docker/__init__.py
 
 push-git-version:
 	$(GIT_PATH) push
