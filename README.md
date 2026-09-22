@@ -70,6 +70,27 @@ Generate containers pidfile:
 
 `monit-docker monit --rsc pid`
 
+#### PHP-FPM graceful reload
+
+The PHP-FPM examples below (including the Monit configuration) use
+`kill -USR2 1` **inside the container**. They require the PHP-FPM master process
+to be PID 1. According to the [PHP-FPM manual](https://github.com/php/php-src/blob/master/sapi/fpm/php-fpm.8.in),
+`SIGUSR2` gracefully reloads the workers and reloads the FPM configuration and binary.
+
+If PID 1 is a supervisor or a wrapper script, target the actual PHP-FPM master
+PID inside the container instead. Obtain it from the PID file configured for
+your PHP-FPM installation, or use your supervisor's documented reload command.
+Do not target an arbitrary worker PID.
+
+For a PHP-FPM master running as PID 1:
+
+```sh
+monit-docker --name foo_php_fpm monit --cmd '(kill -USR2 1)'
+```
+
+The Docker SDK `reload` action only refreshes container metadata; it does not
+send `SIGUSR2` or reload PHP-FPM.
+
 Reload php-fpm in container with image name contains /php-fpm/ if memory usage greater than 100 MiB:
 
 `monit-docker --image '*/php-fpm/*' monit --cmd-if 'mem_usage > 100 MiB ? (kill -USR2 1)'`
@@ -231,7 +252,7 @@ If a command fails, `monit-docker` exits with code **116** and stops the current
 
 An unknown `--ctn-group` is a configuration error (110), including when no groups are configured. Commands already evaluated before resource collection are not evaluated again after collection.
 
-`reload` refreshes the Docker SDK object's metadata only. To reload an application, explicitly send its supported signal or execute its reload command inside the container. For example, `(kill -USR2 1)` applies only when PID 1 is an application that handles that signal, such as PHP-FPM.
+`reload` refreshes the Docker SDK object's metadata only; it does not reload application workers or configuration. For PHP-FPM, use `(kill -USR2 1)` only when its master is PID 1 inside the container, as explained in [PHP-FPM graceful reload](#php-fpm-graceful-reload). Otherwise, send `SIGUSR2` to the actual PHP-FPM master PID.
 
 Commands inside parentheses use Docker exec, without an implicit shell. For redirections, pipes or shell expansion, explicitly use a shell, for example `(sh -c "echo foo > /tmp/bar")`.
 
