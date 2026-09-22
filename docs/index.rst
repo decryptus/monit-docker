@@ -28,6 +28,7 @@ For installation and the command reference, see the
    metrics
    alerts
    notifications
+   redis-notifications
    grafana
 
 .. toctree::

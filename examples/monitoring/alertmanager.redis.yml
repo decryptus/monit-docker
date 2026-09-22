@@ -1,0 +1,17 @@
+route:
+  receiver: redis
+  group_by: [alertname, job, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: redis
+    webhook_configs:
+      - url: http://redis-webhook:9080/alerts
+        send_resolved: true
+        max_alerts: 0
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /run/secrets/redis_webhook_token

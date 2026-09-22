@@ -157,6 +157,11 @@ the provider. An Alertmanager outage cannot reliably report itself through that
 same delivery path. Grouping and retries reduce noise but do not guarantee
 exactly-once delivery.
 
+## Redis Streams
+
+To feed another application, add the optional [Alertmanager to Redis receiver](redis-notifications.md).
+It can share a receiver with email and Slack, and starts with `sh start.sh --redis`.
+
 ## Tests
 
 CI validates the Compose overlay and all receiver configurations, then runs the

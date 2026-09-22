@@ -4,11 +4,14 @@ set -eu
 cd "$(dirname "$0")"
 
 notifications=false
-case "$#:${1:-}" in
-    0:) ;;
-    1:--notifications) notifications=true ;;
-    *) printf '%s\n' 'Usage: sh start.sh [--notifications]' >&2; exit 2 ;;
-esac
+redis=false
+for option in "$@"; do
+    case "$option" in
+        --notifications) notifications=true ;;
+        --redis) notifications=true; redis=true ;;
+        *) printf '%s\n' 'Usage: sh start.sh [--notifications] [--redis]' >&2; exit 2 ;;
+    esac
+done
 
 docker compose version >/dev/null
 umask 077
@@ -24,6 +27,9 @@ fi
 set -- -f compose.yaml
 if [ "$notifications" = true ]; then
     set -- "$@" -f compose.notifications.yaml
+fi
+if [ "$redis" = true ]; then
+    set -- "$@" -f compose.redis.yaml
 fi
 docker compose --env-file .env "$@" up -d --wait --wait-timeout 240
 printf '%s\n' 'Monitoring stack started. Default Grafana URL: http://127.0.0.1:3000'

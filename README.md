@@ -29,6 +29,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
    - [Ready-to-run Docker Compose stack](docs/compose.md)
    - [Prometheus alerts and thresholds](docs/alerts.md)
    - [Email and Slack notification examples](docs/notifications.md)
+   - [Alertmanager to Redis Streams](docs/redis-notifications.md)
 5. [Prometheus metrics](docs/metrics.md) and [Grafana dashboard](docs/grafana.md)
 6. [Troubleshooting](docs/troubleshooting.md)
 7. [Environment variables](#environment_variables)
