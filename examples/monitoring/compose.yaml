@@ -39,6 +39,12 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      - type: bind
+        source: ./alerts.yml
+        target: /etc/prometheus/alerts.yml
+        read_only: true
+        bind:
+          create_host_path: false
       - prometheus-data:/prometheus
     healthcheck:
       test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:9090/-/ready']

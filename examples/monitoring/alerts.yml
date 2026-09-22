@@ -1,0 +1,37 @@
+groups:
+  - name: monit-docker
+    rules:
+      - alert: MonitDockerAgentDown
+        expr: up{job="monit-docker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'monit-docker agent {{ $labels.instance }} is unreachable'
+          description: 'Prometheus has been unable to scrape this agent for 2 minutes. Check the agent process, address and network.'
+          runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#agent-unreachable
+
+      - alert: MonitDockerCollectionNotReady
+        expr: |
+          (up{job="monit-docker"} == 1)
+          unless on (job, instance) (monit_docker_ready{job="monit-docker"} == 1)
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'monit-docker collection on {{ $labels.instance }} is not ready'
+          description: 'The agent is reachable but has not reported fresh, successful collection for 3 minutes. Check /v1/status, agent logs and Docker access.'
+          runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#collection-not-ready
+
+      - alert: MonitDockerContainerMemoryHigh
+        expr: |
+          (monit_docker_container_memory_usage_percent{job="monit-docker"} > 90)
+          and on (job, instance) (up{job="monit-docker"} == 1)
+          and on (job, instance) (monit_docker_ready{job="monit-docker"} == 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Container {{ $labels.name }} on {{ $labels.instance }} has high memory usage'
+          description: 'Container {{ $labels.id }} has used more than 90% of its reported memory limit for 5 minutes. Check its workload and memory limit.'
+          runbook_url: https://github.com/decryptus/monit-docker/blob/master/docs/alerts.md#container-memory-high
