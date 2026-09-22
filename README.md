@@ -245,3 +245,11 @@ python -m unittest discover -s tests -v
 ```
 
 Build the checked-out source with `docker build -t monit-docker:local .`. The Dockerfile installs this checkout in a virtual environment instead of fetching the published `monit-docker` package.
+
+## Docker Hub releases
+
+Pushing a stable `vX.Y.Z` release tag builds, tests and publishes
+`decryptus/monit-docker:X.Y.Z` and `decryptus/monit-docker:vX.Y.Z`.
+Branches and pull requests only validate the image; `latest` is not updated.
+See [Docker Hub setup and release instructions](docs/dockerhub.md), including
+the required `DOCKERHUB_TOKEN` repository secret.
