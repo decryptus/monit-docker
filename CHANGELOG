@@ -1,3 +1,15 @@
+monit-docker (0.0.65) unstable; urgency=medium
+
+  * Persist manual and automatic action lifecycles, actors and results.
+  * Journal notification receipts and adapter delivery outcomes separately.
+  * Add bounded JSONL retention, CSV export and explicit HTTPS forwarding.
+  * Protect textual fields before storage and every output with reversible escapes.
+  * Preserve legacy journals and document the versioned audit text contract.
+  * Use HTTPdis 0.6.28 native per-route request body limits.
+  * Remove the offline demo and point users to the live public playground.
+
+ -- Codex <codex@openai.com>  Wed, 23 Sep 2026 19:03:34 -0000
+
 monit-docker (0.0.64) unstable; urgency=medium
 
   * Protect selected containers from manual start, stop and restart by label.

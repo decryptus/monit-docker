@@ -1,7 +1,7 @@
 # Action and notification journal
 
-This feature is available in the source tree after 0.0.64. Build the agent and UI
-from this revision to try it; the published 0.0.64 images do not accept these flags.
+Available since **0.0.65** in the Python package and versioned Docker images.
+Use matching agent and UI versions; 0.0.64 does not accept the audit options.
 
 Actions and configured notification adapters write versioned JSONL events to a
 local journal, independently of diagnostic log verbosity. Every event includes a
@@ -105,7 +105,7 @@ bounded operational journal, not a tamper-proof compliance archive.
 Default actor: `anonymous`. An action token authenticates the proxy connection;
 it does not identify a person. This is also the honest identity on the public demo.
 
-For an authenticated UI, rebuild both images from this revision, ensure the
+For an authenticated UI, use agent and UI images 0.0.65 or later, ensure the
 agent can only be reached by the trusted proxy, and add `--trust-proxy-user` to
 `serve --allow-actions ...`. The shipped Nginx proxy overwrites `X-Monit-Actor`
 with its authenticated `$remote_user`. Missing/invalid identity is rejected when

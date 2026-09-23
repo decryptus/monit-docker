@@ -14,7 +14,7 @@
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/)
 
-For persistent action and notification history in the development version, see
+For persistent action and notification history, available since **0.0.65**, see
 the [audit journal guide](docs/audit.md).
 
 monit-docker is a free, open-source tool for checking Docker containers and
@@ -164,7 +164,7 @@ credentials, certificates and manual-action settings. Available since **0.0.63**
 
 ### Desktop
 
-The screenshots below show the **live public demo (0.0.64)**, including its
+The screenshots below show the **live public demo (captured with 0.0.64)**, including its
 shared-environment banner and protected infrastructure containers.
 
 ![Blue desktop interface showing container status, resources and optional controls](https://raw.githubusercontent.com/decryptus/monit-docker/master/ui/screenshots/demo-desktop.png)
