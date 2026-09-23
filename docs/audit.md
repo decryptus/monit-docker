@@ -73,7 +73,7 @@ notification webhook. Use a persistent mount and an explicit path:
 
 ```sh
 monit-docker --audit-file /var/lib/monit-docker/events.jsonl \
-  --audit-max-bytes 10485760 --audit-files 5 \
+  --audit-max-bytes 5242880 --audit-files 5 \
   serve --state-file /var/lib/monit-docker/state.json --cmd 'status == exited ? start'
 ```
 
@@ -84,13 +84,19 @@ Without `--audit-file` (or `MONIT_DOCKER_AUDIT_FILE`), the file is
 The existing manual-actions Compose example already persists the agent state
 directory. Deleting its volume also deletes its journal.
 
-Defaults retain **five files of at most 10 MiB each**, including the active file:
+The source default retains **five files of at most 5 MiB each** (25 MiB total),
+including the active file:
 `events.jsonl`, `.1` through `.4`. Oldest events expire by size, not age. Files use
 0600; newly created directories use 0700. Rotation and exports share a local
 filesystem lock, and writes are flushed before an operation begins. Use a local
 Linux filesystem; distributed/network filesystem guarantees are not assumed.
-Changing retention settings does not delete backups outside the new range; remove
-obsolete archives administratively after exporting them.
+Published 0.0.65 defaults to 10 MiB per file; pass `--audit-max-bytes 5242880`
+explicitly to use the smaller limit on that release. A lower limit applies to
+subsequent writes and rotations; it does not truncate existing larger archives.
+Export larger archives with their original `--audit-max-bytes` setting before
+archiving them separately or letting retention replace them. Changing the file
+count does not delete backups outside the new range; remove obsolete archives
+administratively after exporting them.
 
 If the initial write fails, the action or notification send does not begin. If
 the completion write fails after an operation, its real outcome is emitted to

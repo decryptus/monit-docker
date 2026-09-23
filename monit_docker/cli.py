@@ -20,6 +20,7 @@ import docker
 from docker.errors import APIError, DockerException
 from sonicprobe import helpers
 
+from monit_docker.audit import DEFAULT_MAX_BYTES
 from monit_docker.adapters.configuration import Configuration
 from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor, client_factory
 from monit_docker.adapters.rules import RuleParser
@@ -107,7 +108,7 @@ def argv_parse_check():
 
     parser.add_argument('--audit-file', default=os.environ.get('MONIT_DOCKER_AUDIT_FILE'),
                         help='persistent event journal (default: audit/events.jsonl beside state file, otherwise user state directory)')
-    parser.add_argument('--audit-max-bytes', type=int, default=10 * 1024 * 1024, help='maximum bytes per audit file (default: 10 MiB)')
+    parser.add_argument('--audit-max-bytes', type=int, default=DEFAULT_MAX_BYTES, help='maximum bytes per audit file (default: 5 MiB)')
     parser.add_argument('--audit-files', type=int, default=5, help='total retained audit files including active file (default: 5)')
     subparsers    = parser.add_subparsers(dest = 'subcommand',
                                           help = "choice sub-command")
@@ -149,7 +150,7 @@ def _audit_journal(options, explicit=False):
         directory = (os.path.join(os.path.dirname(os.path.abspath(state)), 'audit') if state else
                      os.path.join(os.environ.get('XDG_STATE_HOME') or os.path.expanduser('~/.local/state'), 'monit-docker', 'audit'))
         path = os.path.join(directory, 'events.jsonl')
-    return AuditJournal(path, getattr(options, 'audit_max_bytes', 10 * 1024 * 1024),
+    return AuditJournal(path, getattr(options, 'audit_max_bytes', DEFAULT_MAX_BYTES),
                         getattr(options, 'audit_files', 5))
 
 

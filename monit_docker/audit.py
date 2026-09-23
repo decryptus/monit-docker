@@ -22,6 +22,7 @@ from monit_docker.domain.errors import MonitoringError
 
 LOG = logging.getLogger('monit-docker.audit')
 MAX_RECORD_BYTES = 65536
+DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 _SCHEMA_VERSION = 2
 _FORMULA_PREFIXES = ('=', '+', '-', '@', '\uff1d', '\uff0b', '\uff0d', '\uff20')
 _TEXT_ESCAPE = re.compile(r'\\(?:\\|u[0-9a-f]{4}|U[0-9a-f]{8})')
@@ -118,7 +119,7 @@ def encoded(record):
 
 
 class AuditJournal:
-    def __init__(self, path, max_bytes=10 * 1024 * 1024, files=5, emit=True):
+    def __init__(self, path, max_bytes=DEFAULT_MAX_BYTES, files=5, emit=True):
         if not path or not str(path).strip() or max_bytes < MAX_RECORD_BYTES or not 1 <= files <= 100:
             raise ValueError('Audit journal requires a path, at least 65536 bytes and 1..100 files')
         self.path = Path(path).expanduser().absolute()
