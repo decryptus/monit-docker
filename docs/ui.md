@@ -43,7 +43,7 @@ To reproduce on a disposable Linux Docker host with Python 3, OpenSSL, Node and
 Playwright Chromium installed:
 
 ```sh
-MONIT_UI_RELEASE=0.0.63 \
+MONIT_UI_RELEASE=0.0.64 \
 PLAYWRIGHT_MODULE=/path/to/node_modules/playwright \
 UI_SCREENSHOTS=/tmp/monit-ui-release-results \
 python3 .github/scripts/check-ui-release.py
@@ -178,8 +178,8 @@ out explicitly (`"0"`, `"no"` and `"off"` are also accepted, ignoring case and
 surrounding whitespace). Any other value, including an empty value or typo,
 protects the container. Prefer the quoted `"true"` / `"false"` spelling above.
 
-This feature requires an agent and UI built from this revision or a release that
-includes it; the earlier `0.0.63` images do not enforce this label. Older UIs may
+This feature is available since **0.0.64** in both the agent and UI. The earlier
+`0.0.63` images do not enforce this label. Older UIs may
 still show enabled buttons, but the upgraded agent rejects protected actions.
 
 ## Authentication and network boundaries

@@ -1,3 +1,13 @@
+monit-docker (0.0.64) unstable; urgency=medium
+
+  * Protect selected containers from manual start, stop and restart by label.
+  * Keep monitoring and automatic remediation active on protected containers.
+  * Reject protected API requests and recheck protection before queued execution.
+  * Display a lock and disable controls for protected containers in the UI.
+  * Test direct API refusals, queued requests, real Docker and mobile layouts.
+
+ -- Codex <codex@openai.com>  Wed, 23 Sep 2026 13:42:43 +0000
+
 monit-docker (0.0.63) unstable; urgency=medium
 
   * Add a separate lightweight Community UI with desktop and mobile layouts.
