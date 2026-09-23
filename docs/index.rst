@@ -30,6 +30,7 @@ For installation and the command reference, see the
    metrics
    alerts
    notifications
+   audit
    redis-notifications
    dwho-http-notifications
    grafana

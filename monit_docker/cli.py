@@ -7,6 +7,7 @@
 from __future__ import absolute_import
 
 import argparse
+import getpass
 import json
 import logging
 import math
@@ -104,6 +105,10 @@ def argv_parse_check():
                         default = [],
                         help    = "match containers by name")
 
+    parser.add_argument('--audit-file', default=os.environ.get('MONIT_DOCKER_AUDIT_FILE'),
+                        help='persistent event journal (default: audit/events.jsonl beside state file, otherwise user state directory)')
+    parser.add_argument('--audit-max-bytes', type=int, default=10 * 1024 * 1024, help='maximum bytes per audit file (default: 10 MiB)')
+    parser.add_argument('--audit-files', type=int, default=5, help='total retained audit files including active file (default: 5)')
     subparsers    = parser.add_subparsers(dest = 'subcommand',
                                           help = "choice sub-command")
 
@@ -116,6 +121,10 @@ def argv_parse_check():
         parser.error("no argument is allowed - use option --help to get an help screen")
 
     options.loglevel = getattr(logging, options.loglevel.upper(), logging.INFO)
+    if options.audit_file is not None and not options.audit_file.strip():
+        parser.error('--audit-file must not be empty')
+    if options.audit_max_bytes < 65536 or not 1 <= options.audit_files <= 100:
+        parser.error('Audit retention requires at least 65536 bytes and 1..100 files')
 
     if getattr(options, 'subcommand') \
        and options.subcommand in _SUBCMDS:
@@ -128,6 +137,90 @@ def argv_parse_check():
 
 class MonitDockerExit(SystemExit):
     pass
+
+
+def _audit_journal(options, explicit=False):
+    from monit_docker.audit import AuditJournal
+    path = getattr(options, 'audit_file', None)
+    if not path:
+        if explicit:
+            raise MonitoringError(110, 'Specify --audit-file for export or forwarding')
+        state = getattr(options, 'state_file', None)
+        directory = (os.path.join(os.path.dirname(os.path.abspath(state)), 'audit') if state else
+                     os.path.join(os.environ.get('XDG_STATE_HOME') or os.path.expanduser('~/.local/state'), 'monit-docker', 'audit'))
+        path = os.path.join(directory, 'events.jsonl')
+    return AuditJournal(path, getattr(options, 'audit_max_bytes', 10 * 1024 * 1024),
+                        getattr(options, 'audit_files', 5))
+
+
+def _read_audit_token(path):
+    import re
+    try:
+        with open(path) as stream:
+            token = stream.read(67)
+        if not re.fullmatch('[0-9a-f]{64}\n?', token):
+            raise ValueError('Invalid token')
+        return token.strip()
+    except (OSError, ValueError, UnicodeError) as error:
+        raise MonitoringError(110, 'Notification token file must contain a 64-character hex secret') from error
+
+
+class MonitDockerSubCmdAudit:
+    CMD_NAME = 'audit-export'
+    CMD_HELP = 'export retained actions and notifications without connecting to Docker'
+
+    def __init__(self, options):
+        self.options = options
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help=cls.CMD_HELP)
+        parser.add_argument('--format', choices=('jsonl', 'csv'), default='jsonl')
+        parser.add_argument('--category', choices=('action', 'notification'))
+        parser.add_argument('--since', help='UTC/RFC3339 timestamp; export events at or after this time')
+        return parser
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        from datetime import datetime
+        if not options.audit_file:
+            parser.error('--audit-file is required for audit commands')
+        if options.since:
+            try:
+                options.since = datetime.fromisoformat(options.since.replace('Z', '+00:00'))
+                if options.since.tzinfo is None:
+                    raise ValueError('Timezone required')
+            except ValueError:
+                parser.error('--since must be an ISO timestamp with timezone')
+
+    def records(self):
+        from datetime import datetime
+        records = _audit_journal(self.options, explicit=True).read()
+        return [record for record in records
+                if (not self.options.category or record.get('category') == self.options.category)
+                and (not self.options.since or datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')) >= self.options.since)]
+
+    def __call__(self):
+        from monit_docker.audit import export_events
+        export_events(self.records(), sys.stdout, self.options.format)
+        return 0
+
+
+class MonitDockerSubCmdAuditSend(MonitDockerSubCmdAudit):
+    CMD_NAME = 'audit-send'
+    CMD_HELP = 'forward retained audit events to an HTTPS service; keep the local journal'
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = super().load_subcmd_parser(subparsers)
+        parser.add_argument('--url', required=True, help='HTTPS JSON event receiver')
+        parser.add_argument('--token-file', help='optional Bearer secret file')
+
+    def __call__(self):
+        from monit_docker.audit_forward import send_events
+        count = send_events(self.records(), self.options.url, self.options.token_file)
+        print('%d audit events acknowledged; local journal retained' % count, file=sys.stderr)
+        return 0
 
 
 class MonitDockerSubCmdStats(object):
@@ -147,7 +240,13 @@ class MonitDockerSubCmdStats(object):
             parser = RuleParser(config.get('commands'), config.get('conditions'))
             self.rules = tuple(parser.parse(expression) for expression in options.cmd)
         collector = DockerCollector(client_factory(config, options.client, options.client_from_env), selector)
-        self.engine = MonitoringEngine(collector, DockerActionExecutor(collector))
+        self.audit = None
+        if self.rules or getattr(options, 'allow_actions', False) or getattr(options, 'notification_token_file', None):
+            self.audit = _audit_journal(options)
+        source = 'manual' if options.subcommand == 'monit' else 'automatic'
+        actor = getpass.getuser() if source == 'manual' else 'cron' if options.subcommand == 'cron' else 'rule-engine'
+        self.engine = MonitoringEngine(collector, DockerActionExecutor(collector), audit=self.audit,
+                                       audit_source=source, audit_actor=actor)
 
     @classmethod
     def load_subcmd_parser(cls, subparsers):
@@ -352,6 +451,9 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--allow-actions', action='store_true', help='enable the authenticated manual action API')
         parser.add_argument('--action-origin', help='exact HTTPS browser origin allowed to submit actions')
         parser.add_argument('--action-token-file', help='file containing a 64-character hex proxy secret')
+        parser.add_argument('--trust-proxy-user', action='store_true',
+                            help='require X-Monit-Actor supplied and overwritten by the authenticated proxy')
+        parser.add_argument('--notification-token-file', help='enable private Alertmanager audit webhook with a separate Bearer secret')
         parser.add_argument('--action-cooldown', type=float, default=30,
                             help='minimum seconds between manual attempts per container (default: 30)')
         _add_trigger_options(parser)
@@ -400,6 +502,8 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--action-origin and --action-token-file require --allow-actions')
         if not math.isfinite(options.action_cooldown) or options.action_cooldown < 1:
             parser.error('--action-cooldown must be finite and at least 1 second')
+        if options.trust_proxy_user and not options.allow_actions:
+            parser.error('--trust-proxy-user requires --allow-actions')
         _validate_trigger_options(parser, options)
         if options.trigger_after and options.max_gap <= options.interval:
             parser.error('--max-gap must exceed --interval to allow time for collection')
@@ -436,9 +540,14 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
                 token = raw_token.rstrip('\n')
             except (OSError, UnicodeError, ValueError):
                 raise MonitoringError(110, 'action token file must contain a 64-character hex secret')
-            actions = ManualActions(self._manual_action, self.options.action_origin, token)
+            actions = ManualActions(self._manual_action, self.options.action_origin, token,
+                                    audit=self.audit, trust_actor=self.options.trust_proxy_user)
+        notifications = None
+        if self.options.notification_token_file:
+            from monit_docker.notification_audit import NotificationAudit
+            notifications = NotificationAudit(self.audit, _read_audit_token(self.options.notification_token_file))
         monitor = MonitorService(self._cycle, self.options.interval, self.options.stale_after,
-                                 manual_actions=actions)
+                                 manual_actions=actions, notification_audit=notifications)
         run_server(monitor, self.options.bind, self.options.port)
 
     def _manual_action(self, container_id, command):
@@ -498,6 +607,8 @@ class MonitDockerSubCmdCheckConfig(object):
         return 0 if result['valid'] else 110
 
 
+_SUBCMDS['audit-export'] = MonitDockerSubCmdAudit
+_SUBCMDS['audit-send'] = MonitDockerSubCmdAuditSend
 _SUBCMDS['check-config'] = MonitDockerSubCmdCheckConfig
 _SUBCMDS['serve'] = MonitDockerSubCmdServe
 _SUBCMDS['cron'] = MonitDockerSubCmdCron
@@ -510,8 +621,12 @@ def main(options):
     Main function
     """
     # Offline validation must not create log/runtime/state files.
-    if options.subcommand == 'check-config':
-        return MonitDockerSubCmdCheckConfig(options)()
+    if options.subcommand in ('check-config', 'audit-export', 'audit-send'):
+        try:
+            return _SUBCMDS[options.subcommand](options)()
+        except (MonitoringError, OSError, ValueError) as error:
+            print('Audit/validation operation failed (%s)' % type(error).__name__, file=sys.stderr)
+            return getattr(error, 'code', 119)
 
     xformat     = "%(levelname)s:%(asctime)-15s: %(message)s"
     datefmt     = '%Y-%m-%d %H:%M:%S'

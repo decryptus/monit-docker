@@ -177,3 +177,8 @@ three examples. They use no real mailbox, webhook or credentials.
 
 For routing and receiver options, see the
 [Alertmanager configuration reference](https://prometheus.io/docs/alerting/latest/configuration/).
+
+## Event journal
+
+See the [audit journal guide](audit.md) for persistent events, UTC timestamps,
+actors, delivery-result boundaries, JSONL/CSV export and external forwarding.

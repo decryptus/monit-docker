@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
+import tempfile
 from unittest.mock import Mock
 
 source = Path('/app/bridge.py') if __file__ == '<stdin>' else (
@@ -20,7 +21,10 @@ def payload():
 
 class ReceiverTests(unittest.TestCase):
     def setUp(self):
-        self.receiver = bridge.RedisWebhook('redis://localhost:6379/0', 'a' * 64)
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.audit = bridge.AuditJournal(Path(self.temp.name) / 'events.jsonl', emit=False)
+        self.receiver = bridge.RedisWebhook('redis://localhost:6379/0', 'a' * 64, audit=self.audit)
         self.receiver.notifier = Mock()
         self.request = SimpleNamespace(headers={'Content-Type': 'application/json'}, payload_params=payload)
 
@@ -29,6 +33,7 @@ class ReceiverTests(unittest.TestCase):
         result = self.receiver.receive(self.request)
         self.assertEqual(result.code, 202)
         self.assertEqual(json.loads(result.data)['id'], '123-0')
+        self.assertEqual(self.audit.read()[-1]['delivery_status'], 'accepted')
         self.assertEqual(self.receiver.notifier.send.call_args.args[2]['value'], payload())
 
     def test_failed_delivery_never_acknowledged(self):
@@ -36,6 +41,11 @@ class ReceiverTests(unittest.TestCase):
             with self.subTest(error=type(error)):
                 self.receiver.notifier.send.side_effect = error
                 self.assertEqual(self.receiver.receive(self.request).code, 503)
+
+    def test_persistence_failure_prevents_redis_send(self):
+        self.receiver.audit.record = Mock(side_effect=OSError('disk full'))
+        self.assertEqual(self.receiver.receive(self.request).code, 503)
+        self.receiver.notifier.send.assert_not_called()
 
     def test_invalid_or_truncated_group_is_never_written(self):
         for value in (None, [], {}, dict(payload(), truncatedAlerts=1), dict(payload(), alerts=[]),

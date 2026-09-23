@@ -12,7 +12,7 @@ LOG = logging.getLogger('monit-docker')
 
 class MonitorService(object):
     def __init__(self, cycle, interval=30, stale_after=90, clock=None, monotonic=None,
-                 manual_actions=None):
+                 manual_actions=None, notification_audit=None):
         self.cycle = cycle
         self.interval = interval
         self.stale_after = stale_after
@@ -21,6 +21,7 @@ class MonitorService(object):
         self._lock = Lock()
         self._operation = Lock()
         self.manual_actions = manual_actions
+        self.notification_audit = notification_audit
         self._last_success_tick = None
         self._data = dict(api_version=1, running=False, last_cycle_success=False,
                           last_cycle_finished_at=None, last_success_at=None,
@@ -102,7 +103,12 @@ class MonitorService(object):
         if not self.manual_actions or not self._operation.acquire(False):
             return False
         try:
-            request = self.manual_actions.take()
+            from monit_docker.audit import AuditError
+            try:
+                request = self.manual_actions.take()
+            except AuditError:
+                LOG.error('Manual action was not executed: audit journal unavailable')
+                return True
             if request is None:
                 return False
             # Measurements collected before a mutation are no longer current.

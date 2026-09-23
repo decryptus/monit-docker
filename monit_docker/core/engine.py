@@ -8,6 +8,9 @@ overlapping calls are rejected, not queued.
 """
 
 import logging
+import hashlib
+import time
+import uuid
 import sys
 from threading import Lock
 
@@ -21,7 +24,9 @@ LOG = logging.getLogger('monit-docker')
 
 
 class MonitoringEngine(object):
-    def __init__(self, collector, executor, evaluator=None):
+    def __init__(self, collector, executor, evaluator=None, audit=None, audit_source='automatic', audit_actor='rule-engine'):
+        self.audit_source, self.audit_actor = audit_source, audit_actor
+        self.audit = audit
         self.collector = collector
         self.executor = executor
         self.evaluator = evaluator or RuleEvaluator()
@@ -146,14 +151,36 @@ class MonitoringEngine(object):
         status = ('pending' if not ready else 'cooldown' if not allowed
                   else 'dry-run' if dry_run else 'execute')
         for action in rule.actions:
+            correlation = uuid.uuid4().hex
+            fields = dict(correlation_id=correlation, source=self.audit_source, actor=self.audit_actor,
+                          container_id=snapshot.id, container_name=snapshot.name,
+                          action=action.command if action.kind == 'docker' else 'exec',
+                          command_id=hashlib.sha256(repr(action).encode('utf-8')).hexdigest(),
+                          rule_id=hashlib.sha256(rule.source.encode('utf-8')).hexdigest())
             if status != 'execute':
+                if self.audit:
+                    self.audit.record('action', 'skipped', result='simulated' if dry_run else 'skipped', reason=status, **fields)
                 if on_action:
                     on_action(ActionDecision(snapshot.id, rule.source, action.command, status))
                 continue
-            success = self.executor.execute(snapshot.id, action)
-            if not success:
-                raise MonitoringError(116, 'command failed on %s: %r' %
-                                      (snapshot.name, action.command))
+            if self.audit:
+                self.audit.record('action', 'started', result='pending', **fields)
+            started = time.monotonic()
+            try:
+                success = self.executor.execute(snapshot.id, action)
+                if not success:
+                    raise MonitoringError(116, 'command failed on %s: %r' %
+                                          (snapshot.name, action.command))
+            except Exception as error:
+                if self.audit:
+                    self.audit.finish('action', 'completed', result='failed',
+                                      reason=type(error).__name__, error_code=getattr(error, 'code', None),
+                                      exit_code=getattr(error, 'exit_code', None),
+                                      duration_ms=round((time.monotonic() - started) * 1000), **fields)
+                raise
+            if self.audit:
+                self.audit.finish('action', 'completed', result='succeeded',
+                                  duration_ms=round((time.monotonic() - started) * 1000), **fields)
             results.append(ActionResult(snapshot.id, rule.source, action.command, True))
             if on_action:
                 on_action(ActionDecision(snapshot.id, rule.source, action.command, 'executed'))

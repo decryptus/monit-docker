@@ -127,3 +127,8 @@ checks Prometheus discovers Alertmanager, grouped firing/resolved delivery,
 authentication, malformed/oversized requests, a Redis outage with Alertmanager
 retry after recovery, AOF history across a Redis restart, and exact stream
 retention. Tests use disposable local services and dummy credentials.
+
+## Event journal
+
+See the [audit journal guide](audit.md) for persistent events, UTC timestamps,
+actors, delivery-result boundaries, JSONL/CSV export and external forwarding.

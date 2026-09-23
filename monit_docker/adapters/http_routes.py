@@ -5,6 +5,7 @@ import json
 from httpdis import httpdis
 
 from monit_docker.domain.errors import ActionRejected
+from monit_docker.audit import AuditError
 from monit_docker.outputs.prometheus import render_metrics
 
 
@@ -49,14 +50,27 @@ def metrics(request):
 def submit_action(request):
     monitor = request.server.monitor
     try:
-        record = monitor.manual_actions.submit(request.payload_params(), monitor.status())
+        record = monitor.manual_actions.submit(request.payload_params(), monitor.status(), actor=getattr(request, 'audit_actor', 'anonymous'))
+    except AuditError:
+        return json_response(dict(error='audit_unavailable'), 503)
     except ActionRejected as error:
         code = _REJECTION_CODES.get(error.reason, 409)
         return json_response(dict(error = error.reason), code)
     return json_response(record, 202)
 
 
-_ROUTES = ({'name': 'healthz',     'op': _READ_METHODS,  'handler': health},
+def notification(request):
+    try:
+        count = request.server.monitor.notification_audit.receive(request.payload_params())
+    except ValueError:
+        return json_response(dict(error='invalid_notification'), 400)
+    except AuditError:
+        return json_response(dict(error='audit_unavailable'), 503)
+    return json_response(dict(recorded=count, delivery_status='not_reported'), 202)
+
+
+_ROUTES = ({'name': 'v1/notifications', 'op': _WRITE_METHODS, 'handler': notification, 'to_auth': True},
+           {'name': 'healthz',     'op': _READ_METHODS,  'handler': health},
            {'name': 'readyz',     'op': _READ_METHODS,  'handler': readiness},
            {'name': 'v1/status',  'op': _READ_METHODS,  'handler': status},
            {'name': 'metrics',    'op': _READ_METHODS,  'handler': metrics},
