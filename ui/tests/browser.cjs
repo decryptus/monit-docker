@@ -27,7 +27,7 @@ async function main() {
     page.on('pageerror', error => errors.push(error.message));
     const names = ['web-frontend', 'api-service', 'postgres-primary', 'redis-cache', 'nightly-backup'];
     let state = {
-      api_version: 1, ready: true, running: false, last_cycle_success: true,
+      api_version: 1, audit_enabled: true, ready: true, running: false, last_cycle_success: true,
       last_success_at: 1790129400, last_cycle_finished_at: 1790129400, age_seconds: 2,
       last_error_code: null, cycles_total: 2841, errors_total: 0,
       actions: {executed: 3, cooldown: 8, pending: 1, 'dry-run': 0},
@@ -54,6 +54,7 @@ async function main() {
     await page.goto(base);
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Healthy');
     await page.locator('#auto').uncheck();
+    assert.equal(await page.locator('#journal-link').isVisible(), true);
     assert.equal(await page.locator('.container-row').count(), 5);
     assert.equal(await page.locator('.container-row button:visible').count(), 9);
     // Protected containers stay visible, with disabled controls for every state.
@@ -107,6 +108,7 @@ async function main() {
     await page.getByRole('button', {name: 'Restart api-service', exact: true}).click();
     await page.locator('#confirm-action').click();
     await page.waitForFunction(() => document.getElementById('notice').textContent.includes('unconfirmed'));
+    assert.equal(await page.locator('#journal-link').isVisible(), true);
     assert.equal(posts, 2);
     assert.equal(await page.getByRole('button', {name: 'Restart api-service', exact: true}).isDisabled(), true);
     // A new page clears local display state; API remains authoritative.
@@ -122,10 +124,11 @@ async function main() {
     await page.locator('#refresh').click();
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Offline');
     assert.equal(await page.locator('.container-row').count(), 0);
-    offline = false; delete state.manual_actions;
+    offline = false; delete state.manual_actions; delete state.audit_enabled;
     await page.locator('#refresh').click();
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Healthy');
     assert.equal(await page.locator('.container-row button:visible').count(), 0);
+    assert.equal(await page.locator('#journal-link').isVisible(), false);
     assert.equal(posts, 2);
     assert.deepEqual(errors, []);
     console.log('Browser checks passed: protection, mobile/desktop, XSS text, confirmations, queue, stale/offline, old API.');

@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 from httpdis import httpdis
 from sonicprobe.libs.threading_tcp_server import KillableThreadingHTTPServer
 
-from monit_docker.adapters.http_routes import (allowed_methods,
+from monit_docker.adapters.http_routes import (_AUDIT_READ_PATHS, allowed_methods,
                                                json_response,
                                                register_routes)
 
@@ -68,7 +68,21 @@ class StatusHandler(httpdis.HttpReqHandler):
         self.end_response(response)
 
     def authenticate(self, auth_users = None):
-        if urlsplit(self.path).path == '/v1/notifications':
+        path = self._path
+        if path in _AUDIT_READ_PATHS:
+            reader = self.server.monitor.audit_reader
+            if reader is None:
+                raise self.req_error(404)
+            tokens = self.headers.get_all('X-Monit-Audit-Token')
+            actors = self.headers.get_all('X-Monit-Actor')
+            if (not tokens or len(tokens) != 1
+                    or not hmac.compare_digest(tokens[0].encode('utf-8'), reader.token.encode('ascii'))
+                    or not actors or len(actors) != 1 or not actors[0].strip() or len(actors[0]) > 128
+                    or any(ord(c) < 32 or ord(c) == 127 for c in actors[0])):
+                raise self.req_error(403, 'forbidden')
+            self.audit_actor = actors[0]
+            return
+        if path == '/v1/notifications':
             receiver = self.server.monitor.notification_audit
             if receiver is None:
                 raise self.req_error(405)

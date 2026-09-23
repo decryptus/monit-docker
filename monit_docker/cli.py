@@ -163,7 +163,7 @@ def _read_audit_token(path):
             raise ValueError('Invalid token')
         return token.strip()
     except (OSError, ValueError, UnicodeError) as error:
-        raise MonitoringError(110, 'Notification token file must contain a 64-character hex secret') from error
+        raise MonitoringError(110, 'Audit token file must contain a 64-character hex secret') from error
 
 
 class MonitDockerSubCmdAudit:
@@ -242,7 +242,7 @@ class MonitDockerSubCmdStats(object):
             self.rules = tuple(parser.parse(expression) for expression in options.cmd)
         collector = DockerCollector(client_factory(config, options.client, options.client_from_env), selector)
         self.audit = None
-        if self.rules or getattr(options, 'allow_actions', False) or getattr(options, 'notification_token_file', None):
+        if self.rules or getattr(options, 'allow_actions', False) or getattr(options, 'notification_token_file', None) or getattr(options, 'audit_read_token_file', None):
             self.audit = _audit_journal(options)
         source = 'manual' if options.subcommand == 'monit' else 'automatic'
         actor = getpass.getuser() if source == 'manual' else 'cron' if options.subcommand == 'cron' else 'rule-engine'
@@ -454,6 +454,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--action-token-file', help='file containing a 64-character hex proxy secret')
         parser.add_argument('--trust-proxy-user', action='store_true',
                             help='require X-Monit-Actor supplied and overwritten by the authenticated proxy')
+        parser.add_argument('--audit-read-token-file', help='enable private journal reads through an authenticated proxy with a separate secret')
         parser.add_argument('--notification-token-file', help='enable private Alertmanager audit webhook with a separate Bearer secret')
         parser.add_argument('--action-cooldown', type=float, default=30,
                             help='minimum seconds between manual attempts per container (default: 30)')
@@ -503,6 +504,8 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--action-origin and --action-token-file require --allow-actions')
         if not math.isfinite(options.action_cooldown) or options.action_cooldown < 1:
             parser.error('--action-cooldown must be finite and at least 1 second')
+        if options.audit_read_token_file and not options.audit_file:
+            parser.error('--audit-read-token-file requires an explicit --audit-file')
         if options.trust_proxy_user and not options.allow_actions:
             parser.error('--trust-proxy-user requires --allow-actions')
         _validate_trigger_options(parser, options)
@@ -547,8 +550,15 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         if self.options.notification_token_file:
             from monit_docker.notification_audit import NotificationAudit
             notifications = NotificationAudit(self.audit, _read_audit_token(self.options.notification_token_file))
+        reader = None
+        if self.options.audit_read_token_file:
+            from monit_docker.audit_query import AuditReader
+            read_token = _read_audit_token(self.options.audit_read_token_file)
+            if (actions and read_token == actions.token) or (notifications and read_token == notifications.token):
+                raise MonitoringError(110, 'audit read secret must differ from action and notification secrets')
+            reader = AuditReader(self.audit, read_token)
         monitor = MonitorService(self._cycle, self.options.interval, self.options.stale_after,
-                                 manual_actions=actions, notification_audit=notifications)
+                                 manual_actions=actions, notification_audit=notifications, audit_reader=reader)
         run_server(monitor, self.options.bind, self.options.port)
 
     def _manual_action(self, container_id, command):

@@ -37,6 +37,7 @@ jobs:
         env:
           UI_ORIGIN: https://localhost:8443
         run: |
+          docker compose -f examples/ui/compose.yaml -f examples/ui/compose.journal.yaml config --quiet
           docker compose -f examples/ui/compose.yaml -f examples/ui/compose.actions.yaml config --format json > "$RUNNER_TEMP/ui-compose.json"
           python - "$RUNNER_TEMP/ui-compose.json" <<'PY'
           import json, sys
@@ -55,6 +56,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/ui-browser" --no-audit --no-fund playwright@1.55.0
           "$RUNNER_TEMP/ui-browser/node_modules/.bin/playwright" install --with-deps chromium
           node ui/tests/browser.cjs
+          node ui/tests/journal.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -15,7 +15,8 @@
 [Live demo](https://demo.monit-docker.com/)
 
 For persistent action and notification history, available since **0.0.65**, see
-the [audit journal guide](docs/audit.md).
+the [audit journal guide](docs/audit.md). The source tree also includes an optional
+authenticated journal page with filters, bounded reads and page exports.
 
 monit-docker is a free, open-source tool for checking Docker containers and
 optionally taking action when a condition matches, such as restarting a stopped

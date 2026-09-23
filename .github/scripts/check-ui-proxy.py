@@ -25,6 +25,7 @@ from monit_docker.domain.models import ContainerSnapshot
 from monit_docker.domain.rules import CycleResult
 from monit_docker.manual_actions import ManualActions
 from monit_docker.audit import AuditJournal
+from monit_docker.audit_query import AuditReader
 from monit_docker.service import MonitorService
 
 
@@ -35,6 +36,7 @@ def command(*args):
 def main():
     identifier = 'a' * 64
     token = secrets.token_hex(32)
+    audit_token = secrets.token_hex(32)
     calls = []
     actions = ManualActions(lambda *args: calls.append(args), 'https://localhost:18443', token, trust_actor=True)
     monitor = MonitorService(lambda _: CycleResult((ContainerSnapshot(
@@ -67,6 +69,8 @@ def main():
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             actions.audit = AuditJournal(root / 'events.jsonl', emit=False)
+            monitor.audit_reader = AuditReader(actions.audit, audit_token)
+            (root / 'proxy-audit.conf').write_text('proxy_set_header X-Monit-Audit-Token "' + audit_token + '";\n')
             hashed = subprocess.run(['openssl', 'passwd', '-6', '-stdin'], input='local-test-password\n',
                                     text=True, stdout=subprocess.PIPE, check=True).stdout
             (root / 'htpasswd').write_text('test:' + hashed)
@@ -77,7 +81,7 @@ def main():
             # Keep the shipped config, changing only the fixture's agent port.
             config = Path('ui/nginx/proxy.conf').read_text().replace(':9808', ':19808')
             (root / 'proxy.conf').write_text(config)
-            mounts = []
+            mounts = ['-v', '%s:/etc/nginx/monit-audit.conf:ro' % (root / 'proxy-audit.conf')]
             for file in ('htpasswd', 'proxy-action.conf', 'tls.key', 'tls.crt'):
                 mounts.extend(['-v', '%s:/run/secrets/%s:ro' % (root / file, file)])
             mounts.extend(['-v', '%s:/etc/nginx/monit-proxy.conf:ro' % (root / 'proxy.conf')])
@@ -92,7 +96,7 @@ def main():
                 time.sleep(.1)
             else:
                 raise AssertionError('Nginx did not become ready')
-            for path in ('/', '/app.js', '/app.css', '/v1/status', '/v1/actions'):
+            for path in ('/', '/logs', '/logs.js', '/app.js', '/app.css', '/v1/status', '/v1/actions', '/v1/audit', '/v1/audit/export'):
                 body = {} if path == '/v1/actions' else None
                 assert request(path, None, body)[0] == 401, path
             code, page, headers = request('/')
@@ -117,6 +121,17 @@ def main():
             assert calls == [(identifier, 'restart')], calls
             assert all(event['actor'] == 'test' for event in actions.audit.read())
             assert actions.audit.read()[-1]['result'] == 'succeeded'
+            assert request('/logs')[0] == 200
+            code, data, _ = request('/v1/audit', extra={'X-Monit-Audit-Token': 'forged', 'X-Monit-Actor': 'forged'})
+            assert code == 200
+            page = json.loads(data)
+            assert page['records'] and all(record['actor'] == 'test' for record in page['records'])
+            assert audit_token not in json.dumps(status)
+            code, data, headers = request('/v1/audit/export?format=csv&cursor=' + page['page_cursor'])
+            assert code == 200 and 'attachment;' in headers['Content-Disposition']
+            assert b'test' in data
+            monitor.audit_reader = None
+            assert request('/v1/audit')[0] == 404
             # The private API does not trust an Origin or forwarded username alone.
             req = urllib.request.Request('http://127.0.0.1:19808/v1/actions', json.dumps(body).encode(),
                                          {'Origin': actions.origin, 'Content-Type': 'application/json',

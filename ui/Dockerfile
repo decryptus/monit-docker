@@ -7,5 +7,6 @@ LABEL org.opencontainers.image.title="monit-docker-ui" \
 COPY static/ /usr/share/nginx/html/
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY nginx/proxy.conf /etc/nginx/monit-proxy.conf
+COPY nginx/audit.conf /etc/nginx/monit-audit.conf
 
 EXPOSE 443

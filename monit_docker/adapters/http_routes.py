@@ -1,13 +1,19 @@
 """HTTPdis route declarations and serialization for the monitoring API."""
 
 import json
+import io
+from urllib.parse import urlsplit
 
 from httpdis import httpdis
 
 from monit_docker.domain.errors import ActionRejected
-from monit_docker.audit import AuditError
+from monit_docker.audit import AuditError, export_events
+from monit_docker.audit_query import QueryError
 from monit_docker.outputs.prometheus import render_metrics
 
+
+_AUDIT_EXPORT_TYPES        = {'jsonl': 'application/x-ndjson; charset=utf-8', 'csv': 'text/csv; charset=utf-8'}
+_AUDIT_READ_PATHS          = ('/v1/audit', '/v1/audit/export')
 
 _ACTION_MAX_BODY_SIZE       = 1024
 _NOTIFICATION_MAX_BODY_SIZE = 64 * 1024
@@ -72,7 +78,24 @@ def notification(request):
     return json_response(dict(recorded=count, delivery_status='not_reported'), 202)
 
 
-_ROUTES = ({'name': 'v1/notifications', 'op': _WRITE_METHODS, 'handler': notification,
+def audit_page(request):
+    try:
+        page, format = request.server.monitor.audit_reader.page(urlsplit(request.path).query, request.audit_actor)
+        if request._path == '/v1/audit/export':
+            output = io.StringIO()
+            export_events(page['records'], output, format)
+            headers = _RESPONSE_HEADERS.copy()
+            headers['Content-Type'] = _AUDIT_EXPORT_TYPES[format]
+            headers['Content-Disposition'] = 'attachment; filename="monit-docker-events.' + format + '"'
+            return httpdis.HttpResponse(200, output.getvalue(), headers)
+        return json_response(page)
+    except QueryError as error:
+        return json_response(dict(error=error.reason), error.code)
+
+
+_ROUTES = ({'name': 'v1/audit', 'op': _READ_METHODS, 'handler': audit_page, 'to_auth': True},
+           {'name': 'v1/audit/export', 'op': _READ_METHODS, 'handler': audit_page, 'to_auth': True},
+           {'name': 'v1/notifications', 'op': _WRITE_METHODS, 'handler': notification,
             'to_auth': True, 'max_body_size': _NOTIFICATION_MAX_BODY_SIZE},
            {'name': 'healthz',     'op': _READ_METHODS,  'handler': health},
            {'name': 'readyz',     'op': _READ_METHODS,  'handler': readiness},
