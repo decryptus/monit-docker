@@ -136,18 +136,25 @@ to preserve its first-container exit behavior. Its exceptions still trigger clea
 calls the executor; `CycleResult.actions` includes only successful executions.
 The optional `on_action` callback receives an `ActionDecision(container_id, rule,
 command, status)` for each skipped, simulated or successful action. Its exceptions
-abort the cycle with normal cleanup. Decisions use `cooldown`, `dry-run` or
+abort the cycle with normal cleanup. Decisions use `pending`, `cooldown`, `dry-run` or
 `executed` statuses and are internal values, not a frozen HTTP protocol.
 
 An optional policy exposes `claim(container_id, rule, read_only=False) -> bool`.
-The engine calls it once per matching rule before the first action. The CLI
-composes `CooldownPolicy(state, rules, seconds)` with a locked `LocalState`;
-the policy depends only on `reserve(key, now, seconds, read_only=False) -> bool`
+The engine calls it once per eligible matching rule before the first action.
+An optional `observe(container_id, rule, matched, read_only=False) -> bool` hook
+sees true and false evaluations and can keep matching rules pending. Policies
+with only `claim` remain supported. The CLI
+composes a per-cycle `TriggerPolicy` extending `CooldownPolicy` with a locked `LocalState`;
+the cooldown policy depends only on `reserve(key, now, seconds, read_only=False) -> bool`
 and an injectable clock. Identity serialization happens for all selected rules
 before the cycle. The state adapter records the cooldown durably before allowing
 execution. Failed or interrupted rule sequences retain their reservation, while
 dry runs simulate reservations in memory only. No persistence code or product
-flags enter the engine. See [cron semantics](cron.md) for retries and limits.
+flags enter the engine. `TriggerPolicy` additionally uses `observations` and
+`replace_observations` on the state interface; it clears durable tracking before
+collection and restores only observed true conditions. Trigger timing and
+cooldown identity remain separate. See [trigger delay semantics](trigger-delay.md)
+for reset, partial failure, preview and state migration behavior. See [cron semantics](cron.md) for retries and limits.
 
 The first failed action aborts the cycle with `MonitoringError(116, ...)`;
 absence of containers uses 114, and an exhausted statistics stream without two
@@ -201,7 +208,7 @@ selector and rule parsers, and offline condition checks. It bypasses runtime/log
 initialization and Docker client construction; text/JSON diagnostics are owned by
 the CLI. See [configuration validation](check-config.md).
 
-Still pending: persisted trigger delays, a cycle-wide deadline and an embedded UI. A client timeout can be configured through existing
+Still pending: a cycle-wide deadline and an embedded UI. A client timeout can be configured through existing
 client settings; it is not an overall cycle deadline. Configuration is fixed for
 each constructed CLI command; automatic reload is not added.
 Legacy Python versions advertised by the package are not exercised by the CI

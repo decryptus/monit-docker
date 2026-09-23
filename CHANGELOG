@@ -1,3 +1,14 @@
+monit-docker (0.0.62) unstable; urgency=medium
+
+  * Add persistent trigger delays for autonomous cron and serve remediation.
+  * Require explicit observation gaps and expose pending decisions in metrics.
+  * Validate observations and cooldowns before changing durable state.
+  * Guard state lock re-entry and inherited descriptors after fork.
+  * Require Sonicprobe 0.3.53 with the reviewed concurrency fixes.
+  * Document timing, migration, dry runs and local-state process boundaries.
+
+ -- Codex <codex@openai.com>  Wed, 23 Sep 2026 02:00:00 +0000
+
 monit-docker (0.0.61) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.61.

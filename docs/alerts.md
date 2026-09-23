@@ -5,6 +5,10 @@ The [Compose stack](compose.md) loads three alert rules from
 mode**. Simple commands and cron need no Prometheus installation and keep their
 existing exit-code behavior.
 
+For autonomous container actions, cron and serve also offer an optional
+[local trigger delay](trigger-delay.md). It is configured separately and does not
+alter these Prometheus alert durations.
+
 ## Defaults
 
 | Alert | Condition | Continuous duration | Severity |

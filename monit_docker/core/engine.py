@@ -38,7 +38,8 @@ class MonitoringEngine(object):
         on_snapshot, if supplied, consumes each completed container in order;
         its exceptions abort the cycle after releasing collector resources.
         dry_run reports matching actions without calling the executor. An
-        optional action_policy claims a rule before its first action, and
+        optional action_policy claims a rule before its first action. Its optional
+        observe(id, rule, matched, read_only=False) hook can delay a matched rule;
         on_action receives skipped, simulated and successful action decisions.
         No stdout, process exit, scheduler or persistent state belongs here.
         """
@@ -98,11 +99,15 @@ class MonitoringEngine(object):
                 LOG.exception('collector cleanup failed; preserving the cycle error')
 
     def _apply(self, rule, snapshot, results, dry_run, action_policy, on_action):
-        if not self.evaluator.matches(rule, snapshot):
+        matched = self.evaluator.matches(rule, snapshot)
+        observe = getattr(action_policy, 'observe', None)
+        ready = observe is None or observe(snapshot.id, rule, matched, read_only=dry_run)
+        if not matched:
             return
-        allowed = action_policy is None or action_policy.claim(
-            snapshot.id, rule, read_only=dry_run)
-        status = 'cooldown' if not allowed else 'dry-run' if dry_run else 'execute'
+        allowed = ready and (action_policy is None or action_policy.claim(
+            snapshot.id, rule, read_only=dry_run))
+        status = ('pending' if not ready else 'cooldown' if not allowed
+                  else 'dry-run' if dry_run else 'execute')
         for action in rule.actions:
             if status != 'execute':
                 if on_action:

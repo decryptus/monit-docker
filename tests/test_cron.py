@@ -112,6 +112,72 @@ class LocalStateTests(unittest.TestCase):
         self.assertEqual(data['cooldowns'], {'b' * 64: 410})
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
+    def test_invalid_reservation_preserves_file_and_memory(self):
+        with LocalState(str(self.path)) as state:
+            state.reserve(self.key, 100, 300)
+            before = self.path.read_bytes(), self.path.stat().st_mtime_ns
+            cases = [('bad', 100, 300), (1, 100, 300), ([], 100, 300),
+                     (self.key, True, 300), (self.key, 100, False),
+                     (self.key, 10 ** 400, 1), (self.key, 1, float('nan')),
+                     (self.key, -1, 300), (self.key, 1e308, 1e308)]
+            for read_only in (False, True):
+                for key, now, seconds in cases:
+                    with self.subTest(key=key, now=now, seconds=seconds, read_only=read_only):
+                        with self.assertRaises(ValueError):
+                            state.reserve(key, now, seconds, read_only=read_only)
+                        self.assertEqual(state.entries, {self.key: 400})
+                        self.assertEqual((self.path.read_bytes(), self.path.stat().st_mtime_ns), before)
+
+    def test_reentry_rejected_without_losing_outer_lock(self):
+        state = LocalState(str(self.path))
+        body = ('try:\n with LocalState(sys.argv[1]): pass\n'
+                'except MonitoringError as error: sys.exit(error.code)\n')
+        with state:
+            fd = state.lock_fd
+            with self.assertRaises(RuntimeError):
+                with state:
+                    self.fail('nested entry accepted')
+            self.assertEqual(state.lock_fd, fd)
+            state.reserve(self.key, 100, 300)
+            self.assertEqual(self.child(body).returncode, 117)
+        self.assertEqual(self.child(body).returncode, 0)
+        with state:
+            self.assertFalse(state.reserve(self.key, 200, 300))
+
+    def test_forked_child_cannot_write_through_inherited_state(self):
+        result = self.child("with LocalState(sys.argv[1]) as state:\n"
+                            " state.reserve('a' * 64, 100, 300)\n"
+                            " pid = os.fork()\n"
+                            " if pid == 0:\n"
+                            "  for operation in (lambda: state.reserve('b' * 64, 100, 300),\n"
+                            "                    lambda: state.replace_observations({'c' * 64: [1, 2]})):\n"
+                            "   try: operation()\n"
+                            "   except RuntimeError: pass\n"
+                            "   else: os._exit(1)\n"
+                            "  os._exit(0)\n"
+                            " _, status = os.waitpid(pid, 0)\n"
+                            " assert status == 0\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with LocalState(str(self.path)) as state:
+            self.assertEqual(state.entries, {self.key: 400})
+            self.assertEqual(state.observations, {})
+
+    def test_failure_after_rename_preserves_reservation_for_next_attempt(self):
+        original = os.fsync
+        calls = []
+        def fsync(fd):
+            calls.append(fd)
+            if len(calls) == 2:
+                raise OSError('directory sync failed')
+            original(fd)
+        with self.assertRaises(MonitoringError) as error:
+            with LocalState(str(self.path)) as state, patch(
+                    'monit_docker.adapters.state.os.fsync', side_effect=fsync):
+                state.reserve(self.key, 100, 300)
+        self.assertEqual(error.exception.code, 118)
+        with LocalState(str(self.path)) as state:
+            self.assertFalse(state.reserve(self.key, 101, 300))
+
 
 class CronCliTests(unittest.TestCase):
     setUp = legacy.RegressionTests.setUp

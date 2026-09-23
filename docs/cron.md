@@ -26,7 +26,7 @@ must be writable by the cron user, who also needs Docker access. New directories
 are created with mode 0700, and new state and lock files with mode 0600.
 
 Dry run collects real container data and evaluates the rules. It emits one JSON
-line per matching action, with status `dry-run` or `cooldown`, and never calls
+line per matching action, with status `dry-run`, `cooldown` or `pending`, and never calls
 the action executor. It does not create or change the JSON state file; it may
 create the directory and lock file needed to obtain a consistent state snapshot.
 Reservations are simulated in memory to handle duplicate rules within the cycle.
@@ -51,7 +51,7 @@ with five minutes between attempts of the same rule on the same container:
 Adjust the executable path to your installation. Cron must have the required
 configuration and Docker environment variables; it does not inherit your
 interactive shell environment. Normal execution emits JSON action decisions
-with status `executed` or `cooldown`. Existing diagnostic logging goes to stderr
+with status `executed`, `cooldown` or `pending`. Existing diagnostic logging goes to stderr
 and the configured log file. Cron may mail the output according to local settings.
 
 Example decision:
@@ -59,6 +59,11 @@ Example decision:
 ```json
 {"container_id":"abc123","rule":"mem_percent > 90 ? restart","command":"restart","status":"cooldown"}
 ```
+
+For a delay **before** the first action, use the optional
+[`--trigger-after` and `--max-gap` options](trigger-delay.md). Without them, the
+first matching rule can execute immediately. The existing cooldown then spaces
+attempts.
 
 ## Locking and persistent state
 
@@ -68,6 +73,11 @@ Processes using the same state path cannot overlap. A busy lock returns **117**
 immediately; it does not wait. The operating system releases the lock on process
 exit, including an abrupt exit. The lock file remains: do not delete it to unlock
 a job, because that could let a second process acquire a different lock inode.
+
+For Python integrations, a `LocalState` instance must not be entered twice at the
+same time or reused for writes in a child after `fork`. Both cases are rejected;
+create a fresh instance in each process. Cooldown keys and timestamps are checked
+before any state change, including dry runs.
 
 Use one state file per job and Docker host, on a local filesystem supporting
 `flock`, atomic rename and `fsync`. Copies of the same job must share that path;
@@ -112,7 +122,7 @@ Leave the lock file in place.
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Cycle completed, including a preview or rules skipped by cooldown |
+| 0 | Cycle completed, including a preview or rules skipped by cooldown or trigger delay |
 | 2 | Invalid CLI arguments |
 | 110 | Invalid configuration or action |
 | 114 | No matching container |
@@ -127,8 +137,7 @@ can return its own code instead of 116, including values that overlap agent
 codes. Check diagnostics to distinguish them. Other existing exit codes retain
 their meaning.
 
-There is no background scheduler or HTTP listener. This step does not add a
-cycle-wide deadline, delayed triggering, hysteresis, or a continuous-failure
-threshold. Existing Docker client timeouts still apply; a hung cycle can hold its
+There is no background scheduler or HTTP listener. The optional [trigger delay](trigger-delay.md) tracks sustained conditions.
+There is no cycle-wide deadline or hysteresis. Existing Docker client timeouts still apply; a hung cycle can hold its
 lock until it exits or is terminated. [Serve mode](serve.md) reuses the same
 engine and cooldown policy for continuous monitoring.

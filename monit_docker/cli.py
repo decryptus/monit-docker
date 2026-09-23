@@ -25,7 +25,7 @@ from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC
 from monit_docker.core import MonitoringEngine
-from monit_docker.core.policy import CooldownPolicy
+from monit_docker.core.policy import CooldownPolicy, TriggerPolicy
 from monit_docker.domain.errors import CommandExecutionError, MonitoringError
 from monit_docker.outputs.formatting import format_resource
 
@@ -272,6 +272,32 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         super(MonitDockerSubCmdMonit, self)._output_snapshot(snapshot)
 
 
+def _add_trigger_options(parser):
+    parser.add_argument('--trigger-after', type=float, default=0,
+                        help='seconds a condition must remain observed true before acting (default: 0)')
+    parser.add_argument('--max-gap', type=float,
+                        help='maximum seconds between true observations; required with --trigger-after')
+
+
+def _validate_trigger_options(parser, options):
+    if not math.isfinite(options.trigger_after) or options.trigger_after < 0:
+        parser.error('--trigger-after must be finite and non-negative')
+    if options.trigger_after > 0:
+        if not options.cmd:
+            parser.error('--trigger-after requires --cmd or --cmd-if')
+        if options.max_gap is None or not math.isfinite(options.max_gap) or options.max_gap <= 0:
+            parser.error('--trigger-after requires a finite positive --max-gap')
+    elif options.max_gap is not None:
+        parser.error('--max-gap requires a positive --trigger-after')
+
+
+def _rule_policy(state, rules, options):
+    if not rules:
+        return CooldownPolicy(state, rules, options.cooldown)
+    return TriggerPolicy(state, rules, options.cooldown, options.trigger_after,
+                         options.max_gap, read_only=options.dry_run)
+
+
 class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
     CMD_NAME = 'cron'
     CMD_HELP = 'run one locked monitoring cycle with persistent action cooldowns'
@@ -284,6 +310,7 @@ class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
                             help='persistent JSON state; use one file per Docker host and job')
         parser.add_argument('--cooldown', type=float, default=300,
                             help='minimum seconds between attempts of the same rule (default: 300)')
+        _add_trigger_options(parser)
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
@@ -294,11 +321,12 @@ class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
             parser.error('--state-file must not be empty')
         if not math.isfinite(options.cooldown) or options.cooldown < 0:
             parser.error('--cooldown must be a finite non-negative number')
+        _validate_trigger_options(parser, options)
 
     def __call__(self):
         from monit_docker.adapters.state import LocalState
         with LocalState(self.options.state_file) as state:
-            policy = CooldownPolicy(state, self.rules, self.options.cooldown)
+            policy = _rule_policy(state, self.rules, self.options)
             return self.engine.run_once(rules=self.rules, resources=(),
                                         dry_run=self.options.dry_run, action_policy=policy,
                                         on_action=self._output_action)
@@ -321,6 +349,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--state-file', help='persistent cooldown state; required with rules')
         parser.add_argument('--cooldown', type=float, default=300, help='seconds between attempts of the same rule (default: 300)')
         parser.add_argument('--dry-run', action='store_true', help='evaluate remediation rules without executing them')
+        _add_trigger_options(parser)
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
@@ -345,6 +374,9 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--state-file must not be empty')
         if options.dry_run and not options.cmd:
             parser.error('--dry-run requires --cmd or --cmd-if')
+        _validate_trigger_options(parser, options)
+        if options.trigger_after and options.max_gap <= options.interval:
+            parser.error('--max-gap must exceed --interval to allow time for collection')
         options.resource = options.resource or RESOURCE_CHOICES
 
     def _cycle(self, observer):
@@ -356,7 +388,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             if self.options.state_file:
                 from monit_docker.adapters.state import LocalState
                 with LocalState(self.options.state_file) as state:
-                    return run(CooldownPolicy(state, self.rules, self.options.cooldown))
+                    return run(_rule_policy(state, self.rules, self.options))
             return run()
         except APIError as error:
             raise MonitoringError(180, str(error))

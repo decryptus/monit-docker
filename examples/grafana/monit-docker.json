@@ -818,7 +818,7 @@
       "id": 12,
       "title": "Action decisions per second",
       "type": "timeseries",
-      "description": "Agent-wide counts; ignores the container filter. executed, cooldown and dry-run are distinct.",
+      "description": "Agent-wide counts; ignores the container filter. executed, cooldown, pending and dry-run are distinct. pending counts decisions skipped by the local trigger delay.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"

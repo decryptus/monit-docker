@@ -14,7 +14,7 @@ cycle. A reachable HTTP endpoint alone does not mean Docker monitoring works.
 | `curl` cannot connect | Leave `serve` running in another terminal. Check the bind address, port and startup logs. The default is `127.0.0.1:9808`. |
 | Prometheus cannot scrape | Test connectivity from Prometheus's network namespace. Its `127.0.0.1` is not the host or another container. Check the target address, agent bind address and published port/private network. |
 | Grafana shows **No data** | Select the correct Prometheus data source, Job, Instance and Container. Check `up` and `monit_docker_ready` in Prometheus. Rate panels need multiple scrape samples; stopped containers have no sampled resource values. |
-| A rule produces no action | Check the selection and condition. Nonmatching rules produce no decision. `--dry-run` simulates actions, and an active cooldown skips them. |
+| A rule produces no action | Check the selection and condition. Nonmatching rules produce no decision. `--dry-run` simulates actions, an active cooldown skips them, and a [trigger delay](trigger-delay.md) reports `pending` until its duration elapses. |
 | Job is busy (117) | Another cycle holds the lock for that state path. Let it finish or investigate the running process; do not delete the lock file. |
 | State error (118) | Check directory permissions, available storage and state validity. See the [state recovery procedure](cron.md#locking-and-persistent-state) before changing state. |
 

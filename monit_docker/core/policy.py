@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import time
 
 from monit_docker.domain.errors import MonitoringError
@@ -20,8 +21,59 @@ class CooldownPolicy(object):
         except (TypeError, ValueError) as error:
             raise MonitoringError(110, 'cron rules require JSON-compatible arguments: %s' % error)
 
-    def claim(self, container_id, rule, read_only=False):
+    def key(self, container_id, rule):
         identity = json.dumps((container_id, self.identities[id(rule)]),
                               separators=(',', ':')).encode('utf-8')
+        return hashlib.sha256(identity).hexdigest()
+
+    def observe(self, container_id, rule, matched, read_only=False):
+        return True
+
+    def claim(self, container_id, rule, read_only=False):
+        return self.state.reserve(self.key(container_id, rule), self.clock(), self.seconds,
+                                  read_only=read_only)
+
+
+class TriggerPolicy(CooldownPolicy):
+    """One cycle's observed-condition durations, sharing the cooldown store.
+
+    Invalidate durable observations before collecting anything. Only conditions
+    actually observed true in this cycle are written back. Thus a crash, failed
+    collection, stopped or unselected container cannot carry an unobserved streak
+    into the next cycle. Earlier successful observations in a partial cycle remain
+    valid; this is intentionally per rule/container, not a cycle transaction.
+    """
+    def __init__(self, state, rules, seconds, trigger_after=0, max_gap=None,
+                 clock=None, read_only=False):
+        super(TriggerPolicy, self).__init__(state, rules, seconds, clock)
+        if (not math.isfinite(trigger_after) or trigger_after < 0
+                or (trigger_after > 0 and (max_gap is None or not math.isfinite(max_gap)
+                                          or max_gap <= 0))):
+            raise ValueError('invalid trigger duration or observation gap')
+        self.trigger_after = trigger_after
+        self.max_gap = max_gap
+        self.previous = dict(state.observations)
+        state.replace_observations({}, read_only=read_only)
+
+    def observe(self, container_id, rule, matched, read_only=False):
+        if not self.trigger_after or not rule.conditions:
+            return True
+        identity = json.dumps((self.key(container_id, rule), self.trigger_after, self.max_gap),
+                              separators=(',', ':')).encode('utf-8')
         key = hashlib.sha256(identity).hexdigest()
-        return self.state.reserve(key, self.clock(), self.seconds, read_only=read_only)
+        observations = dict(self.state.observations)
+        if not matched:
+            self.previous.pop(key, None)
+            observations.pop(key, None)
+            self.state.replace_observations(observations, read_only=read_only)
+            return False
+        now = self.clock()
+        if not math.isfinite(now) or now < 0:
+            raise ValueError('invalid observation time')
+        since, last = self.previous.get(key, (now, now))
+        if now < last or now - last > self.max_gap:
+            since = now
+        observations[key] = [since, now]
+        self.state.replace_observations(observations, read_only=read_only)
+        self.previous[key] = observations[key]
+        return now - since >= self.trigger_after

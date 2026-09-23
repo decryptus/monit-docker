@@ -17,11 +17,14 @@ start a monitoring cycle. See [serve configuration and freshness](serve.md).
 | `monit_docker_last_success_timestamp_seconds` | gauge | Unix seconds | none | Completion time of last successful cycle; absent until first success |
 | `monit_docker_action_decisions_total` | counter | actions | `outcome` | Successful executions or skipped/simulated actions since startup |
 
-`outcome` is exactly one of `executed`, `cooldown`, or `dry-run`. A rule with
+`outcome` is exactly one of `executed`, `cooldown`, `pending`, or `dry-run`. A rule with
 multiple actions can increment multiple decisions. Failed actions do not count
 as `executed`; the failed cycle increments `cycle_errors_total`. Successful
 actions earlier in a failed cycle remain counted. A rule that does not match
-produces no decision. All three outcome series are present at startup, at zero.
+produces no decision. All four outcome series are present at startup, at zero.
+
+`pending` counts actions skipped because their local [trigger delay](trigger-delay.md)
+has not elapsed. It is not a gauge of currently pending rules.
 
 Agent counters reset when the process restarts. They are not saved to the
 cooldown file. Last-success time remains visible after failure/staleness; it does
