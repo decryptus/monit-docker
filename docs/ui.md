@@ -149,6 +149,39 @@ exactly-once delivery guarantee. The persistent cooldown reduces repeated
 attempts. If a network response is lost, the UI does not retry automatically;
 inspect recent requests and the actual container state before another action.
 
+## Protect a container from manual actions
+
+Add this Docker label to a container that should stay visible in monitoring but
+must not accept manual Start, Stop or Restart requests:
+
+```yaml
+services:
+  database:
+    labels:
+      monit-docker.protected: "true"
+```
+
+Apply the label through your normal container deployment. Editing a Compose file
+alone does not change a running container's labels; recreation is required.
+The UI displays a **Protected** lock and disables that container's controls.
+The agent rejects authenticated direct API requests too, and checks fresh
+container metadata again before executing an already queued request. Rejections
+do not reserve a manual cooldown.
+
+**Only manual actions are blocked.** Monitoring, metrics, notifications and
+automatic rules in `serve`, `cron` or `monit` retain their existing behavior.
+This label is not a Docker permission boundary: it does not restrict an operator
+using the Docker CLI or another service with Docker socket access.
+
+Without the label, existing manual behavior is unchanged. Use `"false"` to opt
+out explicitly (`"0"`, `"no"` and `"off"` are also accepted, ignoring case and
+surrounding whitespace). Any other value, including an empty value or typo,
+protects the container. Prefer the quoted `"true"` / `"false"` spelling above.
+
+This feature requires an agent and UI built from this revision or a release that
+includes it; the earlier `0.0.63` images do not enforce this label. Older UIs may
+still show enabled buttons, but the upgraded agent rejects protected actions.
+
 ## Authentication and network boundaries
 
 Nginx protects the HTML, assets, status API and command endpoint with Basic

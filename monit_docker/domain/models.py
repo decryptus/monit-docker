@@ -18,6 +18,8 @@ except NameError:
 
 FIELDS = ('id', 'name', 'status', 'pid', 'mem_usage', 'mem_limit',
           'mem_percent', 'cpu_percent', 'io_read', 'io_write', 'net_tx', 'net_rx')
+RESOURCE_FIELDS = FIELDS[2:]
+_POLICY_FIELDS = ('manual_actions_protected',)
 
 
 class ContainerSnapshot(object):
@@ -28,14 +30,20 @@ class ContainerSnapshot(object):
     are left to the collector; this model validates types and finite values.
     """
 
-    FIELDS = FIELDS
+    FIELDS = FIELDS + _POLICY_FIELDS
+    RESOURCE_FIELDS = RESOURCE_FIELDS
     __slots__ = FIELDS
 
     def __init__(self, **values):
+        values.setdefault('manual_actions_protected', False)
         unknown = set(values) - set(self.FIELDS)
         if unknown:
             raise TypeError('Unknown snapshot fields: %s' % ', '.join(sorted(unknown)))
         for field, value in values.items():
+            if field == 'manual_actions_protected':
+                if not isinstance(value, bool):
+                    raise TypeError('Invalid value for snapshot field: %s' % field)
+                continue
             if value is None:
                 continue
             if field in ('id', 'name', 'status'):

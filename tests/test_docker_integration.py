@@ -25,7 +25,7 @@ from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.core import MonitoringEngine
-from monit_docker.domain.errors import MonitoringError
+from monit_docker.domain.errors import ActionRejected, MonitoringError
 
 
 @unittest.skipUnless(os.environ.get('MONIT_DOCKER_INTEGRATION') == '1', 'requires opt-in Docker daemon')
@@ -48,11 +48,31 @@ class DockerIntegrationTests(unittest.TestCase):
             except NotFound:
                 pass
 
-    def create_container(self):
+    def create_container(self, labels=None):
         obj = self.client.containers.run('alpine:3.20', ['sleep', '120'],
-                                          name=self.name, detach=True)
+                                          name=self.name, detach=True, labels=labels or {})
         self.objects.append(obj)
         return obj
+
+    def test_protected_container_allows_automatic_rules_but_no_manual_commands(self):
+        obj = self.create_container(labels={'monit-docker.protected': 'true'})
+        initial = self.engine.run_once(resources=('cpu_percent',))
+        self.assertTrue(initial.snapshots[0].manual_actions_protected)
+        self.assertEqual(initial.snapshots[0].id, obj.id)
+        self.assertIsNotNone(initial.snapshots[0].cpu_percent)
+        claim = Mock(return_value=True)
+        for command in ('stop', 'restart'):
+            with self.assertRaisesRegex(ActionRejected, 'container_protected'):
+                self.engine.run_manual_action(obj.id, command, claim)
+        self.engine.run_once(rules=(RuleParser().parse('stop'),))
+        obj.reload()
+        self.assertEqual(obj.status, 'exited')
+        with self.assertRaisesRegex(ActionRejected, 'container_protected'):
+            self.engine.run_manual_action(obj.id, 'start', claim)
+        claim.assert_not_called()
+        self.engine.run_once(rules=(RuleParser().parse('start'),))
+        obj.reload()
+        self.assertEqual(obj.status, 'running')
 
     def test_manual_actions_use_fresh_selection_and_exact_container_id(self):
         obj = self.create_container()

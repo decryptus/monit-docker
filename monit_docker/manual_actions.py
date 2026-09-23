@@ -61,6 +61,8 @@ class ManualActions(object):
                            if item['id'] == payload['container_id']), None)
             if target is None:
                 raise ActionRejected('not_selected')
+            if target.get('manual_actions_protected', False):
+                raise ActionRejected('container_protected')
             if target['status'] not in ALLOWED_STATES[payload['action']]:
                 raise ActionRejected('state_changed')
             record = dict(payload, status='queued', submitted_at=self.clock(),

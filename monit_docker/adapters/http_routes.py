@@ -13,6 +13,7 @@ _WRITE_METHODS      = ('POST',)
 _JSON_CONTENT_TYPE  = 'application/json; charset=utf-8'
 _METRICS_TYPE       = 'text/plain; version=0.0.4; charset=utf-8'
 _HEALTH_RESPONSE    = {'alive': True}
+_REJECTION_CODES    = {'invalid_request': 400, 'container_protected': 403}
 _RESPONSE_HEADERS   = {'Cache-Control':          'no-store',
                        'X-Content-Type-Options': 'nosniff',
                        'Referrer-Policy':        'no-referrer'}
@@ -50,7 +51,7 @@ def submit_action(request):
     try:
         record = monitor.manual_actions.submit(request.payload_params(), monitor.status())
     except ActionRejected as error:
-        code = 400 if error.reason == 'invalid_request' else 409
+        code = _REJECTION_CODES.get(error.reason, 409)
         return json_response(dict(error = error.reason), code)
     return json_response(record, 202)
 

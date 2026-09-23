@@ -43,6 +43,8 @@ class MonitoringEngine(object):
                 selected = {item.id: item for item in self.collector.select()}
                 if container_id not in selected:
                     raise ActionRejected('not_selected')
+                if selected[container_id].manual_actions_protected:
+                    raise ActionRejected('container_protected')
                 if selected[container_id].status not in ALLOWED_STATES[command]:
                     raise ActionRejected('state_changed')
                 if not claim(container_id):
@@ -83,9 +85,9 @@ class MonitoringEngine(object):
         try:
             rules = tuple(rules)
             if resources is None:
-                resources = () if rules else ContainerSnapshot.FIELDS[2:]
+                resources = () if rules else ContainerSnapshot.RESOURCE_FIELDS
             resources = tuple(resources)
-            invalid = set(resources) - set(ContainerSnapshot.FIELDS[2:])
+            invalid = set(resources) - set(ContainerSnapshot.RESOURCE_FIELDS)
             if invalid:
                 raise ValueError('unknown resources: %s' % ', '.join(sorted(invalid)))
             return self._run_cycle(rules, resources, on_snapshot, dry_run,

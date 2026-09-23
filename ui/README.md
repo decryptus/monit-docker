@@ -17,6 +17,10 @@ root. The release pipeline builds and tests it separately, then publishes
 The page supports existing API v1 agents in read-only mode when the optional
 `manual_actions` capability is absent. Start/stop/restart require the new manual
 action API. No route permits shell commands, deletion or configuration changes.
+Containers with `manual_actions_protected: true` in their status remain visible
+with a Protected lock and disabled controls. The agent enforces the corresponding
+`monit-docker.protected` Docker label independently of the browser; automatic
+rules remain active. See the [protection guide](../docs/ui.md#protect-a-container-from-manual-actions).
 
 For development only, `ui/tests/browser.cjs` uses Playwright. CI installs the
 test tool outside the component, checks multiple viewport sizes and captures
