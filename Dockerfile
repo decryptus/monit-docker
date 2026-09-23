@@ -7,6 +7,7 @@ RUN apk -Uuv add bash \
                  curl-dev \
                  gcc \
                  libffi-dev \
+                 libmagic \
                  musl-dev \
                  python3 \
                  python3-dev \

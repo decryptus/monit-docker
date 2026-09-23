@@ -14,6 +14,63 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ui:
+    name: Build and test optional UI image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: docker build -t monit-docker-ui:test ui
+      - name: Install agent dependencies for proxy integration tests
+        run: python -m pip install -r requirements.txt
+      - name: Test real Nginx authentication and action proxy
+        run: python .github/scripts/check-ui-proxy.py
+      - name: Check private Compose wiring
+        env:
+          UI_ORIGIN: https://localhost:8443
+        run: |
+          docker compose -f examples/ui/compose.yaml -f examples/ui/compose.actions.yaml config --format json > "$RUNNER_TEMP/ui-compose.json"
+          python - "$RUNNER_TEMP/ui-compose.json" <<'PY'
+          import json, sys
+          c = json.load(open(sys.argv[1]))
+          assert not c['services']['monit-docker'].get('ports')
+          assert c['networks']['agent']['internal']
+          assert c['services']['ui']['ports'][0]['host_ip'] == '127.0.0.1'
+          assert all(v['target'] != '/var/run/docker.sock' for v in c['services']['ui']['volumes'])
+          assert '--allow-actions' in c['services']['monit-docker']['command']
+          PY
+      - name: Test desktop and mobile browsers
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/ui-browser/node_modules/playwright
+          UI_SCREENSHOTS: ${{ runner.temp }}/ui-screenshots
+        run: |
+          npm install --prefix "$RUNNER_TEMP/ui-browser" --no-audit --no-fund playwright@1.55.0
+          "$RUNNER_TEMP/ui-browser/node_modules/.bin/playwright" install --with-deps chromium
+          node ui/tests/browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-screenshots
+          path: ${{ runner.temp }}/ui-screenshots/
+          retention-days: 14
+      - name: Save tested UI image
+        if: github.event_name == 'push'
+        run: docker save monit-docker-ui:test | gzip > "$RUNNER_TEMP/monit-docker-ui-image.tar.gz"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: tested-ui-image
+          path: ${{ runner.temp }}/monit-docker-ui-image.tar.gz
+          retention-days: 7
+
   packages:
     name: Build and test Python distributions
     runs-on: ubuntu-latest
@@ -93,7 +150,7 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: [image, packages]
+    needs: [image, packages, ui]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -126,6 +183,14 @@ jobs:
       - name: Load tested image
         if: steps.release.outputs.publish == 'true'
         run: docker load --input "$RUNNER_TEMP/monit-docker-image.tar.gz"
+      - uses: actions/download-artifact@v4
+        if: steps.release.outputs.publish == 'true'
+        with:
+          name: tested-ui-image
+          path: ${{ runner.temp }}
+      - name: Load tested UI image
+        if: steps.release.outputs.publish == 'true'
+        run: docker load --input "$RUNNER_TEMP/monit-docker-ui-image.tar.gz"
       - name: Log in to Docker Hub
         if: steps.release.outputs.publish == 'true'
         uses: docker/login-action@v4
@@ -149,6 +214,10 @@ jobs:
           docker tag monit-docker:test "decryptus/monit-docker:$TAG"
           docker push "decryptus/monit-docker:${TAG#v}"
           docker push "decryptus/monit-docker:$TAG"
+          docker tag monit-docker-ui:test "decryptus/monit-docker-ui:${TAG#v}"
+          docker tag monit-docker-ui:test "decryptus/monit-docker-ui:$TAG"
+          docker push "decryptus/monit-docker-ui:${TAG#v}"
+          docker push "decryptus/monit-docker-ui:$TAG"
 
   pypi:
     name: Publish Python distributions to PyPI

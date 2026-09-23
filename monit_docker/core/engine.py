@@ -12,9 +12,10 @@ import sys
 from threading import Lock
 
 from monit_docker.core.rules import RuleEvaluator
-from monit_docker.domain.errors import MonitoringError
+from monit_docker.core.manual import ALLOWED_STATES
+from monit_docker.domain.errors import ActionRejected, MonitoringError
 from monit_docker.domain.models import ContainerSnapshot
-from monit_docker.domain.rules import ActionDecision, ActionResult, CycleResult
+from monit_docker.domain.rules import Action, ActionDecision, ActionResult, CycleResult
 
 LOG = logging.getLogger('monit-docker')
 
@@ -25,6 +26,40 @@ class MonitoringEngine(object):
         self.executor = executor
         self.evaluator = evaluator or RuleEvaluator()
         self._cycle_lock = Lock()
+
+    def run_manual_action(self, container_id, command, claim):
+        """Reselect by exact ID and serialize with cycles; never resolve aliases.
+
+        claim(id) reserves a persistent per-container manual cooldown before
+        execution. Manual operations do not evaluate autonomous rules.
+        """
+        if command not in ALLOWED_STATES:
+            raise ActionRejected('unsupported_action')
+        if not self._cycle_lock.acquire(False):
+            raise ActionRejected('busy')
+        try:
+            try:
+                self.collector.begin_cycle()
+                selected = {item.id: item for item in self.collector.select()}
+                if container_id not in selected:
+                    raise ActionRejected('not_selected')
+                if selected[container_id].status not in ALLOWED_STATES[command]:
+                    raise ActionRejected('state_changed')
+                if not claim(container_id):
+                    raise ActionRejected('cooldown')
+                action = Action('docker', command, (), {})
+                if not self.executor.execute(container_id, action):
+                    raise MonitoringError(116, 'manual action failed')
+            finally:
+                failed = sys.exc_info()[0] is not None
+                try:
+                    self.collector.end_cycle()
+                except Exception:
+                    if not failed:
+                        raise
+                    LOG.exception('collector cleanup failed; preserving the action error')
+        finally:
+            self._cycle_lock.release()
 
     def run_once(self, rules=(), resources=None, on_snapshot=None,
                  dry_run=False, action_policy=None, on_action=None):

@@ -43,6 +43,8 @@ class PackagingTests(unittest.TestCase):
             members = source_archive.getnames()
         for filename in ('setup.yml', 'requirements.txt', 'pyproject.toml'):
             self.assertTrue(any(m.endswith('/' + filename) for m in members), filename)
+        self.assertFalse(any('/ui/static/' in name for name in members))
+        self.assertFalse(any('/secrets.local/' in name for name in members))
         wheels = self.work / 'wheels'
         self.run_command(sys.executable, '-m', 'pip', 'wheel', '--no-deps',
                          '--no-build-isolation', '--wheel-dir', str(wheels), str(archive))

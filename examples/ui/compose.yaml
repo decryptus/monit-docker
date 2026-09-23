@@ -1,0 +1,53 @@
+services:
+  monit-docker:
+    image: decryptus/monit-docker:0.0.63
+    command: [monit-docker, serve, --bind, 0.0.0.0, --interval, '30']
+    restart: unless-stopped
+    stop_grace_period: 60s
+    # No published agent port. Prometheus can join the private agent network.
+    networks: [agent]
+    volumes:
+      - type: bind
+        source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
+
+  ui:
+    image: decryptus/monit-docker-ui:0.0.63
+    restart: unless-stopped
+    depends_on: [monit-docker]
+    networks: [agent, frontend]
+    ports:
+      - '${UI_BIND:-127.0.0.1}:${UI_PORT:-8443}:443'
+    volumes:
+      - type: bind
+        source: ./secrets.local/htpasswd
+        target: /run/secrets/htpasswd
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./secrets.local/tls.crt
+        target: /run/secrets/tls.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./secrets.local/tls.key
+        target: /run/secrets/tls.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./secrets.local/proxy-action.conf
+        target: /run/secrets/proxy-action.conf
+        read_only: true
+        bind:
+          create_host_path: false
+
+networks:
+  agent:
+    internal: true
+  frontend:

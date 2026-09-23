@@ -2,3 +2,5 @@ include requirements.txt setup.yml VERSION RELEASE
 recursive-include docs *.md *.rst *.png
 recursive-include examples *.json *.yaml *.yml *.sh *.py *.txt Dockerfile
 prune examples/monitoring/notifications.local
+prune examples/ui/secrets.local
+prune ui

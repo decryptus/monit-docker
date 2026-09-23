@@ -10,3 +10,6 @@ docs/_build/
 TODO
 examples/monitoring/.env
 examples/monitoring/notifications.local/
+examples/ui/secrets.local/
+examples/ui/.env
+ui/test-results/

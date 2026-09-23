@@ -1,109 +1,175 @@
-"""Bounded local read-only HTTP interface over a cached monitoring service."""
+"""HTTPdis transport and Sonicprobe workers for the cached monitoring service."""
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import hmac
 import json
 import logging
 import signal
-from socketserver import ThreadingMixIn
-from threading import BoundedSemaphore, Event, Thread, current_thread, main_thread
+from threading import Event, Lock, Thread, current_thread, main_thread
 from urllib.parse import urlsplit
 
-from monit_docker.outputs.prometheus import render_metrics
+from httpdis import httpdis
+from sonicprobe.libs.threading_tcp_server import KillableThreadingHTTPServer
 
-LOG = logging.getLogger('monit-docker')
+from monit_docker.adapters.http_routes import (allowed_methods,
+                                               json_response,
+                                               register_routes)
 
 
-class StatusHandler(BaseHTTPRequestHandler):
-    server_version = 'monit-docker'
-    sys_version = ''
+LOG                    = logging.getLogger('monit-docker')
+_MAX_REQUEST_BODY      = 1024
+_MAX_LENGTH_DIGITS     = 4
+_REQUEST_TIMEOUT       = 5
+_READ_METHODS          = ('GET', 'HEAD')
+_JSON_CONTENT_TYPES    = ('application/json',)
+_SHUTDOWN_SIGNALS      = (signal.SIGINT, signal.SIGTERM)
+_SERVER_OPTIONS        = {'max_workers':    8,
+                          'max_body_size': _MAX_REQUEST_BODY,
+                          'max_requests':  0,
+                          'max_life_time': 0}
+_ERROR_MESSAGES        = {400: 'invalid_request',
+                          403: 'forbidden',
+                          404: 'not_found',
+                          405: 'method_not_allowed',
+                          408: 'request_timeout',
+                          413: 'request_too_large',
+                          415: 'json_required',
+                          500: 'internal_error'}
+_API_ERRORS            = frozenset(_ERROR_MESSAGES.values()) | frozenset((
+                          'origin_rejected', 'invalid_length', 'invalid_json'))
+_INITIALIZATION_LOCK   = Lock()
+_INITIALIZED           = False
 
-    def _send(self, code, value, content_type='application/json; charset=utf-8'):
-        body = (json.dumps(value, allow_nan=False) + '\n' if isinstance(value, dict) else value).encode('utf-8')
-        self.send_response(code)
-        self.send_header('Content-Type', content_type)
-        self.send_header('Content-Length', str(len(body)))
-        self.send_header('Cache-Control', 'no-store')
-        self.send_header('X-Content-Type-Options', 'nosniff')
+
+def _initialize_httpdis():
+    # HTTPdis routes/options are process-global. Register stateless callbacks
+    # once; each callback reads its service from the accepting server instance.
+    global _INITIALIZED
+    with _INITIALIZATION_LOCK:
+        if not _INITIALIZED:
+            register_routes()
+            httpdis.init(_SERVER_OPTIONS.copy(), use_sigterm_handler = False)
+            _INITIALIZED = True
+
+
+class StatusHandler(httpdis.HttpReqHandler):
+    server_version         = 'monit-docker'
+    sys_version            = ''
+    timeout                = _REQUEST_TIMEOUT
+    _ALLOWED_CONTENT_TYPES = _JSON_CONTENT_TYPES
+    _ALLOWED_MULTIPART_FORM = False
+    _FUNC_SEND_ERROR       = 'send_api_error'
+
+    def send_api_error(self, code, message, headers = None):
+        if code == 404 and self.command not in _READ_METHODS:
+            code = 405
+        error = message if message in _API_ERRORS else _ERROR_MESSAGES.get(code, 'request_failed')
+        response = json_response(dict(error = error), code)
         if code == 405:
-            self.send_header('Allow', 'GET, HEAD')
-        self.end_headers()
-        if self.command != 'HEAD':
-            self.wfile.write(body)
+            response.add_header('Allow', allowed_methods(urlsplit(self.path).path))
+        self.end_response(response)
 
-    def do_GET(self):
-        path = urlsplit(self.path).path
-        if path == '/healthz':
-            return self._send(200, {'alive': True})
-        if path not in ('/readyz', '/v1/status', '/metrics'):
-            return self._send(404, {'error': 'not_found'})
-        data = self.server.monitor.status()
-        if path == '/readyz':
-            return self._send(200 if data['ready'] else 503, {'ready': data['ready']})
-        if path == '/metrics':
-            return self._send(200, render_metrics(data), 'text/plain; version=0.0.4; charset=utf-8')
-        self._send(200, data)
+    def authenticate(self, auth_users = None):
+        actions = self.server.monitor.manual_actions
+        if actions is None:
+            raise self.req_error(405)
+        tokens  = self.headers.get_all('X-Monit-Action-Token')
+        origins = self.headers.get_all('Origin')
+        if (not tokens or len(tokens) != 1
+                or not hmac.compare_digest(tokens[0].encode('utf-8'), actions.token.encode('ascii'))):
+            raise self.req_error(403, 'forbidden')
+        if not origins or len(origins) != 1 or origins[0] != actions.origin:
+            raise self.req_error(403, 'origin_rejected')
 
-    do_HEAD = do_GET
+    def data_from_payload(self, cmd):
+        # Tighten HTTPdis's general-purpose parser for this small JSON API.
+        # Routing, authentication dispatch and body parsing remain in HTTPdis.
+        if self.command != 'POST':
+            raise self.req_error(405)
+        if self.headers.get('Content-Type', '').lower() not in _JSON_CONTENT_TYPES:
+            raise self.req_error(415)
+        lengths = self.headers.get_all('Content-Length')
+        if (self.headers.get('Transfer-Encoding') is not None
+                or not lengths or len(lengths) != 1
+                or len(lengths[0]) > _MAX_LENGTH_DIGITS
+                or not lengths[0].isascii() or not lengths[0].isdigit()):
+            raise self.req_error(400, 'invalid_length')
+        if not 0 < int(lengths[0]) <= _MAX_REQUEST_BODY:
+            raise self.req_error(413)
+        try:
+            return super(StatusHandler, self).data_from_payload(cmd)
+        except OSError:
+            raise self.req_error(408)
 
-    def _method_not_allowed(self):
-        self._send(405, {'error': 'method_not_allowed'})
+    @staticmethod
+    def parse_payload(data, charset):
+        try:
+            return json.loads(data.decode(charset))
+        except (ValueError, UnicodeError):
+            raise httpdis.HttpReqError(400, 'invalid_json')
 
-    do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = _method_not_allowed
-
-    def log_message(self, fmt, *args):
-        LOG.debug('HTTP ' + fmt, *args)
-
-
-class StatusServer(ThreadingMixIn, HTTPServer):
-    daemon_threads = True
-    block_on_close = False
-    allow_reuse_address = True
-
-    def __init__(self, address, monitor):
-        self.monitor = monitor
-        self._slots = BoundedSemaphore(8)
-        super(StatusServer, self).__init__(address, StatusHandler)
-
-    def get_request(self):
-        request, address = super(StatusServer, self).get_request()
-        request.settimeout(5)
-        return request, address
-
-    def process_request(self, request, address):
-        if not self._slots.acquire(False):
-            self.shutdown_request(request)
+    def do_POST(self):
+        if self.server.monitor.manual_actions is None:
+            self.send_api_error(405, 'method_not_allowed')
             return
-        try:
-            super(StatusServer, self).process_request(request, address)
-        except BaseException:
-            self._slots.release()
-            raise
+        super(StatusHandler, self).do_POST()
 
-    def process_request_thread(self, request, address):
-        try:
-            super(StatusServer, self).process_request_thread(request, address)
-        finally:
-            self._slots.release()
+    def do_OPTIONS(self):
+        # The API deliberately has no CORS endpoint.
+        self.send_api_error(405, 'method_not_allowed')
+
+    def end_response(self, response):
+        if self.command == 'HEAD':
+            # Preserve the representation length advertised by this API.
+            body = response.data
+            self._head_length = len(body.encode('utf-8') if isinstance(body, str) else body or b'')
+        super(StatusHandler, self).end_response(response)
+
+    def send_header(self, keyword, value):
+        if self.command == 'HEAD' and keyword.lower() == 'content-length':
+            value = str(getattr(self, '_head_length', 0))
+        super(StatusHandler, self).send_header(keyword, value)
+
+    def log_request(self, code = '-', size = '-'):
+        LOG.debug('HTTP %s %s %s', self.command, code, size)
 
 
-def run_server(monitor, bind, port, stop=None):
-    stop = stop or Event()
-    # Bind before starting any monitoring/actions, so a busy port fails safely.
-    server = StatusServer((bind, port), monitor)
-    thread = Thread(target=server.serve_forever, kwargs={'poll_interval': 0.1})
-    thread.daemon = True
+class StatusServer(KillableThreadingHTTPServer):
+    def __init__(self, address, monitor):
+        _initialize_httpdis()
+        self.monitor = monitor
+        super(StatusServer, self).__init__(_SERVER_OPTIONS.copy(), address,
+                                           StatusHandler, name = 'monit-docker-http')
+
+    def serve_forever(self, poll_interval = 0.5):
+        # Use Sonicprobe's bounded worker queue, not ThreadingMixIn dispatch.
+        self.serve_until_killed()
+
+    def shutdown(self):
+        self.kill()
+
+    def server_close(self):
+        if hasattr(self, '_request_lock'):
+            self.kill()
+        super(StatusServer, self).server_close()
+
+
+def run_server(monitor, bind, port, stop = None):
+    stop     = stop or Event()
+    server   = StatusServer((bind, port), monitor)
+    thread   = Thread(target = server.serve_forever, name = 'monit-docker-http')
     previous = {}
+    thread.daemon = True
     try:
         if current_thread() is main_thread():
-            for number in (signal.SIGINT, signal.SIGTERM):
+            for number in _SHUTDOWN_SIGNALS:
                 previous[number] = signal.signal(number, lambda *_: stop.set())
         thread.start()
         LOG.info('listening on http://%s:%s', *server.server_address)
         monitor.run(stop)
     finally:
         stop.set()
+        server.shutdown()
         if thread.is_alive():
-            server.shutdown()
             thread.join()
         server.server_close()
         for number, handler in previous.items():

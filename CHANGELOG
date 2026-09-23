@@ -1,3 +1,16 @@
+monit-docker (0.0.63) unstable; urgency=medium
+
+  * Add a separate lightweight Community UI with desktop and mobile layouts.
+  * Use the blue project identity and document the UI with screenshots.
+  * Provide Nginx HTTPS/authentication and private Prometheus access examples.
+  * Add opt-in, authenticated manual start/stop/restart with confirmation.
+  * Serialize manual requests with monitoring cycles and persist cooldowns.
+  * Reuse HTTPdis routing and Sonicprobe workers for the private agent API.
+  * Test browser behavior, Nginx security boundaries and real Docker actions.
+  * Publish a separate versioned monit-docker-ui image alongside the agent.
+
+ -- Codex <codex@openai.com>  Wed, 23 Sep 2026 08:30:00 +0000
+
 monit-docker (0.0.62) unstable; urgency=medium
 
   * Add persistent trigger delays for autonomous cron and serve remediation.

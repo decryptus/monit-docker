@@ -1,5 +1,9 @@
 # monit-docker project
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
+</p>
+
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/monit-docker.svg)](https://pypi.org/project/monit-docker/)
 [![PyPI version shields.io](https://img.shields.io/pypi/v/monit-docker.svg)](https://pypi.org/project/monit-docker/)
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/decryptus/monit-docker)](https://hub.docker.com/r/decryptus/monit-docker)
@@ -27,6 +31,8 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 3. [Simple mode guide](docs/simple.md)
    - [Wait for sustained conditions before acting](docs/trigger-delay.md)
 4. [Serve mode guide](docs/serve.md)
+   - [Web interface previews](#optional-web-interface)
+   - [Optional mobile-friendly interface with Nginx](docs/ui.md)
    - [Ready-to-run Docker Compose stack](docs/compose.md)
    - [Prometheus alerts and thresholds](docs/alerts.md)
    - [Email and Slack notification examples](docs/notifications.md)
@@ -128,6 +134,34 @@ Continue with the [serve guide](docs/serve.md), then optionally connect
 [Prometheus](docs/metrics.md#prometheus-configuration) and import the
 [Grafana dashboard](docs/grafana.md). The latest measurements are kept in memory;
 Prometheus provides history.
+
+## Optional web interface
+
+**monit-docker-ui** is a separate, lightweight Community interface: a compact
+container overview on desktop and touch-friendly cards on mobile. It uses local
+HTML, CSS and JavaScript with no frontend framework or external assets.
+
+Nginx provides HTTPS and authentication. Read-only access is the default;
+optional start, stop and restart controls require explicit agent configuration
+and confirmation. The simple/cron mode remains independent of the UI.
+
+See the [UI installation and security guide](docs/ui.md) for Docker Compose,
+credentials, certificates and manual-action settings. Available since **0.0.63**; the guide uses the published agent and UI images.
+
+### Desktop
+
+The screenshots below use **synthetic demonstration data**.
+
+![Blue desktop interface showing container status, resources and optional controls](https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/screenshots/desktop.png)
+
+<details>
+<summary>View the mobile interface</summary>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/screenshots/mobile.png" alt="Mobile interface with responsive container cards and touch-friendly controls" width="320">
+</p>
+
+</details>
 
 ## <a name="environment_variables"></a>Environment variables
 

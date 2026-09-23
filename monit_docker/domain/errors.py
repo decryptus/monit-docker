@@ -23,5 +23,13 @@ class RuleSyntaxError(SyntaxError):
     pass
 
 
+class ActionRejected(Exception):
+    """A manual operation failed a precondition; reason is safe for the UI."""
+
+    def __init__(self, reason):
+        super(ActionRejected, self).__init__(reason)
+        self.reason = reason
+
+
 class ResourceTypeError(TypeError):
     pass

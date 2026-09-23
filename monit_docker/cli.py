@@ -349,6 +349,11 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--state-file', help='persistent cooldown state; required with rules')
         parser.add_argument('--cooldown', type=float, default=300, help='seconds between attempts of the same rule (default: 300)')
         parser.add_argument('--dry-run', action='store_true', help='evaluate remediation rules without executing them')
+        parser.add_argument('--allow-actions', action='store_true', help='enable the authenticated manual action API')
+        parser.add_argument('--action-origin', help='exact HTTPS browser origin allowed to submit actions')
+        parser.add_argument('--action-token-file', help='file containing a 64-character hex proxy secret')
+        parser.add_argument('--action-cooldown', type=float, default=30,
+                            help='minimum seconds between manual attempts per container (default: 30)')
         _add_trigger_options(parser)
 
     @classmethod
@@ -374,6 +379,27 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--state-file must not be empty')
         if options.dry_run and not options.cmd:
             parser.error('--dry-run requires --cmd or --cmd-if')
+        if options.allow_actions:
+            from urllib.parse import urlsplit
+            try:
+                origin = urlsplit(options.action_origin or '')
+                valid_origin = (origin.scheme == 'https' and origin.hostname
+                                and not origin.username and not origin.password
+                                and not origin.path and not origin.query and not origin.fragment
+                                and not any(c.isspace() for c in options.action_origin)
+                                and (origin.port is None or 1 <= origin.port <= 65535))
+            except ValueError:
+                valid_origin = False
+            if not valid_origin:
+                parser.error('--allow-actions requires --action-origin https://host[:port] without a path')
+            if not options.action_token_file or not options.state_file:
+                parser.error('--allow-actions requires --action-token-file and --state-file')
+            if options.dry_run:
+                parser.error('--allow-actions cannot be combined with --dry-run')
+        elif options.action_origin or options.action_token_file:
+            parser.error('--action-origin and --action-token-file require --allow-actions')
+        if not math.isfinite(options.action_cooldown) or options.action_cooldown < 1:
+            parser.error('--action-cooldown must be finite and at least 1 second')
         _validate_trigger_options(parser, options)
         if options.trigger_after and options.max_gap <= options.interval:
             parser.error('--max-gap must exceed --interval to allow time for collection')
@@ -398,8 +424,37 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
     def __call__(self):
         from monit_docker.service import MonitorService
         from monit_docker.adapters.http import run_server
-        monitor = MonitorService(self._cycle, self.options.interval, self.options.stale_after)
+        actions = None
+        if self.options.allow_actions:
+            import re
+            from monit_docker.manual_actions import ManualActions
+            try:
+                with open(self.options.action_token_file) as stream:
+                    raw_token = stream.read(67)
+                if not re.fullmatch('[0-9a-f]{64}\n?', raw_token):
+                    raise ValueError('invalid secret')
+                token = raw_token.rstrip('\n')
+            except (OSError, UnicodeError, ValueError):
+                raise MonitoringError(110, 'action token file must contain a 64-character hex secret')
+            actions = ManualActions(self._manual_action, self.options.action_origin, token)
+        monitor = MonitorService(self._cycle, self.options.interval, self.options.stale_after,
+                                 manual_actions=actions)
         run_server(monitor, self.options.bind, self.options.port)
+
+    def _manual_action(self, container_id, command):
+        import hashlib
+        import time
+        from monit_docker.adapters.state import LocalState
+        try:
+            with LocalState(self.options.state_file) as state:
+                def claim(identifier):
+                    key = hashlib.sha256(('manual:' + identifier).encode('ascii')).hexdigest()
+                    return state.reserve(key, time.time(), self.options.action_cooldown)
+                self.engine.run_manual_action(container_id, command, claim)
+        except APIError as error:
+            raise MonitoringError(180, str(error))
+        except DockerException as error:
+            raise MonitoringError(170, str(error))
 
 
 class MonitDockerSubCmdCheckConfig(object):

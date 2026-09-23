@@ -47,7 +47,8 @@ def check_distributions(root):
 
 def _check_paths(names):
     for name in names:
-        if 'notifications.local' in name.split('/') or name.endswith('/.env'):
+        if ({'notifications.local', 'secrets.local'} & set(name.split('/'))
+                or name.endswith('/.env')):
             raise ValueError('private monitoring configuration must not be packaged')
 
 

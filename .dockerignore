@@ -1,2 +1,9 @@
-examples/monitoring/.env
-examples/monitoring/notifications.local/
+.git
+build
+dist
+*.egg-info
+**/__pycache__
+**/secrets.local
+**/notifications.local
+**/.env
+ui

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>monit-docker · Overview</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="monit-docker overview"><span class="brand-mark" aria-hidden="true">m.</span>monit-docker<span class="edition">Community</span></a>
+    <span class="connection" id="connection" role="status">Connecting…</span>
+  </header>
+  <main>
+    <section class="intro" aria-labelledby="page-title">
+      <div><p class="eyebrow">HOST OVERVIEW</p><h1 id="page-title">A clear view of your containers.</h1><p class="subtitle">Current health, resource usage and essential controls.</p></div>
+      <div class="refresh"><button id="refresh" type="button">Refresh now</button><label><input id="auto" type="checkbox" checked> Auto-refresh · 5s</label></div>
+    </section>
+    <div id="notice" class="notice" role="status">Waiting for the agent’s first response.</div>
+    <section class="summary" aria-label="Monitoring summary">
+      <article><span class="card-label">Monitored containers</span><strong id="total">—</strong><span id="container-summary">Waiting for fresh data</span></article>
+      <article><span class="card-label">Collection</span><strong class="word" id="collection">Connecting</strong><span id="collected-at">No response yet</span></article>
+      <article><span class="card-label">Completed cycles</span><strong id="cycles">—</strong><span id="errors">Since agent startup</span></article>
+      <article><span class="card-label">Rule actions executed</span><strong id="executed">—</strong><span id="rule-summary">Since agent startup</span></article>
+    </section>
+    <section class="containers" aria-labelledby="containers-title">
+      <div class="section-heading"><div><h2 id="containers-title">Containers <span id="shown" class="count">0</span></h2><p>Latest completed collection</p></div><label class="search"><span class="sr-only">Filter containers by name, ID or status</span><input id="search" type="search" placeholder="Filter containers…" autocomplete="off"></label></div>
+      <div class="table-heading" aria-hidden="true"><span>Container</span><span>Status</span><span>CPU</span><span>Memory</span><span>Controls</span></div>
+      <div id="containers"></div>
+      <p id="empty" class="empty">Waiting for fresh measurements…</p>
+      <p class="section-note" id="mode">Read-only access. No action can be triggered from this page.</p>
+    </section>
+    <section class="activity" aria-labelledby="activity-title" hidden>
+      <div class="section-heading"><div><h2 id="activity-title">Manual activity</h2><p>Up to 32 recent requests · cleared when the agent restarts</p></div></div>
+      <ol id="activity"></ol><p id="no-activity" class="empty">No manual actions in this session.</p>
+    </section>
+    <footer><span>monit-docker <span class="footer-dot">/</span> Lightweight monitoring</span><span>Live snapshots · historical charts stay in Grafana</span></footer>
+  </main>
+  <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-description">
+    <form method="dialog"><p class="eyebrow">CONTAINER ACTION</p><h2 id="confirm-title">Confirm action</h2><p id="confirm-description"></p><p class="dialog-note">Stopping or restarting interrupts the service. Configured monitoring rules may subsequently change its state again.</p><div class="dialog-buttons"><button value="cancel">Cancel</button><button id="confirm-action" value="confirm" class="primary">Confirm</button></div></form>
+  </dialog>
+  <noscript><p class="notice">JavaScript is required to read the agent API. No external scripts are loaded.</p></noscript>
+</body>
+</html>
