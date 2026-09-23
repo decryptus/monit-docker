@@ -40,3 +40,14 @@ Synthetic demonstration data, rendered by the browser tests:
 ![Desktop overview](screenshots/desktop.png)
 
 [Mobile overview](screenshots/mobile.png)
+
+### Live public demo
+
+The deployed demo shows real container metrics, a shared-environment banner and
+three protected infrastructure containers. Stopped test fixtures are restored
+after about five minutes. This timer belongs to the demonstration host, not the
+UI image or agent defaults.
+
+![Public demo on desktop](screenshots/demo-desktop.png)
+
+[Public demo on mobile](screenshots/demo-mobile.png)

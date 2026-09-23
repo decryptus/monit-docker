@@ -154,22 +154,24 @@ and confirmation. The simple/cron mode remains independent of the UI.
 Since **0.0.64**, label a container `monit-docker.protected=true` to block its
 manual controls while keeping monitoring and automatic rules active. The live
 demo shows the protected agent, UI and HTTPS proxy alongside two controllable
-test containers.
+test containers. A public-demo banner explains that actions are shared and real;
+stopped test containers are automatically started after about five minutes.
 
 See the [UI installation and security guide](docs/ui.md) for Docker Compose,
 credentials, certificates and manual-action settings. Available since **0.0.63**; the guide uses the published agent and UI images.
 
 ### Desktop
 
-The screenshots below use **synthetic demonstration data**.
+The screenshots below show the **live public demo (0.0.64)**, including its
+shared-environment banner and protected infrastructure containers.
 
-![Blue desktop interface showing container status, resources and optional controls](https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/screenshots/desktop.png)
+![Blue desktop interface showing container status, resources and optional controls](https://raw.githubusercontent.com/decryptus/monit-docker/master/ui/screenshots/demo-desktop.png)
 
 <details>
 <summary>View the mobile interface</summary>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/screenshots/mobile.png" alt="Mobile interface with responsive container cards and touch-friendly controls" width="320">
+  <img src="https://raw.githubusercontent.com/decryptus/monit-docker/master/ui/screenshots/demo-mobile.png" alt="Mobile interface with responsive container cards and touch-friendly controls" width="320">
 </p>
 
 </details>

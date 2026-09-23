@@ -264,3 +264,20 @@ contains screenshots generated from synthetic demonstration data.
 Nginx configuration reference: [Basic authentication](https://nginx.org/en/docs/http/ngx_http_auth_basic_module.html),
 [HTTPS](https://nginx.org/en/docs/http/configuring_https_servers.html) and
 [proxy headers](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header).
+
+## Public demo
+
+Try [the shared public demo](https://demo.monit-docker.com/) without installing
+anything. Actions operate real containers and are visible to other visitors.
+Only `monit-demo-web` and `monit-demo-worker` can be controlled; the agent,
+interface and HTTPS proxy remain visible and protected from manual actions.
+
+Stopped test containers are automatically started after five minutes, checked
+once per minute by a timer on the demo host. Running containers are left alone;
+containers, volumes and recent manual activity are not cleared. This recovery is
+specific to the public demonstration and is not enabled on your own installation.
+Its starts are recorded in the host journal, outside the manual request history.
+
+The [offline simulation](https://www.monit-docker.com/demo/) remains available in
+French and English with fictional data. Your own UI installation uses the
+credentials, trusted proxy and exact action origin described in this guide.
