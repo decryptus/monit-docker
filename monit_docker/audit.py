@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from pathlib import Path
 import socket
 import stat
@@ -21,6 +22,9 @@ from monit_docker.domain.errors import MonitoringError
 
 LOG = logging.getLogger('monit-docker.audit')
 MAX_RECORD_BYTES = 65536
+_SCHEMA_VERSION = 2
+_FORMULA_PREFIXES = ('=', '+', '-', '@', '\uff1d', '\uff0b', '\uff0d', '\uff20')
+_TEXT_ESCAPE = re.compile(r'\\(?:\\|u[0-9a-f]{4}|U[0-9a-f]{8})')
 FIELDS = ('schema_version', 'event_id', 'timestamp', 'host', 'category', 'event',
           'correlation_id', 'source', 'actor', 'container_id', 'container_name',
           'action', 'command_id', 'rule_id', 'result', 'reason', 'error_code',
@@ -37,6 +41,63 @@ def fingerprint(value):
     return hashlib.sha256(str(value).encode('utf-8')).hexdigest()
 
 
+def _escape_text(value):
+    """Canonical, reversible display text shared by storage and every output."""
+    first = len(value) - len(value.lstrip(' '))
+    parts = []
+    for position, character in enumerate(value):
+        if character == '\\':
+            parts.append('\\\\')
+        elif not character.isprintable() or (position == first and character in _FORMULA_PREFIXES):
+            code = ord(character)
+            parts.append(('\\u%04x' if code <= 0xffff else '\\U%08x') % code)
+        else:
+            parts.append(character)
+    return ''.join(parts)
+
+
+def _unescape_text(value):
+    parts, position = [], 0
+    while position < len(value):
+        if value[position] != '\\':
+            parts.append(value[position])
+            position += 1
+            continue
+        match = _TEXT_ESCAPE.match(value, position)
+        if match is None:
+            raise AuditError('Invalid audit text escape')
+        token = match.group()
+        try:
+            parts.append('\\' if token == '\\\\' else chr(int(token[2:], 16)))
+        except ValueError as error:
+            raise AuditError('Invalid audit text code point') from error
+        position = match.end()
+    return ''.join(parts)
+
+
+def prepare_record(record):
+    """Normalize legacy events and validate v2 before any storage or output.
+
+    V2 textual fields contain canonical visible escapes. Versioning prevents
+    double escaping and preserves the distinction between a control character
+    and a username that literally contains its escape notation.
+    """
+    if (not isinstance(record, dict) or type(record.get('schema_version')) is not int
+            or record['schema_version'] not in (1, _SCHEMA_VERSION)):
+        raise AuditError('Unsupported audit schema')
+    result = record.copy()
+    for key, value in record.items():
+        if isinstance(value, str):
+            if record['schema_version'] == 1:
+                result[key] = _escape_text(value)
+            elif _escape_text(_unescape_text(value)) != value:
+                raise AuditError('Audit text is not canonically escaped')
+        elif value is not None and not isinstance(value, (int, float, bool)):
+            raise AuditError('Audit event fields must be scalar values')
+    result['schema_version'] = _SCHEMA_VERSION
+    return result
+
+
 def event_record(category, event, **fields):
     unknown = set(fields) - set(FIELDS)
     if unknown:
@@ -46,11 +107,11 @@ def event_record(category, event, **fields):
     record.update(schema_version=1, event_id=uuid.uuid4().hex,
                   timestamp=datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
                   host=socket.gethostname(), category=category, event=event)
-    return record
+    return prepare_record(record)
 
 
 def encoded(record):
-    data = (json.dumps(record, ensure_ascii=True, allow_nan=False, separators=(',', ':')) + '\n').encode('utf-8')
+    data = (json.dumps(prepare_record(record), ensure_ascii=True, allow_nan=False, separators=(',', ':')) + '\n').encode('utf-8')
     if len(data) > MAX_RECORD_BYTES:
         raise AuditError('Audit event exceeds the size limit')
     return data
@@ -85,6 +146,7 @@ class AuditJournal:
         return descriptor
 
     def append(self, record):
+        record = prepare_record(record)
         data = encoded(record)
         try:
             with self._lock():
@@ -177,15 +239,14 @@ class AuditJournal:
             for line in chunk.splitlines():
                 try:
                     record = json.loads(line)
-                    if not isinstance(record, dict) or record.get('schema_version') != 1:
-                        raise ValueError('Unsupported audit schema')
-                    records.append(record)
+                    records.append(prepare_record(record))
                 except (UnicodeError, ValueError) as error:
                     raise AuditError('Audit journal contains an incomplete or invalid event') from error
         return records
 
 
 def export_events(records, stream, format='jsonl'):
+    records = (prepare_record(record) for record in records)
     if format == 'jsonl':
         for record in records:
             stream.write(encoded(record).decode('utf-8'))
@@ -193,9 +254,7 @@ def export_events(records, stream, format='jsonl'):
         writer = csv.DictWriter(stream, fieldnames=FIELDS, extrasaction='ignore')
         writer.writeheader()
         for record in records:
-            # CSV is commonly opened in a spreadsheet. Prevent formula execution.
-            writer.writerow({key: "'" + value if isinstance(value, str) and value.startswith(('=', '+', '-', '@', '\t', '\r', '\n')) else value
-                             for key, value in record.items()})
+            writer.writerow(record)
     else:
         raise ValueError('Unknown audit export format')
 

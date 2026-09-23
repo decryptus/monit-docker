@@ -4,7 +4,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 
-from monit_docker.audit import AuditError, encoded
+from monit_docker.audit import AuditError, encoded, prepare_record
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -25,6 +25,7 @@ def send_events(records, url, token_file=None, timeout=5):
     opener = urllib.request.build_opener(NoRedirect())
     sent = 0
     for record in records:
+        record = prepare_record(record)
         request = urllib.request.Request(url, data=encoded(record), headers=dict(headers, **{'Idempotency-Key': record['event_id']}), method='POST')
         try:
             with opener.open(request, timeout=timeout) as response:

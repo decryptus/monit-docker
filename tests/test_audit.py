@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import Mock, patch
 import urllib.error
 
-from monit_docker.audit import AuditError, AuditJournal, event_record, export_events, notification_delivery
+from monit_docker.audit import AuditError, AuditJournal, FIELDS, event_record, export_events, notification_delivery, prepare_record
 from monit_docker.audit_forward import NoRedirect, send_events
 from monit_docker.notification_audit import NotificationAudit
 from monit_docker.domain.errors import ActionRejected, MonitoringError
@@ -92,8 +92,82 @@ class JournalTests(unittest.TestCase):
         out = io.StringIO()
         export_events([record], out, 'csv')
         row = next(csv.DictReader(io.StringIO(out.getvalue())))
-        self.assertEqual(row['actor'], "'=CMD()")
+        self.assertEqual(row['actor'], r"\u003dCMD()")
         self.assertEqual(row['container_name'], record['container_name'])
+
+    def test_text_is_protected_before_storage_stderr_and_every_export(self):
+        raw = '  =SUM(1,2)\n\r\t\x1b[31m\x7f\x85\u202e\u2066\u200b\u2028\U000e0001'
+        expected = r'  \u003dSUM(1,2)\u000a\u000d\u0009\u001b[31m\u007f\u0085\u202e\u2066\u200b\u2028\U000e0001'
+        fields = {key: raw for key in FIELDS if key not in
+                  ('schema_version', 'event_id', 'timestamp', 'host', 'category', 'event')}
+        with patch('monit_docker.audit.socket.gethostname', return_value=raw):
+            record = event_record(raw, raw, **fields)
+        for key in (*fields, 'category', 'event', 'host'):
+            self.assertEqual(record[key], expected, key)
+        self.assertTrue(all(value == raw for value in fields.values()))
+        self.assertEqual(record['schema_version'], 2)
+        self.assertEqual(prepare_record(record), record)
+        stderr = io.StringIO()
+        self.journal.emit = True
+        with redirect_stderr(stderr):
+            self.journal.append(record)
+        self.assertEqual(json.loads(self.path.read_text()), record)
+        self.assertEqual(json.loads(stderr.getvalue()), record)
+        self.assertEqual(self.journal.read(), [record])
+        for format in ('jsonl', 'csv'):
+            out = io.StringIO()
+            export_events([record], out, format)
+            restored = json.loads(out.getvalue()) if format == 'jsonl' else next(csv.DictReader(io.StringIO(out.getvalue())))
+            for key in (*fields, 'category', 'event', 'host'):
+                self.assertEqual(restored[key], expected, (format, key))
+
+    def test_formula_prefixes_and_leading_whitespace_are_visible(self):
+        for prefix in ('=', '+', '-', '@', '\uff1d', '\uff0b', '\uff0d', '\uff20'):
+            for padding in ('', ' ', '   ', '\t', '\r', '\n', '\u00a0', '\u3000'):
+                with self.subTest(prefix=prefix, padding=repr(padding)):
+                    text = event_record('action', 'completed', actor=padding + prefix + 'SUM(1,2)')['actor']
+                    self.assertTrue(text.lstrip(' ').startswith('\\u'))
+                    self.assertTrue(all(char.isprintable() for char in text))
+
+    def test_unicode_and_literal_escapes_keep_distinct_identities(self):
+        safe = 'Jos\u00e9 / Zoe\u0308 / \u6771\u4eac / \U0001f433'
+        self.assertEqual(event_record('action', 'completed', actor=safe)['actor'], safe)
+        control = event_record('action', 'completed', actor='alice\u202e')
+        literal = event_record('action', 'completed', actor=r'alice\u202e')
+        self.assertEqual(control['actor'], r'alice\u202e')
+        self.assertEqual(literal['actor'], r'alice\\u202e')
+        self.assertNotEqual(control['actor'], literal['actor'])
+        self.assertEqual(prepare_record(prepare_record(literal)), literal)
+
+    def test_legacy_records_are_protected_without_rewriting_archives(self):
+        legacy = dict(event_record('action', 'completed'), schema_version=1, actor='=CMD()\n\u202e')
+        expected = dict(legacy, schema_version=2, actor=r'\u003dCMD()\u000a\u202e')
+        self.path.parent.mkdir()
+        original = (json.dumps(legacy) + '\n').encode()
+        self.path.write_bytes(original)
+        self.assertEqual(self.journal.read(), [expected])
+        self.assertEqual(self.path.read_bytes(), original)
+        for format in ('jsonl', 'csv'):
+            out = io.StringIO()
+            export_events([legacy], out, format)
+            restored = json.loads(out.getvalue()) if format == 'jsonl' else next(csv.DictReader(io.StringIO(out.getvalue())))
+            self.assertEqual(restored['actor'], expected['actor'])
+        self.assertEqual(self.journal.append(legacy), expected)
+        self.assertEqual(self.journal.read(), [expected, expected])
+        self.assertEqual(legacy['schema_version'], 1)
+
+    def test_new_text_fields_use_common_policy_and_invalid_v2_is_rejected(self):
+        record = dict(event_record('action', 'completed'), schema_version=1, future_field='@formula\n')
+        self.assertEqual(prepare_record(record)['future_field'], r'\u0040formula\u000a')
+        for actor in ('=CMD()', 'alice\n', 'alice\u202e', r'\q', r'\u0041', r'\U00110000'):
+            invalid = dict(event_record('action', 'completed'), actor=actor)
+            with self.subTest(actor=repr(actor)), self.assertRaises(AuditError):
+                self.journal.append(invalid)
+        self.assertFalse(self.path.exists())
+        for invalid in ({'schema_version': True}, {'schema_version': 1.0}, {'schema_version': 3},
+                        {'schema_version': 1, 'actor': ['nested\n']}, []):
+            with self.assertRaises(AuditError):
+                prepare_record(invalid)
 
     def test_completion_disk_failure_emits_truthful_fallback_without_retry(self):
         output = io.StringIO()
@@ -245,7 +319,8 @@ class AuditHttpTests(unittest.TestCase):
 
 class ForwardingTests(unittest.TestCase):
     def test_https_acknowledgement_and_stable_idempotency_key(self):
-        event = event_record('action', 'completed', result='succeeded')
+        event = dict(event_record('action', 'completed', result='succeeded'),
+                     schema_version=1, actor='=CMD()\n\u202e')
         response = Mock(status=202)
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
@@ -254,7 +329,8 @@ class ForwardingTests(unittest.TestCase):
             self.assertEqual(send_events([event], 'https://sink.example/events'), 1)
             request = build.return_value.open.call_args.args[0]
             self.assertEqual(request.get_header('Idempotency-key'), event['event_id'])
-            self.assertEqual(json.loads(request.data), event)
+            self.assertEqual(json.loads(request.data), prepare_record(event))
+            self.assertEqual(json.loads(request.data)['actor'], r'\u003dCMD()\u000a\u202e')
         for url in ('http://sink.example', 'https://u:p@sink.example', 'https://sink.example/#secret', 'https://sink.example/\n'):
             with self.assertRaises(ValueError):
                 send_events([event], url)

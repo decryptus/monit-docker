@@ -41,6 +41,31 @@ not produce audit events. The public UI retains its bounded recent-action view;
 the durable journal is exported administratively, not exposed through a public
 HTTP download route.
 
+## Text encoding shared by all outputs
+
+Schema version **2** prepares every textual value when an event is created,
+before storage, stderr collection, export or HTTPS forwarding. This includes
+usernames, container/alert names and future textual fields. Non-printable Unicode
+characters (including newlines, terminal controls and bidirectional formatting)
+become visible `\uXXXX` or `\UXXXXXXXX` escapes. Spreadsheet formula prefixes
+`=`, `+`, `-`, `@` and their fullwidth equivalents are escaped at the beginning of
+a value, including after ASCII spaces. Other leading whitespace is itself escaped.
+Printable names, accents and emoji remain unchanged.
+
+Literal backslashes are doubled: an actual newline becomes `\u000a`, whereas the
+literal text `\u000a` becomes `\\u000a`. This reversible convention preserves
+distinct identities without Unicode normalization or stripping characters. JSON
+adds its own escaping around these values; a JSON parser returns the same display
+text as a CSV reader. Consumers should display that text without decoding the
+visible escapes back into controls or formulas.
+
+Schema 1 journals remain readable: values are converted to schema 2 in memory
+without rewriting archives. Schema 2 records are validated, not escaped again.
+New exporters must consume `AuditJournal.read()` / `prepare_record()` output and
+preserve these values. Continue using the target format's serializer (for example,
+`csv.DictWriter`); this common policy does not replace HTML or other contextual
+escaping required by a destination.
+
 ## Storage and recovery
 
 The agent enables its journal when configured with rules, manual actions or the
@@ -102,9 +127,9 @@ monit-docker --audit-file /var/lib/monit-docker/events.jsonl \
   audit-send --url https://logs.example.org/events --token-file /run/secrets/logs-token
 ```
 
-Export reads a consistent snapshot of retained files, oldest first. CSV values
-that could be interpreted as spreadsheet formulas are escaped. Protect exported
-files with restrictive permissions, for example run `umask 077` first.
+Export reads a consistent snapshot of retained files, oldest first. All formats
+use the shared text encoding described above. Protect exported files with
+restrictive permissions, for example run `umask 077` first.
 
 `audit-send` POSTs one JSON event per request, verifies HTTPS certificates, refuses
 redirects and supplies `Idempotency-Key: <event_id>`. The optional token file holds
