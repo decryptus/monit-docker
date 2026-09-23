@@ -278,6 +278,5 @@ containers, volumes and recent manual activity are not cleared. This recovery is
 specific to the public demonstration and is not enabled on your own installation.
 Its starts are recorded in the host journal, outside the manual request history.
 
-The [offline simulation](https://www.monit-docker.com/demo/) remains available in
-French and English with fictional data. Your own UI installation uses the
-credentials, trusted proxy and exact action origin described in this guide.
+Your own UI installation uses the credentials, trusted proxy and exact action
+origin described in this guide.

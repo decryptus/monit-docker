@@ -12,8 +12,7 @@
 [Website](https://www.monit-docker.com/) ·
 [Documentation (FR)](https://www.monit-docker.com/docs/fr/) ·
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
-[Live demo](https://demo.monit-docker.com/) ·
-[Offline simulation](https://www.monit-docker.com/demo/)
+[Live demo](https://demo.monit-docker.com/)
 
 monit-docker is a free, open-source tool for checking Docker containers and
 optionally taking action when a condition matches, such as restarting a stopped
