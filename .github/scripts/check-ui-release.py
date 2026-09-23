@@ -95,7 +95,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix = project + '-') as temporary:
         directory = Path(temporary)
         prepare(directory, password)
-        serve = ['monit-docker', '--name', '^' + re.escape(demo) + '$', *_SERVE_OPTIONS]
+        serve = ['monit-docker', '--name', demo, *_SERVE_OPTIONS]
         services = {
             'monit-docker': {'image': 'decryptus/monit-docker:' + release, 'command': serve},
             'ui': {'image': 'decryptus/monit-docker-ui:' + release},
