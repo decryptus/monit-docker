@@ -9,6 +9,11 @@
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/decryptus/monit-docker)](https://hub.docker.com/r/decryptus/monit-docker)
 [![Documentation Status](https://readthedocs.org/projects/monit-docker/badge/?version=latest)](https://monit-docker.readthedocs.io/)
 
+[Website](https://decryptus.github.io/monit-docker-site/) ·
+[Documentation (FR)](https://decryptus.github.io/monit-docker-site/docs/fr/) ·
+[Documentation (EN)](https://decryptus.github.io/monit-docker-site/docs/en/) ·
+[Interactive demo](https://decryptus.github.io/monit-docker-site/demo/)
+
 monit-docker is a free, open-source tool for checking Docker containers and
 optionally taking action when a condition matches, such as restarting a stopped
 container or reloading PHP-FPM when memory usage is high.
