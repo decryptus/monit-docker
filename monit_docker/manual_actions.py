@@ -14,6 +14,13 @@ from monit_docker.core.manual import ALLOWED_STATES
 from monit_docker.domain.errors import ActionRejected
 
 
+_REQUEST_FIELDS    = frozenset(('request_id', 'container_id', 'action'))
+_REQUEST_ID        = re.compile(r'[a-f0-9]{32}')
+_CONTAINER_ID      = re.compile(r'[a-f0-9]{64}')
+_HISTORY_LIMIT     = 32
+_QUEUE_TIMEOUT     = 60
+
+
 class ManualActions(object):
     def __init__(self, execute, origin, token, clock=None, monotonic=None):
         self.execute = execute
@@ -34,10 +41,10 @@ class ManualActions(object):
 
     def submit(self, payload, status):
         if (not isinstance(payload, dict)
-                or set(payload) != {'request_id', 'container_id', 'action'}
+                or set(payload) != _REQUEST_FIELDS
                 or not all(isinstance(value, str) for value in payload.values())
-                or not re.fullmatch(r'[a-f0-9]{32}', payload['request_id'])
-                or not re.fullmatch(r'[a-f0-9]{64}', payload['container_id'])
+                or not _REQUEST_ID.fullmatch(payload['request_id'])
+                or not _CONTAINER_ID.fullmatch(payload['container_id'])
                 or payload['action'] not in ALLOWED_STATES):
             raise ActionRejected('invalid_request')
         with self._lock:
@@ -58,7 +65,7 @@ class ManualActions(object):
                 raise ActionRejected('state_changed')
             record = dict(payload, status='queued', submitted_at=self.clock(),
                           finished_at=None, error=None, error_code=None)
-            if len(self._requests) >= 32:
+            if len(self._requests) >= _HISTORY_LIMIT:
                 self._requests.popitem(last=False)
             self._requests[payload['request_id']] = record
             self._pending = payload['request_id']
@@ -71,7 +78,7 @@ class ManualActions(object):
                 return None
             identifier, self._pending = self._pending, None
             record = self._requests[identifier]
-            if self.monotonic() - self._queued_at > 60:
+            if self.monotonic() - self._queued_at > _QUEUE_TIMEOUT:
                 record.update(status='failed', error='expired', finished_at=self.clock())
                 return None
             self._active = identifier

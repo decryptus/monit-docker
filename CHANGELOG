@@ -5,6 +5,7 @@ monit-docker (0.0.63) unstable; urgency=medium
   * Provide Nginx HTTPS/authentication and private Prometheus access examples.
   * Add opt-in, authenticated manual start/stop/restart with confirmation.
   * Serialize manual requests with monitoring cycles and persist cooldowns.
+  * Reuse HTTPdis routing and Sonicprobe workers for the private agent API.
   * Test browser behavior, Nginx security boundaries and real Docker actions.
   * Publish a separate versioned monit-docker-ui image alongside the agent.
 

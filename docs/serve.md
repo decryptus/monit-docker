@@ -139,10 +139,19 @@ The HTTP listener remains responsive during a slow or blocked Docker call.
 SIGINT and SIGTERM request shutdown: finish the current cycle, stop scheduling,
 close the HTTP socket and exit successfully. Existing Docker client timeouts
 still apply; there is no cycle-wide deadline or forced cancellation. A hung
-Docker call can therefore delay shutdown. The HTTP endpoint has eight request
-workers, five-second socket timeouts and closes surplus connections. Use a
+Docker call can therefore delay shutdown. HTTPdis dispatches the API routes;
+Sonicprobe provides eight request workers and a pending queue of eight requests.
+Active requests have five-second socket timeouts. A full queue applies backpressure
+to the accept loop; shutdown discards queued connections. Use a
 reverse proxy for public-facing HTTP limits and supervision for process recovery.
 Configuration is loaded at startup; restart the process after changing it.
+
+Route declarations and JSON/Prometheus serialization live in the HTTP adapter;
+the monitoring core does not depend on HTTPdis. HTTPdis is loaded only in `serve`
+mode, and Nginx serves the optional UI separately. HTTPdis has a process-global
+route registry: run this agent in its own process, rather than embedding it in
+another HTTPdis/DWho application. The adapter requires HTTPdis 0.6.27 or later
+and Sonicprobe 0.3.53 or later; the Docker image includes their libmagic runtime.
 
 ## HTTP contract
 
