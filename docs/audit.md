@@ -159,7 +159,9 @@ docker compose -f compose.yaml -f compose.notifications.yaml -f compose.audit.ya
 
 The overlay persists `agent-audit-data`. The private endpoint accepts authenticated
 Alertmanager version 4 JSON (up to 64 KiB and 100 alerts per request), returning 202
-after persistence, 400 for invalid payloads or 503 for a storage failure. Large or
+after persistence, 400 for invalid payloads or 503 for a storage failure. HTTPdis
+0.6.28 enforces the registered route limits before reading the body: 64 KiB for
+notifications and 1 KiB for manual actions (HTTP 413 above the limit). Large or
 truncated groups are rejected; configure suitably narrow Alertmanager grouping.
 Retries can repeat receipts with the same notification ID. Keep this endpoint on
 a trusted private network or behind HTTPS; the public UI proxy does not expose it.

@@ -1,5 +1,5 @@
 # Published release with the strict send()/Streams API.
 dwho==0.3.61
-httpdis==0.6.27
+httpdis==0.6.28
 sonicprobe==0.3.52
 redis==5.2.1

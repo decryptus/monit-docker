@@ -222,6 +222,16 @@ class AuditHttpTests(unittest.TestCase):
         self.monitor.notification_audit.receive(value)
         self.assertEqual(record['notification_id'], self.journal.read()[-1]['notification_id'])
 
+    def test_native_route_limits_accept_exact_boundaries_independently(self):
+        body = json.dumps(payload()).ljust(1024)
+        self.assertEqual(self.request(body=body)[0], 202)
+        body = json.dumps(alert_payload()).ljust(65536)
+        headers = {'Authorization': 'Bearer ' + 'c' * 64}
+        self.assertEqual(self.request(body=body, path='/v1/notifications', headers=headers)[0], 202)
+        self.assertEqual(self.request(body=body + ' ', path='/v1/notifications', headers=headers)[0], 413)
+        self.assertEqual(self.request(body=json.dumps(payload()).ljust(1025))[0], 413)
+        self.assertEqual(len(self.journal.read()), 2)
+
     def test_bad_batch_has_no_partial_records_and_disk_failure_is_not_acknowledged(self):
         value = alert_payload()
         value['alerts'].append({'status': 'invalid'})

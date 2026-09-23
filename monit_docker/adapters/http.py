@@ -16,8 +16,7 @@ from monit_docker.adapters.http_routes import (allowed_methods,
 
 
 LOG                    = logging.getLogger('monit-docker')
-_MAX_REQUEST_BODY      = 1024
-_MAX_LENGTH_DIGITS     = 4
+_MAX_LENGTH_DIGITS     = 5
 _REQUEST_TIMEOUT       = 5
 _READ_METHODS          = ('GET', 'HEAD')
 _JSON_CONTENT_TYPES    = ('application/json',)
@@ -97,7 +96,7 @@ class StatusHandler(httpdis.HttpReqHandler):
 
     def data_from_payload(self, cmd):
         # Tighten HTTPdis's general-purpose parser for this small JSON API.
-        # Routing, authentication dispatch and body parsing remain in HTTPdis.
+        # Routing, per-route body limits, authentication and parsing remain in HTTPdis.
         if self.command != 'POST':
             raise self.req_error(405)
         notification = urlsplit(self.path).path == '/v1/notifications'
@@ -107,10 +106,10 @@ class StatusHandler(httpdis.HttpReqHandler):
         lengths = self.headers.get_all('Content-Length')
         if (self.headers.get('Transfer-Encoding') is not None
                 or not lengths or len(lengths) != 1
-                or len(lengths[0]) > (5 if notification else _MAX_LENGTH_DIGITS)
+                or len(lengths[0]) > _MAX_LENGTH_DIGITS
                 or not lengths[0].isascii() or not lengths[0].isdigit()):
             raise self.req_error(400, 'invalid_length')
-        if not 0 < int(lengths[0]) <= (65536 if notification else _MAX_REQUEST_BODY):
+        if int(lengths[0]) == 0:
             raise self.req_error(413)
         try:
             return super(StatusHandler, self).data_from_payload(cmd)

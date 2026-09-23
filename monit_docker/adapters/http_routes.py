@@ -9,6 +9,9 @@ from monit_docker.audit import AuditError
 from monit_docker.outputs.prometheus import render_metrics
 
 
+_ACTION_MAX_BODY_SIZE       = 1024
+_NOTIFICATION_MAX_BODY_SIZE = 64 * 1024
+
 _READ_METHODS       = ('GET', 'HEAD')
 _WRITE_METHODS      = ('POST',)
 _JSON_CONTENT_TYPE  = 'application/json; charset=utf-8'
@@ -69,13 +72,14 @@ def notification(request):
     return json_response(dict(recorded=count, delivery_status='not_reported'), 202)
 
 
-_ROUTES = ({'name': 'v1/notifications', 'op': _WRITE_METHODS, 'handler': notification, 'to_auth': True},
+_ROUTES = ({'name': 'v1/notifications', 'op': _WRITE_METHODS, 'handler': notification,
+            'to_auth': True, 'max_body_size': _NOTIFICATION_MAX_BODY_SIZE},
            {'name': 'healthz',     'op': _READ_METHODS,  'handler': health},
            {'name': 'readyz',     'op': _READ_METHODS,  'handler': readiness},
            {'name': 'v1/status',  'op': _READ_METHODS,  'handler': status},
            {'name': 'metrics',    'op': _READ_METHODS,  'handler': metrics},
            {'name': 'v1/actions', 'op': _WRITE_METHODS, 'handler': submit_action,
-            'to_auth': True})
+            'to_auth': True, 'max_body_size': _ACTION_MAX_BODY_SIZE})
 
 _ALLOWED_METHODS = {'/' + route['name']: ', '.join(route['op']) for route in _ROUTES}
 
