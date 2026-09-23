@@ -18,6 +18,37 @@ zero; CPU usage can exceed 100% on multiple cores.
 Available since **0.0.63**. The commands below use matching versioned images
 for the agent and the optional UI.
 
+## Try the published release in an isolated test
+
+The **Published UI acceptance** GitHub Actions workflow pulls a matching agent/UI
+release from Docker Hub without rebuilding either image. It creates a temporary
+Compose project, credentials, certificate and one Alpine demonstration container.
+The agent's name selector permits actions only on that container. The runner tests
+read-only access first, then enables manual controls and exercises cancellation,
+Stop, Start and Restart through Chromium at desktop and mobile viewport sizes.
+Actual Docker state is checked after each action; the API is not mocked.
+
+For a quicker test, the overlay uses a one-second collection interval and manual
+cooldown. These are test settings; the documented installation below retains its
+30-second defaults. The agent port stays private and HTTPS binds only to loopback.
+The temporary stack and state volume are removed when the test finishes.
+
+The workflow artifact `published-ui-acceptance` contains desktop/mobile screenshots
+and a report with the image tags and pulled digests. It contains no credentials or
+browser traces. This is an automated test environment, not a persistent dashboard
+URL. Once the workflow is on the default branch, **Run workflow** accepts a
+published `X.Y.Z` version.
+
+To reproduce on a disposable Linux Docker host with Python 3, OpenSSL, Node and
+Playwright Chromium installed:
+
+```sh
+MONIT_UI_RELEASE=0.0.63 \
+PLAYWRIGHT_MODULE=/path/to/node_modules/playwright \
+UI_SCREENSHOTS=/tmp/monit-ui-release-results \
+python3 .github/scripts/check-ui-release.py
+```
+
 ## Start with read-only access
 
 Requirements: Docker Compose v2, Python 3 and OpenSSL on the host. From the
