@@ -9,10 +9,11 @@
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/decryptus/monit-docker)](https://hub.docker.com/r/decryptus/monit-docker)
 [![Documentation Status](https://readthedocs.org/projects/monit-docker/badge/?version=latest)](https://monit-docker.readthedocs.io/)
 
-[Website](https://decryptus.github.io/monit-docker-site/) ·
-[Documentation (FR)](https://decryptus.github.io/monit-docker-site/docs/fr/) ·
-[Documentation (EN)](https://decryptus.github.io/monit-docker-site/docs/en/) ·
-[Interactive demo](https://decryptus.github.io/monit-docker-site/demo/)
+[Website](https://www.monit-docker.com/) ·
+[Documentation (FR)](https://www.monit-docker.com/docs/fr/) ·
+[Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
+[Live demo](https://demo.monit-docker.com/) ·
+[Offline simulation](https://www.monit-docker.com/demo/)
 
 monit-docker is a free, open-source tool for checking Docker containers and
 optionally taking action when a condition matches, such as restarting a stopped
@@ -149,6 +150,11 @@ HTML, CSS and JavaScript with no frontend framework or external assets.
 Nginx provides HTTPS and authentication. Read-only access is the default;
 optional start, stop and restart controls require explicit agent configuration
 and confirmation. The simple/cron mode remains independent of the UI.
+
+Since **0.0.64**, label a container `monit-docker.protected=true` to block its
+manual controls while keeping monitoring and automatic rules active. The live
+demo shows the protected agent, UI and HTTPS proxy alongside two controllable
+test containers.
 
 See the [UI installation and security guide](docs/ui.md) for Docker Compose,
 credentials, certificates and manual-action settings. Available since **0.0.63**; the guide uses the published agent and UI images.
