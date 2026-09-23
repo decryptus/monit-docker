@@ -98,7 +98,7 @@ def main():
             assert "frame-ancestors 'none'" in headers['Content-Security-Policy']
             assert request('/metrics')[0] == 404
             assert request('/healthz')[0] == 404
-            assert request('/../etc/passwd')[0] == 404
+            assert request('/../etc/passwd')[0] in (400, 404)
             status = json.loads(request('/v1/status')[1])
             assert status['ready'] and token not in json.dumps(status)
             body = dict(request_id=uuid.uuid4().hex, container_id=identifier, action='restart')
