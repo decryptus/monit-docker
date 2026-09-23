@@ -84,27 +84,40 @@ class LocalState(object):
                 raise ValueError('invalid cooldown entry')
         self.entries = data['cooldowns']
         if data['version'] == 2:
-            observations = data['observations']
-            if not isinstance(observations, dict):
-                raise ValueError('invalid observations')
-            for key, value in observations.items():
-                if (not re.fullmatch(r'[0-9a-f]{64}', key)
-                        or not isinstance(value, list) or len(value) != 2
-                        or any(isinstance(v, bool) or not isinstance(v, (int, float))
-                               or not math.isfinite(v) or v < 0 for v in value)
-                        or value[0] > value[1]):
-                    raise ValueError('invalid observation entry')
-            self.observations = observations
+            self.observations = self._validated_observations(data['observations'])
         self.version = data['version']
+
+    @staticmethod
+    def _validated_observations(observations):
+        if not isinstance(observations, dict):
+            raise ValueError('invalid observations')
+        validated = {}
+        for key, value in observations.items():
+            if (not isinstance(key, str) or not re.fullmatch(r'[0-9a-f]{64}', key)
+                    or not isinstance(value, list) or len(value) != 2):
+                raise ValueError('invalid observation entry')
+            pair = list(value)
+            try:
+                valid = all(not isinstance(v, bool) and isinstance(v, (int, float))
+                            and math.isfinite(v) and v >= 0 for v in pair)
+            except OverflowError:
+                valid = False
+            if not valid or pair[0] > pair[1]:
+                raise ValueError('invalid observation entry')
+            validated[key] = pair
+        return validated
 
     def replace_observations(self, observations, read_only=False):
         if self.lock_fd is None:
             raise RuntimeError('state must be locked before use')
+        # Validate and detach caller-owned lists before comparing or saving,
+        # including previews: invalid input must never alter disk or memory.
+        observations = self._validated_observations(observations)
         if observations == self.observations:
             return
         if not read_only:
             self._save(self.entries, observations)
-        self.observations = dict(observations)
+        self.observations = observations
         self.version = 2
 
     def reserve(self, key, now, seconds, read_only=False):

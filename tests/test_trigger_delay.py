@@ -129,6 +129,54 @@ class TriggerStateTests(unittest.TestCase):
                 self.assertEqual(error.exception.code, 118)
                 self.assertEqual(self.path.read_bytes(), before)
 
+    def test_invalid_replacement_preserves_disk_and_memory(self):
+        key = 'a' * 64
+        invalid = [[], {'bad': [1, 2]}, {1: [1, 2]}, {key: [2, 1]},
+                   {key: [True, 2]}, {key: [1, float('nan')]},
+                   {key: [1, float('inf')]}, {key: [1]}, {key: [-1, 2]},
+                   {key: (1, 2)}, {key: [1, 10 ** 400]}]
+        for version in (1, 2):
+            self.path.unlink(missing_ok=True)
+            with LocalState(str(self.path)) as state:
+                state.reserve('b' * 64, 100, 300)
+                if version == 2:
+                    state.replace_observations({key: [1, 2]})
+                before = self.path.read_bytes(), self.path.stat().st_mtime_ns
+                expected = dict(state.observations)
+                for read_only in (False, True):
+                    for observations in invalid:
+                        with self.subTest(version=version, read_only=read_only,
+                                          observations=observations):
+                            with self.assertRaises(ValueError):
+                                state.replace_observations(observations, read_only=read_only)
+                            self.assertEqual(state.observations, expected)
+                            self.assertEqual(state.version, version)
+                            self.assertEqual(state.entries, {'b' * 64: 400})
+                            self.assertEqual((self.path.read_bytes(),
+                                              self.path.stat().st_mtime_ns), before)
+
+    def test_invalid_replacement_does_not_create_state(self):
+        with LocalState(str(self.path)) as state:
+            for read_only in (False, True):
+                with self.assertRaises(ValueError):
+                    state.replace_observations({'a' * 64: [2, 1]}, read_only=read_only)
+                self.assertEqual(state.observations, {})
+                self.assertEqual(state.version, 1)
+                self.assertFalse(self.path.exists())
+
+    def test_replacement_does_not_retain_caller_owned_lists(self):
+        key = 'a' * 64
+        for read_only in (False, True):
+            self.path.unlink(missing_ok=True)
+            with LocalState(str(self.path)) as state:
+                observations = {key: [1, 2]}
+                state.replace_observations(observations, read_only=read_only)
+                observations[key][0] = 3
+                self.assertEqual(state.observations, {key: [1, 2]})
+                state.reserve('b' * 64, 100, 300)
+            with LocalState(str(self.path)) as state:
+                self.assertEqual(state.observations, {key: [1, 2]})
+
 
 class TriggerCliTests(unittest.TestCase):
     setUp = legacy.RegressionTests.setUp
