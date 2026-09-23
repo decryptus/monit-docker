@@ -203,6 +203,9 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m pip install setuptools wheel
       - run: python -m unittest discover -s tests -v
+      - name: Measure bounded journal reads with 50 MiB of retained history
+        if: matrix.python-version == '3.12'
+        run: python .github/scripts/benchmark-audit.py
       - name: Exercise engine against a real Docker daemon
         if: matrix.python-version == '3.12'
         env:

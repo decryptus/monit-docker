@@ -283,3 +283,13 @@ origin described in this guide.
 
 For persistent manual and automatic action history and authenticated actor
 attribution, see the [audit journal guide](audit.md).
+
+
+## Persistent journal page (source builds after 0.0.65)
+
+The optional **Journal** link opens `/logs` when private audit reading is enabled.
+It provides filters, event details, bounded pagination and CSV/JSONL exports of
+the displayed page. It does not poll in the background. See the
+[audit guide](audit.md) for explicit
+activation, a separate proxy secret, source-build Compose wiring and retention.
+The public demo keeps its journal private.

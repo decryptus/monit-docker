@@ -1,0 +1,29 @@
+# Source-build, read-only journal example. See docs/audit.md before combining
+# with an actions overlay: Compose replaces the agent command, not its options.
+services:
+  monit-docker:
+    image: monit-docker:journal-local
+    build:
+      context: ../..
+    command: [monit-docker, --audit-file, /var/lib/monit-docker/audit/events.jsonl, serve, --bind, 0.0.0.0, --interval, '30', --state-file, /var/lib/monit-docker/state.json, --audit-read-token-file, /run/secrets/audit-token]
+    volumes:
+      - state:/var/lib/monit-docker
+      - type: bind
+        source: ./secrets.local/audit-token
+        target: /run/secrets/audit-token
+        read_only: true
+        bind:
+          create_host_path: false
+  ui:
+    image: monit-docker-ui:journal-local
+    build:
+      context: ../../ui
+    volumes:
+      - type: bind
+        source: ./secrets.local/proxy-audit.conf
+        target: /etc/nginx/monit-audit.conf
+        read_only: true
+        bind:
+          create_host_path: false
+volumes:
+  state:

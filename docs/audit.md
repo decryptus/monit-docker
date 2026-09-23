@@ -38,8 +38,8 @@ Only operations passing through these components are recorded. Docker commands
 run elsewhere, reverse-proxy authentication failures and the demo host's recovery
 timer are recorded by their own services. Metrics polling and unmatched rules do
 not produce audit events. The public UI retains its bounded recent-action view;
-the durable journal is exported administratively, not exposed through a public
-HTTP download route.
+the durable journal stays private. An optional authenticated journal page is
+available in the source tree after 0.0.65, as described below.
 
 ## Text encoding shared by all outputs
 
@@ -205,3 +205,75 @@ supports `--audit-file` (default `~/.local/state/monit-docker/http-events.jsonl`
 Its accepted result describes the destination's response, not end-user delivery.
 Export adapter files using the agent CLI on the host or a container mounting the
 same volume. A central collector can combine these separate journals by event ID.
+
+
+## Private journal page (source builds after 0.0.65)
+
+The optional **Journal** view at `/logs` displays durable events with date,
+container, source, actor, lifecycle phase and result. Filters cover local date
+bounds, container name/ID, manual/automatic source, action/notification category
+and result. Event details include correlation IDs, safe failure reasons and
+notification delivery status. It refreshes only when requested; there is no
+polling, external JavaScript, database or additional service.
+
+The API is disabled by default. Enable `serve --audit-read-token-file FILE` and
+supply an explicit global `--audit-file PATH`. Use a separate 64-character hex
+secret, never the action or notification secret. An authenticated proxy must
+**overwrite** `X-Monit-Audit-Token` with that secret and `X-Monit-Actor` with the
+signed-in username. Never expose the agent port directly. All authenticated users
+of this proxy can read the configured journal; this is not per-container RBAC.
+The shipped Nginx proxy uses its existing TLS and Basic authentication. The token
+stays on the server and is never sent to browser JavaScript. The public demo does
+not enable these routes or expose its journal.
+
+For a **fresh read-only setup**, from `examples/ui`:
+
+```sh
+python3 prepare.py --journal --self-signed
+docker compose -f compose.yaml -f compose.journal.yaml up -d --build
+```
+
+This builds the current agent and UI sources. Replace the development certificate
+with a trusted certificate for remote use. The `state` volume retains the journal
+at `/var/lib/monit-docker/audit/events.jsonl`; a fresh read-only agent has no events
+until actions/rules or notification receivers are configured. Reading alone does
+not execute actions or enable notification delivery.
+
+For an existing actions deployment, preserve the existing secrets and command.
+Generate a distinct audit read secret and proxy include in the private secrets
+directory (the preparation script refuses to overwrite an existing directory).
+Add global `--audit-file /var/lib/monit-docker/audit/events.jsonl` **before**
+`serve`, then append `--audit-read-token-file /run/secrets/audit-token` to the
+serve options. Reuse the token and proxy-include mounts from
+`compose.journal.yaml`. Add `--trust-proxy-user` if manual action attribution
+should use the authenticated username. Compose replaces `command` lists: do not
+stack the journal and actions overlays without combining their command options.
+
+### Bounded reads and downloads
+
+`GET /v1/audit` returns up to 100 events, newest first, with a signed continuation
+cursor. Each request reads at most 1 MiB of journal bytes and retains at most
+512 KiB of serialized event data, plus bounded parsing/response overhead. At most
+two journal reads run concurrently; other readers receive 503 and may retry.
+Opening files briefly takes a nonblocking shared journal lock. File content reads
+and serialization run after releasing it, outside the action/monitoring locks.
+If a writer holds the journal lock, browsing returns 503 rather than waiting.
+
+A sparse filter can produce an empty page with an **Older events** continuation.
+No automatic loop scans the remaining files. Cursors are bound to the filters and
+authenticated user, exclude subsequent appends and expire after 15 minutes,
+agent restart, or loss of unread files through rotation. Refresh to start a new
+snapshot. Externally rewriting/truncating journal files is unsupported.
+
+**Export page · JSONL/CSV** downloads the displayed snapshot only, using
+`GET /v1/audit/export` with its page cursor and filters. It preserves the common
+escaped text representation. This bounds browser memory and server response size;
+use administrative `audit-export` for a complete retained-history export. The
+existing CLI full export still takes an in-memory snapshot; these web limits do
+not change that behavior. An expired snapshot must be refreshed before export.
+
+The regression suite checks rotation, malformed files, filter/cursor tampering,
+proxy identity replacement, writer progress during reads and browser error states.
+Run `.github/scripts/benchmark-audit.py` with the project environment to measure a
+50 MiB disposable journal, first-page memory and latency, full sparse-search cost
+and a concurrent write. Measurements depend on the host and are not latency SLAs.

@@ -121,6 +121,7 @@ function renderContainers() {
     : items.length ? 'No containers match your filter.' : 'No containers in the latest snapshot.';
 }
 function render() {
+  $('journal-link').hidden = !connected || !data?.audit_enabled;
   const ready = connected && data?.ready;
   const items = ready ? data.containers : [];
   $('connection').textContent = !connected ? 'Disconnected' : ready ? 'Agent connected' : 'Agent not ready';

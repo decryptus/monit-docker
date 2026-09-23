@@ -15,6 +15,7 @@ import subprocess
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--journal', action='store_true', help='prepare a separate private journal read secret')
     parser.add_argument('--actions', action='store_true', help='prepare the optional write proxy secret')
     parser.add_argument('--self-signed', action='store_true', help='create a localhost-only development certificate')
     args = parser.parse_args()
@@ -42,6 +43,10 @@ def main():
     (target / 'proxy-action.conf').write_text('proxy_set_header X-Monit-Action-Token "' + token + '";\n')
     if args.actions:
         (target / 'action-token').write_text(token + '\n')
+    if args.journal:
+        audit_token = secrets.token_hex(32)
+        (target / 'audit-token').write_text(audit_token + '\n')
+        (target / 'proxy-audit.conf').write_text('proxy_set_header X-Monit-Audit-Token "' + audit_token + '";\n')
     if args.self_signed:
         subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
                         '-days', '7', '-subj', '/CN=localhost',

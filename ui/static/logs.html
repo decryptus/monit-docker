@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light"><title>monit-docker · Journal</title>
+  <link rel="icon" href="data:,"><link rel="stylesheet" href="/app.css"><script src="/logs.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">m.</span>monit-docker<span class="edition">Community</span></a><nav class="view-nav" aria-label="Views"><a href="/">Overview</a><a href="/logs" aria-current="page">Journal</a></nav></header>
+  <main>
+    <section class="intro"><div><p class="eyebrow">PERSISTENT HISTORY</p><h1>Action and notification journal.</h1><p class="subtitle">Who did what, when, and with which result.</p></div><button id="refresh-logs" type="button">Latest events</button></section>
+    <form id="log-filters" class="log-filters">
+      <label>From (local time)<input id="log-since" name="since" type="datetime-local"></label>
+      <label>To (local time)<input id="log-until" name="until" type="datetime-local"></label>
+      <label>Container name or ID<input name="container" type="search" maxlength="256" placeholder="All containers"></label>
+      <label>Source<select name="source"><option value="">All sources</option><option>manual</option><option>automatic</option></select></label>
+      <label>Category<select name="category"><option value="">All events</option><option value="action">Actions</option><option value="notification">Notifications</option></select></label>
+      <label>Result<select name="result"><option value="">All results</option><option>pending</option><option>succeeded</option><option>failed</option><option>rejected</option><option>skipped</option><option>simulated</option><option>accepted</option><option>received</option></select></label>
+      <div class="filter-buttons"><button class="primary" type="submit">Apply filters</button><button id="reset-logs" type="button">Clear</button></div>
+    </form>
+    <p id="log-notice" class="notice" role="status" aria-live="polite">Loading recent events…</p>
+    <section class="containers" aria-labelledby="events-title"><div class="section-heading"><div><h2 id="events-title">Events <span id="log-count" class="count">0</span></h2><p>Newest first · up to 100 per page · refresh on demand</p></div><div class="log-exports"><button id="export-jsonl" type="button" disabled>Export page · JSONL</button><button id="export-csv" type="button" disabled>Export page · CSV</button></div></div>
+      <ol id="log-events" class="log-events"></ol><p id="log-empty" class="empty" hidden>No events in this part of the journal.</p>
+      <div class="log-paging"><button id="previous-logs" type="button" disabled>Previous page</button><span id="log-page">Page 1</span><button id="older-logs" type="button" disabled>Older events</button></div>
+      <p class="section-note">Dates use your local timezone. “Accepted” means the destination acknowledged a notification, not that a person received it. Visible text escapes are preserved in exports.</p>
+    </section>
+    <footer><span>monit-docker <span class="footer-dot">/</span> Lightweight monitoring</span><a href="/">Back to overview</a></footer>
+  </main>
+  <noscript><p class="notice">JavaScript is required to browse the journal.</p></noscript>
+</body></html>
