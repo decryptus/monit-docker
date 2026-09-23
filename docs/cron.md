@@ -74,6 +74,11 @@ immediately; it does not wait. The operating system releases the lock on process
 exit, including an abrupt exit. The lock file remains: do not delete it to unlock
 a job, because that could let a second process acquire a different lock inode.
 
+For Python integrations, a `LocalState` instance must not be entered twice at the
+same time or reused for writes in a child after `fork`. Both cases are rejected;
+create a fresh instance in each process. Cooldown keys and timestamps are checked
+before any state change, including dry runs.
+
 Use one state file per job and Docker host, on a local filesystem supporting
 `flock`, atomic rename and `fsync`. Copies of the same job must share that path;
 different paths do not coordinate. For containerized invocations, mount the
