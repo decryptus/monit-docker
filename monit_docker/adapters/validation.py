@@ -163,8 +163,8 @@ def _validate_rule(parser, expression, location):
     def validate():
         rule = parser.parse(expression)
         # Validate each condition separately: normal evaluation short-circuits.
-        values = dict((field, 1) for field in ContainerSnapshot.FIELDS
-                      if field not in ('id', 'name', 'status', 'pid'))
+        values = dict((field, 1) for field in ContainerSnapshot.RESOURCE_FIELDS
+                      if field not in ('status', 'pid'))
         values.update(cpu_percent=1.0, mem_percent=1.0)
         snapshot = ContainerSnapshot(status='running', pid=1, **values)
         for condition in rule.conditions:

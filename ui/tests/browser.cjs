@@ -56,6 +56,16 @@ async function main() {
     await page.locator('#auto').uncheck();
     assert.equal(await page.locator('.container-row').count(), 5);
     assert.equal(await page.locator('.container-row button:visible').count(), 9);
+    // Protected containers stay visible, with disabled controls for every state.
+    state.containers[2].manual_actions_protected = true;
+    state.containers[4].manual_actions_protected = true;
+    await page.locator('#refresh').click();
+    await page.waitForFunction(() => document.querySelectorAll('.protection:not([hidden])').length === 2);
+    assert.equal(await page.locator('.container-row').count(), 5);
+    for (const name of ['Stop postgres-primary', 'Restart postgres-primary', 'Start nightly-backup']) {
+      assert.equal(await page.getByRole('button', {name, exact: true}).isDisabled(), true);
+    }
+    assert.equal(await page.getByRole('button', {name: 'Restart api-service', exact: true}).isEnabled(), true);
     await page.screenshot({path: path.join(output, 'ui-desktop.png'), fullPage: true});
     for (const width of [360, 390, 720, 1024]) {
       await page.setViewportSize({width, height: 844});
@@ -74,6 +84,16 @@ async function main() {
     await page.getByRole('button', {name: 'Restart api-service', exact: true}).click();
     await page.getByRole('button', {name: 'Cancel', exact: true}).click();
     assert.equal(posts, 0);
+    // Protection appearing while confirmation is open invalidates that dialog too.
+    await page.getByRole('button', {name: 'Restart api-service', exact: true}).click();
+    state.containers[1].manual_actions_protected = true;
+    await page.evaluate(() => refresh());
+    assert.equal(await page.locator('#confirm-action').isDisabled(), true);
+    await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+    assert.equal(posts, 0);
+    delete state.containers[1].manual_actions_protected;
+    await page.locator('#refresh').click();
+    await page.waitForFunction(() => !document.querySelector('[aria-label="Restart api-service"]').disabled);
     await page.getByRole('button', {name: 'Restart api-service', exact: true}).click();
     await page.locator('#confirm-action').click();
     await page.waitForFunction(() => document.querySelector('#activity li')?.textContent.includes('queued'));
@@ -108,7 +128,7 @@ async function main() {
     assert.equal(await page.locator('.container-row button:visible').count(), 0);
     assert.equal(posts, 2);
     assert.deepEqual(errors, []);
-    console.log('Browser checks passed: mobile/desktop, XSS text, confirmations, queue, stale/offline, old API.');
+    console.log('Browser checks passed: protection, mobile/desktop, XSS text, confirmations, queue, stale/offline, old API.');
   } finally { await browser.close(); server.close(); }
 }
 main().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

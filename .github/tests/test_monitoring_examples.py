@@ -15,8 +15,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class MonitoringExamplesTests(unittest.TestCase):
     def test_every_dashboard_metric_is_exposed_and_every_metric_is_documented(self):
-        values = dict((field, 1) for field in ContainerSnapshot.FIELDS[3:])
-        snapshot = ContainerSnapshot(id='one', name='one', status='running', **values)
+        values = dict((field, 1) for field in ContainerSnapshot.RESOURCE_FIELDS if field != 'status')
+        snapshot = ContainerSnapshot(id='one', name='one', status='running',
+                                     manual_actions_protected=True, **values)
         monitor = MonitorService(lambda observer: CycleResult((snapshot,), ()))
         monitor.run_cycle()
         exposed = set(re.findall(r'^# TYPE (\w+) ', render_metrics(monitor.status()), re.M))

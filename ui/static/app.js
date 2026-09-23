@@ -7,6 +7,7 @@ const labels = {start: 'Start', stop: 'Stop', restart: 'Restart'};
 const reasons = {
   busy: 'Another action is queued or running.', not_ready: 'Fresh data is required.',
   not_selected: 'The container is no longer selected.', state_changed: 'The container state changed.',
+  container_protected: 'Manual actions are blocked for this container. Automatic rules remain active.',
   cooldown: 'The manual action cooldown has not elapsed.', expired: 'The queued request expired.',
   execution_failed: 'Execution failed; inspect the agent logs.',
   forbidden: 'The proxy action secret was rejected.', origin_rejected: 'The browser origin was rejected.',
@@ -44,7 +45,7 @@ function actions() { return data?.manual_actions || {enabled: false}; }
 function busy() { return (actions().recent || []).some(item => ['queued', 'running'].includes(item.status)); }
 function canAct(container, action) {
   return connected && performance.now() - receivedAt <= 10000 && data?.ready
-    && actions().enabled && !posting && !unresolved && !busy()
+    && actions().enabled && !container.manual_actions_protected && !posting && !unresolved && !busy()
     && (actions().allowed_states?.[action] || []).includes(container.status);
 }
 function newRow(container) {
@@ -55,7 +56,12 @@ function newRow(container) {
   identity.append(name, id);
   const statusCell = node('div', 'status-cell');
   const status = node('span', 'badge');
-  statusCell.append(status);
+  const protection = node('span', 'protection');
+  const lock = node('span', 'protection-lock');
+  lock.setAttribute('aria-hidden', 'true');
+  protection.append(lock, node('span', '', 'Protected'));
+  protection.title = reasons.container_protected;
+  statusCell.append(status, protection);
   const cpu = node('div', 'metric');
   const cpuValue = node('span', 'metric-value');
   cpu.append(node('span', 'cell-label', 'CPU'), cpuValue, node('span', 'metric-detail', '100% = one CPU core'));
@@ -75,7 +81,7 @@ function newRow(container) {
   controls.append(readonly);
   article.append(identity, statusCell, cpu, memory, controls);
   $('containers').append(article);
-  const row = {article, name, id, status, cpuValue, memoryValue, memoryDetail, buttons, readonly};
+  const row = {article, name, id, status, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
   rows.set(container.id, row);
   return row;
 }
@@ -94,6 +100,7 @@ function renderContainers() {
     row.id.title = container.id;
     row.status.textContent = container.status;
     row.status.dataset.state = container.status;
+    row.protection.hidden = !container.manual_actions_protected;
     row.cpuValue.textContent = percent(container.cpu_percent);
     row.memoryValue.textContent = bytes(container.mem_usage);
     row.memoryDetail.textContent = `${percent(container.mem_percent)} · limit ${bytes(container.mem_limit)}`;
@@ -101,6 +108,7 @@ function renderContainers() {
     for (const [action, button] of Object.entries(row.buttons)) {
       button.hidden = !actions().enabled || !(actions().allowed_states?.[action] || []).includes(container.status);
       button.disabled = !canAct(container, action);
+      button.title = container.manual_actions_protected ? reasons.container_protected : '';
       button.setAttribute('aria-label', `${labels[action]} ${container.name}`);
     }
     row.article.hidden = !`${container.name} ${container.id} ${container.status}`.toLowerCase().includes(query);
@@ -145,7 +153,10 @@ function render() {
     list.append(item);
   }
   $('no-activity').hidden = recent.length > 0;
-  if (selected && !canAct(selected.container, selected.action)) $('confirm-action').disabled = true;
+  if (selected) {
+    const current = (data?.containers || []).find(item => item.id === selected.container.id);
+    if (!current || !canAct(current, selected.action)) $('confirm-action').disabled = true;
+  }
 }
 async function request(url, options = {}) {
   const controller = new AbortController();

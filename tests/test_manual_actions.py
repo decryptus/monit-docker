@@ -25,8 +25,8 @@ def payload(number=1, **changes):
     return dict(dict(request_id='%032x' % number, container_id=ID, action='restart'), **changes)
 
 
-def snapshot():
-    return CycleResult((ContainerSnapshot(id=ID, name='web', status='running'),), ())
+def snapshot(**changes):
+    return CycleResult((ContainerSnapshot(id=ID, name='web', status='running', **changes),), ())
 
 
 class ManualTests(unittest.TestCase):
@@ -48,6 +48,17 @@ class ManualTests(unittest.TestCase):
         self.monitor._last_success_tick = None
         with self.assertRaisesRegex(ActionRejected, 'not_ready'):
             self.submit()
+        self.execute.assert_not_called()
+
+    def test_protected_container_is_visible_but_requests_are_not_queued(self):
+        self.monitor.cycle.return_value = snapshot(manual_actions_protected=True)
+        self.monitor.run_cycle()
+        self.assertTrue(self.monitor.status()['containers'][0]['manual_actions_protected'])
+        for action in ('start', 'stop', 'restart'):
+            with self.subTest(action=action), self.assertRaisesRegex(ActionRejected, 'container_protected'):
+                self.submit(payload(action=action))
+        self.assertEqual(self.actions.status()['recent'], [])
+        self.assertFalse(self.monitor.run_pending_action())
         self.execute.assert_not_called()
 
     def test_deduplication_busy_conflict_and_results_are_copies(self):
@@ -143,6 +154,81 @@ class ManualTests(unittest.TestCase):
 class ManualEngineTests(unittest.TestCase):
     make_engine = engine_tests.EngineTests.make_engine
 
+    def test_protection_label_defaults_and_explicit_false_values(self):
+        for value, protected in ((None, False), ('false', False), (' FALSE ', False),
+                                 ('0', False), ('no', False), ('off', False),
+                                 ('true', True), ('1', True), ('', True), ('treu', True)):
+            with self.subTest(value=value):
+                obj = legacy.container()
+                obj.attrs['Config'] = {'Labels': {} if value is None else {'monit-docker.protected': value}}
+                engine, _, _ = self.make_engine(obj)
+                result = engine.run_once(resources=('status',))
+                self.assertEqual(result.snapshots[0].manual_actions_protected, protected)
+
+    def test_protection_blocks_manual_commands_without_reserving_cooldown(self):
+        for command, state in (('start', 'exited'), ('stop', 'running'), ('restart', 'running')):
+            with self.subTest(command=command):
+                obj = legacy.container()
+                obj.id, obj.status = ID, state
+                obj.attrs['Config'] = {'Labels': {'monit-docker.protected': 'true'}}
+                engine, _, client = self.make_engine(obj)
+                claim = Mock(return_value=True)
+                with self.assertRaisesRegex(ActionRejected, 'container_protected'):
+                    engine.run_manual_action(ID, command, claim)
+                getattr(obj, command).assert_not_called()
+                claim.assert_not_called()
+                client.api.close.assert_called_once_with()
+                self.assertIsNone(engine.collector.client)
+                obj.attrs['Config']['Labels']['monit-docker.protected'] = 'false'
+                engine.run_manual_action(ID, command, claim)
+                getattr(obj, command).assert_called_once_with()
+
+    def test_protected_containers_keep_metrics_and_autonomous_rules(self):
+        obj = legacy.container()
+        obj.attrs['Config'] = {'Labels': {'monit-docker.protected': 'true'}}
+        engine, _, _ = self.make_engine(obj)
+        result = engine.run_once()
+        self.assertEqual(result.snapshots[0].cpu_percent, 256)
+        self.assertTrue(result.snapshots[0].manual_actions_protected)
+        rule = engine_tests.RuleParser().parse('status == running ? restart')
+        result = engine.run_once(rules=(rule,))
+        self.assertTrue(result.snapshots[0].manual_actions_protected)
+        obj.restart.assert_called_once_with()
+        self.assertEqual(len(result.actions), 1)
+
+    def test_queued_request_rechecks_protection_from_fresh_selection(self):
+        obj = legacy.container()
+        obj.id = ID
+        engine, _, _ = self.make_engine(obj)
+        claim = Mock(return_value=True)
+        actions = ManualActions(lambda identifier, action: engine.run_manual_action(identifier, action, claim),
+                                ORIGIN, TOKEN)
+        monitor = MonitorService(lambda _: engine.run_once(resources=('status',)), manual_actions=actions)
+        monitor.run_cycle()
+        actions.submit(payload(), monitor.status())
+        obj.attrs['Config'] = {'Labels': {'monit-docker.protected': 'true'}}
+        self.assertTrue(monitor.run_pending_action())
+        record = actions.status()['recent'][0]
+        self.assertEqual((record['status'], record['error']), ('failed', 'container_protected'))
+        obj.restart.assert_not_called()
+        claim.assert_not_called()
+        monitor.run_cycle()
+        self.assertTrue(monitor.status()['containers'][0]['manual_actions_protected'])
+
+    def test_policy_metadata_is_boolean_and_not_a_metric(self):
+        self.assertFalse(ContainerSnapshot().manual_actions_protected)
+        for value in ('true', 1, None):
+            with self.subTest(value=value), self.assertRaises(TypeError):
+                ContainerSnapshot(manual_actions_protected=value)
+        original = ContainerSnapshot(manual_actions_protected=True)
+        self.assertTrue(ContainerSnapshot(**original.to_dict()).manual_actions_protected)
+        with self.assertRaises(AttributeError):
+            original.manual_actions_protected = False
+        engine, factory, _ = self.make_engine(legacy.container())
+        with self.assertRaises(ValueError):
+            engine.run_once(resources=('manual_actions_protected',))
+        factory.assert_not_called()
+
     def test_reselects_exact_id_and_checks_status_before_reservation(self):
         obj = legacy.container('web')
         obj.id = ID
@@ -225,6 +311,19 @@ class ManualHttpTests(unittest.TestCase):
         self.actions.execute.assert_not_called()
         self.monitor.run_pending_action()
         self.actions.execute.assert_called_once_with(ID, 'restart')
+
+    def test_authenticated_direct_api_cannot_bypass_protection(self):
+        self.monitor.cycle.return_value = snapshot(manual_actions_protected=True)
+        self.monitor.run_cycle()
+        status_code, status = self.request(path='/v1/status', method='GET')
+        self.assertEqual(status_code, 200)
+        self.assertTrue(status['containers'][0]['manual_actions_protected'])
+        for action in ('start', 'stop', 'restart'):
+            with self.subTest(action=action):
+                code, body = self.request(body=json.dumps(payload(action=action)))
+                self.assertEqual((code, body), (403, {'error': 'container_protected'}))
+        self.assertEqual(self.actions.status()['recent'], [])
+        self.actions.execute.assert_not_called()
 
     def test_strict_json_framing_and_post_only(self):
         self.assertEqual(self.request(headers={'Content-Type': 'text/plain'})[0], 415)

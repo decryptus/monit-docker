@@ -186,6 +186,10 @@ ignore additional fields, so later additions need not change the URL version.
 
 Each container has `id`, `name`, `status`, `pid`, `mem_usage`, `mem_limit`,
 `mem_percent`, `cpu_percent`, `io_read`, `io_write`, `net_tx`, and `net_rx`.
+Newer agents also include `manual_actions_protected`, a boolean derived from the
+`monit-docker.protected` Docker label. It restricts only manual actions; it is not
+a metric or a rule condition. Older agents omit this field. See
+[container protection](ui.md#protect-a-container-from-manual-actions).
 Byte fields and percentages are raw numbers, not formatted strings. Unknown or
 unrequested fields are null. A successful metadata-only cycle can be ready even
 if no numerical metrics were requested. No matching container produces the
@@ -193,6 +197,11 @@ existing error 114 and makes the monitor unready.
 
 
 ## Optional manual action API
+
+A protected container stays in `GET /v1/status`, but a new manual request for it
+returns HTTP **403** with `{"error": "container_protected"}`. The engine also
+rechecks protection from fresh metadata before execution: an accepted request
+can finish as `failed` with that same reason. Automatic rules are unaffected.
 
 See [UI and authentication setup](ui.md) before enabling writes.
 `POST /v1/actions` accepts only an `application/json` body up to 1024 bytes:

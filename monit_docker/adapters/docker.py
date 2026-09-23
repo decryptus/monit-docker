@@ -19,6 +19,9 @@ from monit_docker.adapters.syntax import DOCKER_COMMANDS
 
 LOG = logging.getLogger('monit-docker')
 
+_MANUAL_PROTECTION_LABEL = 'monit-docker.protected'
+_UNPROTECTED_LABEL_VALUES = frozenset(('false', '0', 'no', 'off'))
+
 
 def client_factory(config, name=None, from_env=False):
     """Resolve configuration now, create a fresh connection for each cycle."""
@@ -68,9 +71,14 @@ class DockerCollector(object):
 
     def describe(self, identifier, snapshot=None):
         obj = self._containers[identifier]
+        labels = obj.attrs.get('Config', {}).get('Labels') or {}
+        protected = (_MANUAL_PROTECTION_LABEL in labels
+                     and str(labels[_MANUAL_PROTECTION_LABEL]).strip().lower()
+                     not in _UNPROTECTED_LABEL_VALUES)
         values = snapshot.to_dict() if snapshot is not None else {}
         values.update(id=obj.id, name=obj.name, status=obj.status,
-                      pid=obj.attrs['State'].get('Pid'))
+                      pid=obj.attrs['State'].get('Pid'),
+                      manual_actions_protected=protected)
         return ContainerSnapshot(**values)
 
     def collect(self, snapshot, resources):
