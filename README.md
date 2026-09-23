@@ -1,7 +1,7 @@
 # monit-docker project
 
 <p align="center">
-  <img src="ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
+  <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
 </p>
 
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/monit-docker.svg)](https://pypi.org/project/monit-docker/)
@@ -146,20 +146,19 @@ optional start, stop and restart controls require explicit agent configuration
 and confirmation. The simple/cron mode remains independent of the UI.
 
 See the [UI installation and security guide](docs/ui.md) for Docker Compose,
-credentials, certificates and manual-action settings. This feature is currently
-on the development branch; the guide builds it from source.
+credentials, certificates and manual-action settings. Available since **0.0.63**; the guide uses the published agent and UI images.
 
 ### Desktop
 
 The screenshots below use **synthetic demonstration data**.
 
-![Blue desktop interface showing container status, resources and optional controls](ui/screenshots/desktop.png)
+![Blue desktop interface showing container status, resources and optional controls](https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/screenshots/desktop.png)
 
 <details>
 <summary>View the mobile interface</summary>
 
 <p align="center">
-  <img src="ui/screenshots/mobile.png" alt="Mobile interface with responsive container cards and touch-friendly controls" width="320">
+  <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/screenshots/mobile.png" alt="Mobile interface with responsive container cards and touch-friendly controls" width="320">
 </p>
 
 </details>

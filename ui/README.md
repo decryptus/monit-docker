@@ -12,8 +12,7 @@ its only integration is HTTP API v1. Core/domain code never imports `ui/`.
 See the [UI setup guide](../docs/ui.md) for read-only and opt-in action modes.
 Build the image with `docker build -t monit-docker-ui:local ui` from the repository
 root. The release pipeline builds and tests it separately, then publishes
-`decryptus/monit-docker-ui:X.Y.Z` alongside the matching agent release. The first
-UI release is pending; build from this branch until it is published.
+`decryptus/monit-docker-ui:X.Y.Z` alongside the matching agent release. The first UI release is **0.0.63**.
 
 The page supports existing API v1 agents in read-only mode when the optional
 `manual_actions` capability is absent. Start/stop/restart require the new manual

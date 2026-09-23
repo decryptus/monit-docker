@@ -14,8 +14,9 @@ For all three services with the dashboard already loaded, use the
 `serve` uses the same monitoring engine as `monit` and `cron`. It runs an
 immediate cycle, then waits 30 seconds after each completed cycle by default.
 Cycles are sequential, including when collection takes longer than the interval.
-It adds no runtime dependencies. The HTTP interface only reads an in-memory cache;
-a request never collects Docker statistics or executes a remediation action.
+It adds no runtime dependencies. Read endpoints use an in-memory cache; they never collect Docker statistics or
+execute an action. The optional manual-action endpoint queues work for the
+monitoring scheduler.
 
 ## Start a local monitor
 

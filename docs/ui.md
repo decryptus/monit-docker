@@ -15,8 +15,8 @@ and disables controls if no successful status response arrives for ten seconds,
 including when automatic refresh is paused. Unknown metrics display a dash, not
 zero; CPU usage can exceed 100% on multiple cores.
 
-The UI is new on this branch and not part of the published 0.0.62 image. The
-commands below build both components from the checked-out source.
+Available since **0.0.63**. The commands below use matching versioned images
+for the agent and the optional UI.
 
 ## Start with read-only access
 
@@ -26,7 +26,7 @@ repository root:
 ```sh
 cd examples/ui
 python3 prepare.py --self-signed
-docker compose up -d --build
+docker compose up -d
 ```
 
 The script asks for a username and password without echoing the password. It
@@ -76,7 +76,7 @@ UI_ORIGIN=https://localhost:8443
 Then start the action overlay:
 
 ```sh
-docker compose -f compose.yaml -f compose.actions.yaml up -d --build
+docker compose -f compose.yaml -f compose.actions.yaml up -d
 ```
 
 Opening `https://127.0.0.1:8443` when the origin is configured as
@@ -177,13 +177,14 @@ local socket, review the private network's routing before changing the example.
 
 ## Updates and validation
 
-Rebuild from the desired source version and recreate both services. Nginx
+Update both image tags in the Compose file, pull the images and recreate both services. Nginx
 resolves the agent's Docker DNS address when it starts, so restart Nginx when
 recreating the agent. After replacing a certificate or credentials, recreate
 the UI container to reread the mounted files:
 
 ```sh
-docker compose -f compose.yaml -f compose.actions.yaml up -d --build --force-recreate
+docker compose -f compose.yaml -f compose.actions.yaml pull
+docker compose -f compose.yaml -f compose.actions.yaml up -d --force-recreate
 ```
 
 Use only `compose.yaml` for read-only installations. To disable writes, recreate
