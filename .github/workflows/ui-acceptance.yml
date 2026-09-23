@@ -1,0 +1,52 @@
+name: Published UI acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ui-acceptance.yml'
+      - '.github/scripts/check-ui-release.py'
+      - 'ui/tests/release.cjs'
+      - 'examples/ui/**'
+      - 'docs/ui.md'
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Published agent and UI version (X.Y.Z)'
+        required: true
+        default: '0.0.63'
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    name: Published images with real Docker and mobile browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MONIT_UI_RELEASE: ${{ inputs.release || '0.0.63' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test tools outside the application
+        run: |
+          npm install --prefix "$RUNNER_TEMP/ui-browser" --no-audit --no-fund playwright@1.55.0
+          "$RUNNER_TEMP/ui-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Test the published images without rebuilding
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/ui-browser/node_modules/playwright
+          UI_SCREENSHOTS: ${{ runner.temp }}/ui-release-results
+        run: python .github/scripts/check-ui-release.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: published-ui-acceptance
+          path: ${{ runner.temp }}/ui-release-results/
+          retention-days: 14
