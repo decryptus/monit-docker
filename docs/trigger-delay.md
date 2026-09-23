@@ -1,6 +1,6 @@
 # Wait for a sustained condition before acting
 
-> Unreleased: these options require a build newer than v0.0.61.
+> Available since v0.0.62.
 
 Use `--trigger-after` with `cron` or `serve` to wait until a condition has been
 observed true for a minimum duration before running its actions. The tracking
