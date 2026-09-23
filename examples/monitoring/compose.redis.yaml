@@ -8,7 +8,11 @@ services:
         condition: service_healthy
 
   redis-webhook:
-    build: ./redis-webhook
+    build:
+      context: ../..
+      dockerfile: examples/monitoring/redis-webhook/Dockerfile
+    volumes:
+      - redis-audit-data:/var/lib/monit-docker
     restart: unless-stopped
     environment:
       REDIS_STREAM: ${REDIS_STREAM:-monit-docker:alerts}
@@ -51,4 +55,5 @@ secrets:
     file: ./notifications.local/redis_webhook_token
 
 volumes:
+  redis-audit-data:
   redis-notifications-data:

@@ -16,14 +16,13 @@ from monit_docker.adapters.http_routes import (allowed_methods,
 
 
 LOG                    = logging.getLogger('monit-docker')
-_MAX_REQUEST_BODY      = 1024
-_MAX_LENGTH_DIGITS     = 4
+_MAX_LENGTH_DIGITS     = 5
 _REQUEST_TIMEOUT       = 5
 _READ_METHODS          = ('GET', 'HEAD')
 _JSON_CONTENT_TYPES    = ('application/json',)
 _SHUTDOWN_SIGNALS      = (signal.SIGINT, signal.SIGTERM)
 _SERVER_OPTIONS        = {'max_workers':    8,
-                          'max_body_size': _MAX_REQUEST_BODY,
+                          'max_body_size': 65536,
                           'max_requests':  0,
                           'max_life_time': 0}
 _ERROR_MESSAGES        = {400: 'invalid_request',
@@ -69,6 +68,14 @@ class StatusHandler(httpdis.HttpReqHandler):
         self.end_response(response)
 
     def authenticate(self, auth_users = None):
+        if urlsplit(self.path).path == '/v1/notifications':
+            receiver = self.server.monitor.notification_audit
+            if receiver is None:
+                raise self.req_error(405)
+            tokens = self.headers.get_all('Authorization')
+            if not tokens or len(tokens) != 1 or not hmac.compare_digest(tokens[0].encode('utf-8'), ('Bearer ' + receiver.token).encode('ascii')):
+                raise self.req_error(403, 'forbidden')
+            return
         actions = self.server.monitor.manual_actions
         if actions is None:
             raise self.req_error(405)
@@ -79,13 +86,22 @@ class StatusHandler(httpdis.HttpReqHandler):
             raise self.req_error(403, 'forbidden')
         if not origins or len(origins) != 1 or origins[0] != actions.origin:
             raise self.req_error(403, 'origin_rejected')
+        self.audit_actor = 'anonymous'
+        if actions.trust_actor:
+            actors = self.headers.get_all('X-Monit-Actor')
+            if (not actors or len(actors) != 1 or not actors[0].strip() or len(actors[0]) > 128
+                    or any(ord(c) < 32 or ord(c) == 127 for c in actors[0])):
+                raise self.req_error(403, 'forbidden')
+            self.audit_actor = actors[0]
 
     def data_from_payload(self, cmd):
         # Tighten HTTPdis's general-purpose parser for this small JSON API.
-        # Routing, authentication dispatch and body parsing remain in HTTPdis.
+        # Routing, per-route body limits, authentication and parsing remain in HTTPdis.
         if self.command != 'POST':
             raise self.req_error(405)
-        if self.headers.get('Content-Type', '').lower() not in _JSON_CONTENT_TYPES:
+        notification = urlsplit(self.path).path == '/v1/notifications'
+        content_type = self.headers.get('Content-Type', '').lower()
+        if (content_type.split(';', 1)[0].strip() if notification else content_type) not in _JSON_CONTENT_TYPES:
             raise self.req_error(415)
         lengths = self.headers.get_all('Content-Length')
         if (self.headers.get('Transfer-Encoding') is not None
@@ -93,7 +109,7 @@ class StatusHandler(httpdis.HttpReqHandler):
                 or len(lengths[0]) > _MAX_LENGTH_DIGITS
                 or not lengths[0].isascii() or not lengths[0].isdigit()):
             raise self.req_error(400, 'invalid_length')
-        if not 0 < int(lengths[0]) <= _MAX_REQUEST_BODY:
+        if int(lengths[0]) == 0:
             raise self.req_error(413)
         try:
             return super(StatusHandler, self).data_from_payload(cmd)
@@ -108,7 +124,8 @@ class StatusHandler(httpdis.HttpReqHandler):
             raise httpdis.HttpReqError(400, 'invalid_json')
 
     def do_POST(self):
-        if self.server.monitor.manual_actions is None:
+        if (self.server.monitor.manual_actions is None
+                and not (urlsplit(self.path).path == '/v1/notifications' and self.server.monitor.notification_audit)):
             self.send_api_error(405, 'method_not_allowed')
             return
         super(StatusHandler, self).do_POST()

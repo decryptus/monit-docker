@@ -150,7 +150,7 @@ Route declarations and JSON/Prometheus serialization live in the HTTP adapter;
 the monitoring core does not depend on HTTPdis. HTTPdis is loaded only in `serve`
 mode, and Nginx serves the optional UI separately. HTTPdis has a process-global
 route registry: run this agent in its own process, rather than embedding it in
-another HTTPdis/DWho application. The adapter requires HTTPdis 0.6.27 or later
+another HTTPdis/DWho application. The adapter requires HTTPdis 0.6.28 or later
 and Sonicprobe 0.3.53 or later; the Docker image includes their libmagic runtime.
 
 ## HTTP contract

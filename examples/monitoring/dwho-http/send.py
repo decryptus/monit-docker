@@ -1,5 +1,6 @@
 """Send a JSON notification using DWho's registry, YAML config and Mako template."""
 import argparse
+import getpass
 import json
 import os
 from pathlib import Path
@@ -7,13 +8,20 @@ import sys
 
 from dwho.classes.notifiers import DWhoPushNotifications
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from monit_docker.audit import AuditJournal, fingerprint, notification_delivery
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config-dir', required=True, type=Path, help='Directory containing http.yml and http.json')
     parser.add_argument('--token-file', required=True, type=Path, help='Bearer credential file')
     parser.add_argument('--payload', default='-', help='JSON file, or - for stdin')
+    parser.add_argument('--audit-file', default=os.environ.get('MONIT_DOCKER_AUDIT_FILE',
+                        str(Path.home() / '.local/state/monit-docker/http-events.jsonl')))
+    parser.add_argument('--source', choices=('manual', 'automatic'), default='manual')
     args = parser.parse_args()
+    journal = AuditJournal(args.audit_file)
     try:
         if args.payload == '-':
             payload = json.load(sys.stdin)
@@ -31,7 +39,9 @@ def main():
             raise ValueError('Missing HTTP template')
         # DWhoNotifiers selects its HTTP/HTTPS handler from general.uri.
         # Use strict send(): the legacy callable can log and suppress failures.
-        dispatcher.send({'notification': payload, 'http_token': token}, names=['http'])
+        notification_id = fingerprint(json.dumps(payload, sort_keys=True, separators=(',', ':')))
+        with notification_delivery(journal, 'http', notification_id, source=args.source, actor=getpass.getuser()):
+            dispatcher.send({'notification': payload, 'http_token': token}, names=['http'])
     except Exception as error:
         # Error text/URLs may contain credentials. Keep diagnostics generic.
         print('HTTP notification failed (%s)' % type(error).__name__, file=sys.stderr)

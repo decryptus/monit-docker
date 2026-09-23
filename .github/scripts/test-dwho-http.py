@@ -50,7 +50,7 @@ class HttpExampleTests(unittest.TestCase):
 
     def send(self, payload=None):
         return subprocess.run([sys.executable, str(EXAMPLE / 'send.py'), '--config-dir', str(self.config),
-                               '--token-file', str(self.config / 'token')],
+                               '--token-file', str(self.config / 'token'), '--audit-file', str(self.config / 'audit.jsonl')],
                               input=json.dumps(self.payload if payload is None else payload),
                               text=True, capture_output=True, timeout=10)
 
@@ -62,6 +62,17 @@ class HttpExampleTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(self.messages.get(timeout=1),
                              ('/notifications', 'Bearer ' + self.token, 'application/json', self.payload))
+
+    def test_audit_records_acceptance_and_failure_without_payload_or_token(self):
+        self.assertEqual(self.send().returncode, 0)
+        self.status = 503
+        self.assertEqual(self.send().returncode, 1)
+        text = (self.config / 'audit.jsonl').read_text()
+        records = [json.loads(line) for line in text.splitlines()]
+        self.assertEqual([r['delivery_status'] for r in records], ['pending', 'accepted', 'pending', 'failed'])
+        self.assertEqual(records[0]['correlation_id'], records[1]['correlation_id'])
+        self.assertNotIn(self.token, text)
+        self.assertNotIn('annotations', text)
 
     def test_http_errors_propagate_without_disclosing_token(self):
         for status in (401, 429, 500):

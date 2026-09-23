@@ -24,6 +24,7 @@ from monit_docker.adapters.http import StatusServer
 from monit_docker.domain.models import ContainerSnapshot
 from monit_docker.domain.rules import CycleResult
 from monit_docker.manual_actions import ManualActions
+from monit_docker.audit import AuditJournal
 from monit_docker.service import MonitorService
 
 
@@ -35,7 +36,7 @@ def main():
     identifier = 'a' * 64
     token = secrets.token_hex(32)
     calls = []
-    actions = ManualActions(lambda *args: calls.append(args), 'https://localhost:18443', token)
+    actions = ManualActions(lambda *args: calls.append(args), 'https://localhost:18443', token, trust_actor=True)
     monitor = MonitorService(lambda _: CycleResult((ContainerSnapshot(
         id=identifier, name='fixture', status='running'),), ()), interval=.1, manual_actions=actions)
     server = StatusServer(('0.0.0.0', 19808), monitor)
@@ -65,6 +66,7 @@ def main():
     try:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            actions.audit = AuditJournal(root / 'events.jsonl', emit=False)
             hashed = subprocess.run(['openssl', 'passwd', '-6', '-stdin'], input='local-test-password\n',
                                     text=True, stdout=subprocess.PIPE, check=True).stdout
             (root / 'htpasswd').write_text('test:' + hashed)
@@ -105,7 +107,7 @@ def main():
             assert request('/v1/actions', body=body)[0] == 403
             assert request('/v1/actions', body=body, extra={'Origin': 'https://evil.example'})[0] == 403
             # A client-provided token must be overwritten by Nginx.
-            extra = {'Origin': actions.origin, 'X-Monit-Action-Token': 'untrusted-client-value'}
+            extra = {'Origin': actions.origin, 'X-Monit-Action-Token': 'untrusted-client-value', 'X-Monit-Actor': 'forged-user'}
             assert request('/v1/actions', body=body, extra=extra)[0] == 202
             assert request('/v1/actions', body=body, extra=extra)[0] == 202
             for _ in range(30):
@@ -113,6 +115,8 @@ def main():
                     break
                 time.sleep(.1)
             assert calls == [(identifier, 'restart')], calls
+            assert all(event['actor'] == 'test' for event in actions.audit.read())
+            assert actions.audit.read()[-1]['result'] == 'succeeded'
             # The private API does not trust an Origin or forwarded username alone.
             req = urllib.request.Request('http://127.0.0.1:19808/v1/actions', json.dumps(body).encode(),
                                          {'Origin': actions.origin, 'Content-Type': 'application/json',

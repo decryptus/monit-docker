@@ -51,6 +51,14 @@ jobs:
           docker run --rm --entrypoint promtool \
             -v "$PWD/examples/monitoring:/etc/prometheus:ro" \
             prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus-notifications.yml
+      - name: Validate source-build audit overlay
+        env:
+          GRAFANA_ADMIN_PASSWORD: validation-only
+        run: |
+          touch examples/monitoring/notifications.local/audit_token
+          docker compose -f examples/monitoring/compose.yaml \
+            -f examples/monitoring/compose.notifications.yaml \
+            -f examples/monitoring/compose.audit.yaml config --quiet
       - name: Test grouped firing and resolved notifications against local receivers
         run: python .github/scripts/check-notifications.py
 

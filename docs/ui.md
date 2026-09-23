@@ -280,3 +280,6 @@ Its starts are recorded in the host journal, outside the manual request history.
 
 Your own UI installation uses the credentials, trusted proxy and exact action
 origin described in this guide.
+
+For persistent manual and automatic action history and authenticated actor
+attribution, see the [audit journal guide](audit.md).

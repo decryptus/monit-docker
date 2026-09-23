@@ -92,3 +92,8 @@ CI runs the actual sender, registry and templates against a disposable local HTT
 server. It checks complete firing/resolved payloads, Bearer authentication and
 JSON escaping, HTTP `401`/`429`/`500`, timeouts, and rejection before sending when
 the payload or template is invalid. No external HTTP destination is contacted.
+
+## Event journal
+
+See the [audit journal guide](audit.md) for persistent events, UTC timestamps,
+actors, delivery-result boundaries, JSONL/CSV export and external forwarding.

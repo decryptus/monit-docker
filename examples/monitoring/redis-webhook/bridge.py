@@ -5,12 +5,18 @@ import json
 import logging
 import math
 import os
+import sys
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from dwho.adapters.redis import DWhoAdapterRedis
 from dwho.classes.notifiers import DWhoNotifierRedis
 from httpdis import httpdis
+
+# The Docker image copies the shared package; a repository checkout works too.
+if Path(__file__).resolve().parent.name == 'redis-webhook':
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from monit_docker.audit import AuditJournal, fingerprint, notification_delivery
 
 LOG = logging.getLogger('monit-docker.redis-webhook')
 
@@ -55,11 +61,13 @@ def validate_payload(payload):
 
 
 class RedisWebhook:
-    def __init__(self, url, token, stream='monit-docker:alerts', maxlen=10000):
+    def __init__(self, url, token, stream='monit-docker:alerts', maxlen=10000, audit=None):
         if not isinstance(token, str) or len(token) < 32 or any(c.isspace() for c in token):
             raise ValueError('Webhook token must contain at least 32 non-whitespace characters')
         if not stream or not isinstance(maxlen, int) or isinstance(maxlen, bool) or not 0 < maxlen <= 9223372036854775807:
             raise ValueError('Expected a stream name and positive 64-bit maxlen')
+        self.audit = audit or AuditJournal(os.environ.get('MONIT_DOCKER_AUDIT_FILE',
+            str(Path.home() / '.local/state/monit-docker/redis-events.jsonl')))
         self.token = token
         self.stream = stream
         self.cfg = redis_config(url)
@@ -94,10 +102,12 @@ class RedisWebhook:
         except ValueError as error:
             return httpdis.HttpResponseJson(code=400, data={'error': str(error)})
         try:
-            result = self.notifier.send('alertmanager', self.cfg, {'key': self.stream, 'value': payload})
-            entry_id = result['notifier']
-            if isinstance(entry_id, bytes):
-                entry_id = entry_id.decode('ascii')
+            notification_id = fingerprint(json.dumps(payload, sort_keys=True, separators=(',', ':')))
+            with notification_delivery(self.audit, 'redis', notification_id, actor='alertmanager-redis-bridge'):
+                result = self.notifier.send('alertmanager', self.cfg, {'key': self.stream, 'value': payload})
+                entry_id = result['notifier']
+                if isinstance(entry_id, bytes):
+                    entry_id = entry_id.decode('ascii')
             return httpdis.HttpResponseJson(code=202, data={'stream': self.stream, 'id': entry_id})
         except Exception as error:
             # Avoid logging credentials, request bodies or Redis error strings.

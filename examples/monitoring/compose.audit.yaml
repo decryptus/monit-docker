@@ -1,0 +1,19 @@
+# Optional source-build overlay; see docs/audit.md. Not supported by 0.0.64.
+services:
+  monit-docker:
+    image: monit-docker:audit-local
+    build:
+      context: ../..
+    command: [monit-docker, --audit-file, /var/lib/monit-docker/events.jsonl, serve, --bind, 0.0.0.0, --interval, '30', --notification-token-file, /run/secrets/audit_token]
+    volumes:
+      - agent-audit-data:/var/lib/monit-docker
+    secrets:
+      - audit_token
+  alertmanager:
+    secrets:
+      - audit_token
+secrets:
+  audit_token:
+    file: ./notifications.local/audit_token
+volumes:
+  agent-audit-data:

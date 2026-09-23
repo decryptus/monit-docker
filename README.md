@@ -14,6 +14,9 @@
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/)
 
+For persistent action and notification history in the development version, see
+the [audit journal guide](docs/audit.md).
+
 monit-docker is a free, open-source tool for checking Docker containers and
 optionally taking action when a condition matches, such as restarting a stopped
 container or reloading PHP-FPM when memory usage is high.
