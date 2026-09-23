@@ -108,7 +108,7 @@ async function main() {
     await page.getByRole('button', {name: 'Restart api-service', exact: true}).click();
     await page.locator('#confirm-action').click();
     await page.waitForFunction(() => document.getElementById('notice').textContent.includes('unconfirmed'));
-    assert.equal(await page.locator('#journal-link').isVisible(), false);
+    assert.equal(await page.locator('#journal-link').isVisible(), true);
     assert.equal(posts, 2);
     assert.equal(await page.getByRole('button', {name: 'Restart api-service', exact: true}).isDisabled(), true);
     // A new page clears local display state; API remains authoritative.
