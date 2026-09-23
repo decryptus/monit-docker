@@ -24,7 +24,7 @@ from unittest.mock import patch
 _ROOT              = Path(__file__).resolve().parents[2]
 _COMPOSE_FILES     = ('compose.yaml', 'compose.actions.yaml', 'prepare.py')
 _RELEASE_PATTERN   = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+')
-_DEFAULT_RELEASE   = '0.0.65'
+_DEFAULT_RELEASE   = '0.0.66'
 _ORIGIN            = 'https://localhost:18443'
 _USERNAME          = 'demo'
 _DEMO_IMAGE        = 'alpine:3.20'

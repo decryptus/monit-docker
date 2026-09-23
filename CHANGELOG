@@ -1,3 +1,14 @@
+monit-docker (0.0.66) unstable; urgency=medium
+
+  * Add an optional authenticated Journal page with filters and event details.
+  * Bound journal browsing and page exports without blocking action execution.
+  * Protect private reads with a separate proxy secret and signed cursors.
+  * Reduce default journal retention to five files of at most 5 MiB each.
+  * Provide versioned Compose wiring and desktop/mobile regression coverage.
+  * Preserve Python 3.10 support for unfiltered journal requests.
+
+ -- Codex <codex@openai.com>  Wed, 23 Sep 2026 21:36:51 -0000
+
 monit-docker (0.0.65) unstable; urgency=medium
 
   * Persist manual and automatic action lifecycles, actors and results.

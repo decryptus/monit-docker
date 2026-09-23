@@ -1,6 +1,6 @@
 services:
   monit-docker:
-    image: decryptus/monit-docker:0.0.65
+    image: decryptus/monit-docker:0.0.66
     command: [monit-docker, serve, --bind, 0.0.0.0, --interval, '30']
     restart: unless-stopped
     stop_grace_period: 60s
@@ -15,7 +15,7 @@ services:
           create_host_path: false
 
   ui:
-    image: decryptus/monit-docker-ui:0.0.65
+    image: decryptus/monit-docker-ui:0.0.66
     restart: unless-stopped
     depends_on: [monit-docker]
     networks: [agent, frontend]

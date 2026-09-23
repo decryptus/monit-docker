@@ -39,7 +39,7 @@ run elsewhere, reverse-proxy authentication failures and the demo host's recover
 timer are recorded by their own services. Metrics polling and unmatched rules do
 not produce audit events. The public UI retains its bounded recent-action view;
 the durable journal stays private. An optional authenticated journal page is
-available in the source tree after 0.0.65, as described below.
+available since 0.0.66, as described below.
 
 ## Text encoding shared by all outputs
 
@@ -84,7 +84,7 @@ Without `--audit-file` (or `MONIT_DOCKER_AUDIT_FILE`), the file is
 The existing manual-actions Compose example already persists the agent state
 directory. Deleting its volume also deletes its journal.
 
-The source default retains **five files of at most 5 MiB each** (25 MiB total),
+From 0.0.66, the default retains **five files of at most 5 MiB each** (25 MiB total),
 including the active file:
 `events.jsonl`, `.1` through `.4`. Oldest events expire by size, not age. Files use
 0600; newly created directories use 0700. Rotation and exports share a local
@@ -207,7 +207,7 @@ Export adapter files using the agent CLI on the host or a container mounting the
 same volume. A central collector can combine these separate journals by event ID.
 
 
-## Private journal page (source builds after 0.0.65)
+## Private journal page (since 0.0.66)
 
 The optional **Journal** view at `/logs` displays durable events with date,
 container, source, actor, lifecycle phase and result. Filters cover local date
@@ -230,10 +230,10 @@ For a **fresh read-only setup**, from `examples/ui`:
 
 ```sh
 python3 prepare.py --journal --self-signed
-docker compose -f compose.yaml -f compose.journal.yaml up -d --build
+docker compose -f compose.yaml -f compose.journal.yaml up -d
 ```
 
-This builds the current agent and UI sources. Replace the development certificate
+This uses the matching versioned agent and UI images (0.0.66 or later). Replace the development certificate
 with a trusted certificate for remote use. The `state` volume retains the journal
 at `/var/lib/monit-docker/audit/events.jsonl`; a fresh read-only agent has no events
 until actions/rules or notification receivers are configured. Reading alone does

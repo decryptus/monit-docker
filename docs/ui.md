@@ -43,7 +43,7 @@ To reproduce on a disposable Linux Docker host with Python 3, OpenSSL, Node and
 Playwright Chromium installed:
 
 ```sh
-MONIT_UI_RELEASE=0.0.65 \
+MONIT_UI_RELEASE=0.0.66 \
 PLAYWRIGHT_MODULE=/path/to/node_modules/playwright \
 UI_SCREENSHOTS=/tmp/monit-ui-release-results \
 python3 .github/scripts/check-ui-release.py
@@ -285,11 +285,11 @@ For persistent manual and automatic action history and authenticated actor
 attribution, see the [audit journal guide](audit.md).
 
 
-## Persistent journal page (source builds after 0.0.65)
+## Persistent journal page (since 0.0.66)
 
 The optional **Journal** link opens `/logs` when private audit reading is enabled.
 It provides filters, event details, bounded pagination and CSV/JSONL exports of
 the displayed page. It does not poll in the background. See the
 [audit guide](audit.md) for explicit
-activation, a separate proxy secret, source-build Compose wiring and retention.
+activation, a separate proxy secret, versioned Compose wiring and retention.
 The public demo keeps its journal private.
