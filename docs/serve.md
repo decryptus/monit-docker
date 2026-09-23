@@ -49,7 +49,10 @@ accepts 1–65535. Without `--cmd`, the process observes containers only and nee
 no state file. All resources are collected by default; repeated `--rsc` options
 select a subset, for example `--rsc cpu_percent --rsc mem_usage`.
 
-This initial HTTP interface has no authentication, TLS, UI or remote actions.
+The agent has no read authentication, TLS or embedded UI. The optional
+[separate UI component](ui.md) supplies an authenticated Nginx frontend. Manual
+start/stop/restart is disabled by default; enabling its API requires explicit
+configuration, a proxy secret, an allowed HTTPS origin and persistent state.
 Keep it on loopback or a trusted private network. To access it from elsewhere,
 place an authenticated TLS reverse proxy in front; setting `--bind 0.0.0.0`
 explicitly exposes the endpoint data on every IPv4 interface. Container names,
@@ -140,7 +143,7 @@ workers, five-second socket timeouts and closes surplus connections. Use a
 reverse proxy for public-facing HTTP limits and supervision for process recovery.
 Configuration is loaded at startup; restart the process after changing it.
 
-## Read-only HTTP contract
+## HTTP contract
 
 | Endpoint | Success / failure | Purpose |
 | --- | --- | --- |
@@ -149,9 +152,10 @@ Configuration is loaded at startup; restart the process after changing it.
 | `/v1/status` | 200, including degraded states | Cached status described below |
 | `/metrics` | 200, including degraded states | [Available Prometheus metrics](metrics.md) |
 
-GET and HEAD are supported. POST, PUT, PATCH, DELETE and OPTIONS return 405;
-unknown routes return 404. Responses disable caching. There is no HTTP action,
-configuration-update or trigger-cycle endpoint.
+GET and HEAD are supported on these read endpoints. POST, PUT, PATCH, DELETE
+and OPTIONS return 405 there; unknown read routes return 404. Responses disable
+caching. There is no configuration-update or trigger-cycle endpoint. The optional
+manual action endpoint is described below.
 
 The `/v1/status` object has `api_version: 1` and these fields. Clients should
 ignore additional fields, so later additions need not change the URL version.
@@ -168,6 +172,7 @@ ignore additional fields, so later additions need not change the URL version.
 | `cycles_total` / `errors_total` | Completed / failed cycles since process start |
 | `actions` | Counters for `executed`, `cooldown`, `pending` and `dry-run` decisions |
 | `containers` | Fresh complete snapshot list; empty when not ready |
+| `manual_actions` | Optional capability object: `enabled`; when enabled, `allowed_states` and up to 32 `recent` request results |
 
 Each container has `id`, `name`, `status`, `pid`, `mem_usage`, `mem_limit`,
 `mem_percent`, `cpu_percent`, `io_read`, `io_write`, `net_tx`, and `net_rx`.
@@ -175,3 +180,42 @@ Byte fields and percentages are raw numbers, not formatted strings. Unknown or
 unrequested fields are null. A successful metadata-only cycle can be ready even
 if no numerical metrics were requested. No matching container produces the
 existing error 114 and makes the monitor unready.
+
+
+## Optional manual action API
+
+See [UI and authentication setup](ui.md) before enabling writes.
+`POST /v1/actions` accepts only an `application/json` body up to 1024 bytes:
+
+```json
+{
+  "request_id": "e793021f188b443b880a791be38e277d6e",
+  "container_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "action": "restart"
+}
+```
+
+Use a fresh cryptographically random 32-character lowercase hexadecimal request
+ID and an exact full 64-character container ID. Extra fields, aliases and command
+arguments are rejected. This endpoint requires `X-Monit-Action-Token` supplied by
+the trusted proxy and an exact configured `Origin`. The token never appears in
+status or frontend files. Missing/invalid credentials or origin return 403;
+disabled writes return 405, unsupported content type 415, oversized body 413,
+invalid input 400 and rejected preconditions 409.
+
+HTTP 202 returns the request record, including for a retained duplicate ID with
+the same payload. Reusing a retained ID for another payload returns 409. Records
+contain `request_id`, `container_id`, `action`, `status`, `submitted_at`,
+`finished_at`, `error` and `error_code`; timestamps are Unix seconds. Status is
+`queued`, `running`, `succeeded` or `failed`. Poll `/v1/status` for the result.
+Errors expose a short reason and optional numeric agent code, never raw exception
+text. Successful submission is not successful execution. A proxy timeout is an
+ambiguous result; clients must not blindly repeat a mutation.
+
+Manual requests execute between monitoring cycles and cause a fresh collection
+after an attempt. Measurements are invalidated while a manual operation runs.
+Read endpoints remain responsive; they never execute queued work. Existing
+`actions` counters and their Prometheus metrics describe autonomous rule
+decisions only, not manual requests. The manual queue/results are in memory;
+only their per-container cooldown reservations are persisted. The UI guide
+describes expiry, restart behavior, selection and autonomous-rule interactions.

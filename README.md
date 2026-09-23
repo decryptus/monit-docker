@@ -27,6 +27,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 3. [Simple mode guide](docs/simple.md)
    - [Wait for sustained conditions before acting](docs/trigger-delay.md)
 4. [Serve mode guide](docs/serve.md)
+   - [Optional mobile-friendly interface with Nginx](docs/ui.md)
    - [Ready-to-run Docker Compose stack](docs/compose.md)
    - [Prometheus alerts and thresholds](docs/alerts.md)
    - [Email and Slack notification examples](docs/notifications.md)

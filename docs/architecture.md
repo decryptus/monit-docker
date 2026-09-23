@@ -25,7 +25,7 @@ The Community repository owns the single-host agent:
 - one-shot execution suitable for cron;
 - local monitoring and remediation rules;
 - local state required for safe delays and cooldowns;
-- a versioned read-only HTTP API and a possible future lightweight UI;
+- a versioned status API, an opt-in manual action API and an optional separate lightweight UI;
 - Prometheus exposition.
 
 These capabilities must remain usable without a remote service or account.
@@ -78,7 +78,7 @@ codes. `stats`, `monit`, `cron` and `serve` call `MonitoringEngine.run_once()`.
 - `domain/` contains snapshots, normalized rule values, cycle results and application errors.
 - `outputs/formatting.py` formats human-readable units.
 - `service.py` schedules sequential cycles and owns a synchronized in-memory cache.
-- `adapters/http.py` reads that cache through bounded read-only HTTP handlers.
+- `adapters/http.py` reads that cache and authenticates bounded manual submissions.
 - `outputs/prometheus.py` renders cached values using Prometheus text exposition.
 
 Core and domain have no third-party dependencies. Docker SDK objects never
@@ -213,3 +213,31 @@ client settings; it is not an overall cycle deadline. Configuration is fixed for
 each constructed CLI command; automatic reload is not added.
 Legacy Python versions advertised by the package are not exercised by the CI
 matrix, which currently runs Python 3.10 and 3.12.
+
+
+## Optional UI and manual operations
+
+`ui/` is a separate static frontend/Nginx image, excluded from the Python
+package and agent image. It consumes only HTTP API v1 and does not import agent
+modules. There is no JavaScript build or runtime dependency in the agent. Nginx
+provides browser authentication and TLS; Prometheus scrapes the private agent
+network directly. See [UI setup](ui.md).
+
+`ManualActions` holds a bounded request queue and 32 in-memory results. The
+HTTP adapter verifies a proxy secret, exact origin, method, content type and
+body length before admission. `MonitorService` executes one pending operation
+between cycles, using the same operation mutex as collection. The engine's
+manual method reselects an exact container ID and checks an explicit three-verb
+vocabulary. CLI composition supplies the state-backed reservation function;
+core/domain code has no HTTP, authentication, UI or storage imports.
+
+Manual cooldowns use a distinct per-container key across all three verbs; they
+do not replace rule cooldowns or provide durable audit. An operation reserves
+before execution and invalidates cached measurements. The subsequent collection
+refreshes the cache. Autonomous rules remain enabled and can reverse a manual
+operation; this first version does not introduce maintenance overrides. The
+queue does not promise exactly-once execution across process restarts.
+
+The component is Community-only single-host software. A future commercial
+control plane is still a separate process/product for fleet management, teams
+and long-term history; it must use the versioned protocol as well.

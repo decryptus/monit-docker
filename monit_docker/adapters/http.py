@@ -2,6 +2,7 @@
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import hmac
 import logging
 import signal
 from socketserver import ThreadingMixIn
@@ -9,6 +10,7 @@ from threading import BoundedSemaphore, Event, Thread, current_thread, main_thre
 from urllib.parse import urlsplit
 
 from monit_docker.outputs.prometheus import render_metrics
+from monit_docker.domain.errors import ActionRejected
 
 LOG = logging.getLogger('monit-docker')
 
@@ -24,8 +26,10 @@ class StatusHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Referrer-Policy', 'no-referrer')
         if code == 405:
-            self.send_header('Allow', 'GET, HEAD')
+            self.send_header('Allow', 'POST' if self.server.monitor.manual_actions is not None
+                             and urlsplit(self.path).path == '/v1/actions' else 'GET, HEAD')
         self.end_headers()
         if self.command != 'HEAD':
             self.wfile.write(body)
@@ -45,10 +49,48 @@ class StatusHandler(BaseHTTPRequestHandler):
 
     do_HEAD = do_GET
 
+    def do_POST(self):
+        actions = self.server.monitor.manual_actions
+        if urlsplit(self.path).path != '/v1/actions' or actions is None:
+            return self._method_not_allowed()
+        # Ignore forwarded identity headers: only the configured proxy secret
+        # authorizes writes. Require a fixed browser origin to prevent CSRF.
+        token = self.headers.get_all('X-Monit-Action-Token', [])
+        origin = self.headers.get_all('Origin', [])
+        if (len(token) != 1 or not hmac.compare_digest(
+                token[0].encode('utf-8'), actions.token.encode('ascii'))):
+            return self._send(403, {'error': 'forbidden'})
+        if origin != [actions.origin]:
+            return self._send(403, {'error': 'origin_rejected'})
+        if self.headers.get('Content-Type', '').lower() != 'application/json':
+            return self._send(415, {'error': 'json_required'})
+        lengths = self.headers.get_all('Content-Length', [])
+        if (self.headers.get('Transfer-Encoding') is not None or len(lengths) != 1
+                or len(lengths[0]) > 4 or not lengths[0].isascii() or not lengths[0].isdigit()):
+            return self._send(400, {'error': 'invalid_length'})
+        length = int(lengths[0])
+        if not 0 < length <= 1024:
+            return self._send(413, {'error': 'request_too_large'})
+        try:
+            raw = self.rfile.read(length)
+            if len(raw) != length:
+                return self._send(400, {'error': 'incomplete_body'})
+            payload = json.loads(raw)
+        except (ValueError, UnicodeError):
+            return self._send(400, {'error': 'invalid_json'})
+        except OSError:
+            return self._send(408, {'error': 'request_timeout'})
+        try:
+            record = actions.submit(payload, self.server.monitor.status())
+        except ActionRejected as error:
+            return self._send(400 if error.reason == 'invalid_request' else 409,
+                              {'error': error.reason})
+        return self._send(202, record)
+
     def _method_not_allowed(self):
         self._send(405, {'error': 'method_not_allowed'})
 
-    do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = _method_not_allowed
+    do_PUT = do_PATCH = do_DELETE = do_OPTIONS = _method_not_allowed
 
     def log_message(self, fmt, *args):
         LOG.debug('HTTP ' + fmt, *args)

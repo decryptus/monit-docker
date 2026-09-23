@@ -1,0 +1,27 @@
+services:
+  monit-docker:
+    command:
+      - monit-docker
+      - serve
+      - --bind
+      - 0.0.0.0
+      - --interval
+      - '30'
+      - --allow-actions
+      - --action-origin
+      - '${UI_ORIGIN:?Set UI_ORIGIN to the exact HTTPS browser origin}'
+      - --action-token-file
+      - /run/secrets/action-token
+      - --state-file
+      - /var/lib/monit-docker/state.json
+    volumes:
+      - state:/var/lib/monit-docker
+      - type: bind
+        source: ./secrets.local/action-token
+        target: /run/secrets/action-token
+        read_only: true
+        bind:
+          create_host_path: false
+
+volumes:
+  state:

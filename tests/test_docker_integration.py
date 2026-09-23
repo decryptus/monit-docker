@@ -54,6 +54,26 @@ class DockerIntegrationTests(unittest.TestCase):
         self.objects.append(obj)
         return obj
 
+    def test_manual_actions_use_fresh_selection_and_exact_container_id(self):
+        obj = self.create_container()
+        self.engine.run_manual_action(obj.id, 'stop', lambda _: True)
+        obj.reload()
+        self.assertEqual(obj.status, 'exited')
+        self.engine.run_manual_action(obj.id, 'start', lambda _: True)
+        obj.reload()
+        self.assertEqual(obj.status, 'running')
+        self.engine.run_manual_action(obj.id, 'restart', lambda _: True)
+        obj.reload()
+        self.assertEqual(obj.status, 'running')
+        original_id = obj.id
+        obj.remove(force=True)
+        replacement = self.create_container()
+        from monit_docker.domain.errors import ActionRejected
+        with self.assertRaisesRegex(ActionRejected, 'not_selected'):
+            self.engine.run_manual_action(original_id, 'stop', lambda _: True)
+        replacement.reload()
+        self.assertEqual(replacement.status, 'running')
+
     def test_sampling_and_actions_across_repeated_cycles_and_replacement(self):
         first = self.create_container()
         rule = RuleParser().parse('status == running ? (true)')
