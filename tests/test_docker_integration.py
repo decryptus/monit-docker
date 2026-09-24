@@ -48,11 +48,39 @@ class DockerIntegrationTests(unittest.TestCase):
             except NotFound:
                 pass
 
-    def create_container(self, labels=None):
+    def create_container(self, labels=None, healthcheck=None):
         obj = self.client.containers.run('alpine:3.20', ['sleep', '120'],
-                                          name=self.name, detach=True, labels=labels or {})
+                                          name=self.name, detach=True, labels=labels or {}, healthcheck=healthcheck)
         self.objects.append(obj)
         return obj
+
+    def test_healthcheck_transitions_and_stopped_state(self):
+        obj = self.create_container(healthcheck={'test': ['CMD', 'test', '-f', '/tmp/healthy'],
+                                                'interval': 1000000000, 'timeout': 1000000000, 'retries': 1})
+
+        def wait_health(expected):
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                obj.reload()
+                if obj.attrs['State'].get('Health', {}).get('Status') == expected:
+                    return
+                time.sleep(0.2)
+            self.fail('Docker did not reach health state %s' % expected)
+
+        wait_health('unhealthy')
+        rule = RuleParser().parse('health == unhealthy ? (true)')
+        result = self.engine.run_once(rules=(rule,), resources=('health',))
+        self.assertEqual(result.snapshots[0].health, 'unhealthy')
+        self.assertEqual(len(result.actions), 1)
+        self.assertEqual(obj.exec_run(['touch', '/tmp/healthy']).exit_code, 0)
+        wait_health('healthy')
+        result = self.engine.run_once(rules=(rule,), resources=('health',))
+        self.assertEqual(result.snapshots[0].health, 'healthy')
+        self.assertEqual(result.actions, ())
+        obj.stop(timeout=1)
+        result = self.engine.run_once(rules=(rule,), resources=('health',))
+        self.assertEqual(result.snapshots[0].health, 'unknown')
+        self.assertEqual(result.actions, ())
 
     def test_busybox_filesystem_groups_and_missing_paths(self):
         obj = self.create_container()

@@ -1,6 +1,7 @@
 """Legacy CLI rule grammar and resource names."""
 
 import re
+from monit_docker.domain.models import STATE_RESOURCES
 
 DOCKER_COMMANDS         = ('start',
                            'stop',
@@ -20,7 +21,8 @@ RESOURCE_CHOICES        = ('mem_usage',
                            'net_tx',
                            'net_rx',
                            'status',
-                           'pid')
+                           'pid',
+                           'health')
 
 STATUS_RC               = {'running': 0,
                            'created': 10,
@@ -31,8 +33,9 @@ STATUS_RC               = {'running': 0,
                            'dead': 60}
 
 DATATYPES               = RESOURCE_CHOICES
-DATATYPES_BEFORE_RUN    = ('pid',
-                           'status',)
+HEALTH_RC               = {'healthy': 0, 'starting': 10, 'unhealthy': 20,
+                           'none': 30, 'unknown': 115}
+DATATYPES_BEFORE_RUN    = STATE_RESOURCES
 
 PRE_COND_RE             = (r'(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?\s*(?P<pre_value_unit>[a-zA-Z]+)?)\s+' +
                            r'(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*')

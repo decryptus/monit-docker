@@ -35,6 +35,8 @@ def render_metrics(data):
     labels = lambda c: (('id', c['id']), ('name', c['name']))
     metric('container_info', 'gauge', 'Container identity and Docker status.',
            [(labels(c) + (('status', c['status']),), 1) for c in containers])
+    metric('container_health_status', 'gauge', 'Container health state; the current state has value 1.',
+           [(labels(c) + (('health', c.get('health') or 'unknown'),), 1) for c in containers])
     for field, name, kind in (
             ('mem_usage', 'memory_usage_bytes', 'gauge'),
             ('mem_limit', 'memory_limit_bytes', 'gauge'),

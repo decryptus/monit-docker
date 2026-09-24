@@ -73,7 +73,7 @@ class MonitoringEngine(object):
                  dry_run=False, action_policy=None, on_action=None):
         """Run a fresh cycle and return raw snapshots and successful actions.
 
-        Rules with only PID/status conditions run before sampling, preserving
+        Rules with only PID/status/health conditions run before sampling, preserving
         the CLI's existing two-phase ordering. The first failed action aborts
         the cycle. With no rules, resources defaults to all measurements;
         with rules, it defaults to only the measurements those rules need.

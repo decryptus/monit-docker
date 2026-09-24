@@ -10,8 +10,10 @@ from monit_docker.domain.errors import (MonitoringError, RuleSyntaxError,
 from monit_docker.domain.rules import Action, Condition, Rule
 from monit_docker.domain.filesystems import filesystem_resource
 from monit_docker.adapters.filesystems import directory_groups
+from monit_docker.domain.models import HEALTH_STATES
 
 LOG = logging.getLogger('monit-docker')
+_HEALTH_OPERATORS = ('==', '!=', 'in', 'not in')
 
 
 class RuleParser(object):
@@ -117,6 +119,18 @@ class RuleParser(object):
 
         for cond in r['conditions']:
             resource = cond['parsed']['datatype']
+            if resource == 'health':
+                parsed = cond['parsed']
+                operator = parsed['op'].strip()
+                value = parsed['value']
+                if operator in ('in', 'not in'):
+                    valid = isinstance(value, str) and value.startswith('(') and value.endswith(')')
+                    states = value[1:-1].split(',') if valid else ()
+                else:
+                    states = (value,)
+                if (operator not in _HEALTH_OPERATORS or parsed.get('pre_value') is not None
+                        or not states or any(state not in HEALTH_STATES for state in states)):
+                    raise RuleSyntaxError('health requires a known state and an equality or membership comparison')
             filesystem = filesystem_resource(resource)
             if filesystem:
                 if filesystem[1] not in self.dir_groups:

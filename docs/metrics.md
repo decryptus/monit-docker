@@ -42,6 +42,7 @@ or exception message is used as a metric label.
 | Metric | Type | Unit | Meaning |
 | --- | --- | --- | --- |
 | `monit_docker_container_info` | gauge | always 1 | Identity and status from the cached snapshot |
+| `monit_docker_container_health_status` | gauge | always 1 | Current normalized health state in the additional `health` label |
 | `monit_docker_container_memory_usage_bytes` | gauge | bytes | Docker memory usage, minus `total_cache` when that field exists |
 | `monit_docker_container_memory_limit_bytes` | gauge | bytes | Limit reported by Docker |
 | `monit_docker_container_memory_usage_percent` | gauge | percent | Memory usage / reported limit × 100 |
@@ -50,6 +51,10 @@ or exception message is used as a metric label.
 | `monit_docker_container_io_write_bytes_total` | counter | bytes | Cumulative block-I/O writes summed from Docker's Write entries |
 | `monit_docker_container_network_receive_bytes_total` | counter | bytes | Cumulative received bytes summed over Docker interfaces |
 | `monit_docker_container_network_transmit_bytes_total` | counter | bytes | Cumulative transmitted bytes summed over Docker interfaces |
+
+The `health` label is `healthy`, `unhealthy`, `starting`, `none` (no active check),
+or `unknown` (no usable current result). Only the current state is emitted;
+healthcheck command output is excluded. See [Docker healthchecks](healthchecks.md).
 
 The byte totals are Docker counters, not deltas per scrape. They can reset on a
 container/daemon restart; use Prometheus `rate()` to compute bytes per second.

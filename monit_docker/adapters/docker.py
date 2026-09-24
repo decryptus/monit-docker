@@ -13,7 +13,7 @@ from docker.errors import APIError
 
 from monit_docker.core.metrics import ResourceCalculator
 from monit_docker.domain.errors import CommandExecutionError, MonitoringError
-from monit_docker.domain.models import ContainerSnapshot
+from monit_docker.domain.models import ContainerSnapshot, STATE_RESOURCES
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import DOCKER_COMMANDS
 from monit_docker.adapters.filesystems import directory_groups, collect_filesystems
@@ -23,6 +23,22 @@ LOG = logging.getLogger('monit-docker')
 
 _MANUAL_PROTECTION_LABEL = 'monit-docker.protected'
 _UNPROTECTED_LABEL_VALUES = frozenset(('false', '0', 'no', 'off'))
+_DOCKER_HEALTH_STATES = frozenset(('healthy', 'unhealthy', 'starting'))
+
+
+def container_health(obj):
+    """Never interpret disabled checks or stale stopped-container health as OK."""
+    check = obj.attrs.get('Config', {}).get('Healthcheck') or {}
+    test = check.get('Test') or ()
+    health = obj.attrs.get('State', {}).get('Health') or {}
+    if test and test[0] == 'NONE':
+        return 'none'
+    if not test and not health:
+        return 'none'
+    if obj.status != 'running':
+        return 'unknown'
+    status = health.get('Status')
+    return status if status in _DOCKER_HEALTH_STATES else 'unknown'
 
 
 def client_factory(config, name=None, from_env=False):
@@ -80,6 +96,7 @@ class DockerCollector(object):
                      not in _UNPROTECTED_LABEL_VALUES)
         values = snapshot.to_dict() if snapshot is not None else {}
         values.update(id=obj.id, name=obj.name, status=obj.status,
+                      health=container_health(obj),
                       pid=obj.attrs['State'].get('Pid'),
                       manual_actions_protected=protected)
         return ContainerSnapshot(**values)
@@ -106,7 +123,7 @@ class DockerCollector(object):
         return snapshot
 
     def _collect_stats(self, snapshot, resources):
-        metrics = tuple(resource for resource in resources if resource not in ('pid', 'status'))
+        metrics = tuple(resource for resource in resources if resource not in STATE_RESOURCES)
         if snapshot.status not in ('running', 'paused') or not metrics:
             return snapshot
         stream = self._containers[snapshot.id].stats(stream=True)

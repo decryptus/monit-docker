@@ -25,7 +25,7 @@ from monit_docker.adapters.configuration import Configuration
 from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor, client_factory
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
-from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC
+from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC, HEALTH_RC
 from monit_docker.core import MonitoringEngine
 from monit_docker.core.policy import CooldownPolicy, TriggerPolicy
 from monit_docker.domain.errors import CommandExecutionError, MonitoringError
@@ -372,6 +372,8 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             resource = resources[0]
             if resource == 'status':
                 raise MonitDockerExit(self._get_status_rc(snapshot.status))
+            if resource == 'health':
+                raise MonitDockerExit(HEALTH_RC.get(snapshot.health, HEALTH_RC['unknown']))
             if resource == 'pid':
                 self._write_pidfile(snapshot.pid or '', snapshot.name)
             if resource.endswith('_percent'):

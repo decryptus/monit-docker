@@ -4,6 +4,10 @@
 const $ = id => document.getElementById(id);
 const rows = new Map();
 const labels = {start: 'Start', stop: 'Stop', restart: 'Restart'};
+const HEALTH_LABELS = {
+  healthy: 'Health: healthy', unhealthy: 'Health: unhealthy',
+  starting: 'Health: starting', none: 'No healthcheck', unknown: 'Health: unknown'
+};
 const reasons = {
   busy: 'Another action is queued or running.', not_ready: 'Fresh data is required.',
   not_selected: 'The container is no longer selected.', state_changed: 'The container state changed.',
@@ -56,12 +60,13 @@ function newRow(container) {
   identity.append(name, id);
   const statusCell = node('div', 'status-cell');
   const status = node('span', 'badge');
+  const health = node('span', 'metric-detail health-state');
   const protection = node('span', 'protection');
   const lock = node('span', 'protection-lock');
   lock.setAttribute('aria-hidden', 'true');
   protection.append(lock, node('span', '', 'Protected'));
   protection.title = reasons.container_protected;
-  statusCell.append(status, protection);
+  statusCell.append(status, protection, health);
   const cpu = node('div', 'metric');
   const cpuValue = node('span', 'metric-value');
   cpu.append(node('span', 'cell-label', 'CPU'), cpuValue, node('span', 'metric-detail', '100% = one CPU core'));
@@ -81,7 +86,7 @@ function newRow(container) {
   controls.append(readonly);
   article.append(identity, statusCell, cpu, memory, controls);
   $('containers').append(article);
-  const row = {article, name, id, status, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
+  const row = {article, name, id, status, health, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
   rows.set(container.id, row);
   return row;
 }
@@ -100,6 +105,8 @@ function renderContainers() {
     row.id.title = container.id;
     row.status.textContent = container.status;
     row.status.dataset.state = container.status;
+    row.health.textContent = HEALTH_LABELS[container.health] || HEALTH_LABELS.unknown;
+    row.health.dataset.health = Object.hasOwn(HEALTH_LABELS, container.health) ? container.health : 'unknown';
     row.protection.hidden = !container.manual_actions_protected;
     row.cpuValue.textContent = percent(container.cpu_percent);
     row.memoryValue.textContent = bytes(container.mem_usage);
