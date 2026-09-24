@@ -1,4 +1,4 @@
-# Temporary maintenance (source tree after 0.0.68)
+# Temporary maintenance (since 0.0.69)
 
 Maintenance pauses **this agent's automatic rule actions** for one exact Docker
 container ID. Measurements, metrics and the audit journal continue. Manual
@@ -25,6 +25,7 @@ the operation finishes. No running action is interrupted retroactively.
 
 ## Optional interface controls
 
+Use matching agent and UI images tagged **0.0.69 or newer**.
 Add `--allow-maintenance` to an existing `serve --allow-actions` deployment.
 The flag requires the existing action token, exact browser origin and state
 file. The existing `/v1/actions` API accepts `maintenance-15m`,
