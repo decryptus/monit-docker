@@ -112,6 +112,12 @@ separate files do not coordinate actions. Lock contention (117), state failures
 remains alive and retries on the next cycle. The successful actions of a partial
 cycle are not rolled back, and their reservations remain on disk.
 
+Automatic Docker restarts default to three attempts per container ID across all
+rules in the state file, including failed attempts. Configure `--max-restarts`
+and explicitly rearm after intervention with `restart-reset`; see
+[restart limits](restart-limit.md). Exhausting the budget skips affected rules
+with `restart-limit` while monitoring continues. It is not a failed cycle.
+
 Dry-run reservations are simulated within each cycle and discarded afterwards.
 Action-decision counters appear in the API and metrics; individual command text
 is not served. Exec failures retain the agent error code 116 in this long-running
@@ -180,7 +186,7 @@ ignore additional fields, so later additions need not change the URL version.
 | `age_seconds` | Monotonic age of the last success, or null |
 | `last_error_code` | Agent error code for the last failed cycle, otherwise null |
 | `cycles_total` / `errors_total` | Completed / failed cycles since process start |
-| `actions` | Counters for `executed`, `cooldown`, `pending` and `dry-run` decisions |
+| `actions` | Counters for `executed`, `cooldown`, `pending`, `restart-limit` and `dry-run` decisions |
 | `containers` | Fresh complete snapshot list; empty when not ready |
 | `manual_actions` | Optional capability object: `enabled`; when enabled, `allowed_states` and up to 32 `recent` request results |
 

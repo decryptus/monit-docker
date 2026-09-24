@@ -61,12 +61,13 @@ function newRow(container) {
   const statusCell = node('div', 'status-cell');
   const status = node('span', 'badge');
   const health = node('span', 'metric-detail health-state');
+  const restarts = node('span', 'metric-detail restart-budget');
   const protection = node('span', 'protection');
   const lock = node('span', 'protection-lock');
   lock.setAttribute('aria-hidden', 'true');
   protection.append(lock, node('span', '', 'Protected'));
   protection.title = reasons.container_protected;
-  statusCell.append(status, protection, health);
+  statusCell.append(status, protection, health, restarts);
   const cpu = node('div', 'metric');
   const cpuValue = node('span', 'metric-value');
   cpu.append(node('span', 'cell-label', 'CPU'), cpuValue, node('span', 'metric-detail', '100% = one CPU core'));
@@ -86,7 +87,7 @@ function newRow(container) {
   controls.append(readonly);
   article.append(identity, statusCell, cpu, memory, controls);
   $('containers').append(article);
-  const row = {article, name, id, status, health, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
+  const row = {article, name, id, status, health, restarts, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
   rows.set(container.id, row);
   return row;
 }
@@ -107,6 +108,9 @@ function renderContainers() {
     row.status.dataset.state = container.status;
     row.health.textContent = HEALTH_LABELS[container.health] || HEALTH_LABELS.unknown;
     row.health.dataset.health = Object.hasOwn(HEALTH_LABELS, container.health) ? container.health : 'unknown';
+    row.restarts.hidden = !Number.isInteger(container.restart_limit);
+    row.restarts.textContent = row.restarts.hidden ? '' :
+      `Auto restarts: ${number(container.restart_attempts)}/${number(container.restart_limit)}${container.restart_attempts >= container.restart_limit ? ' · blocked' : ''}`;
     row.protection.hidden = !container.manual_actions_protected;
     row.cpuValue.textContent = percent(container.cpu_percent);
     row.memoryValue.textContent = bytes(container.mem_usage);
@@ -140,7 +144,7 @@ function render() {
   $('cycles').textContent = connected ? number(data.cycles_total) : '—';
   $('errors').textContent = connected ? `${number(data.errors_total)} failed · since agent startup` : 'Agent unavailable';
   $('executed').textContent = connected ? number(data.actions?.executed) : '—';
-  $('rule-summary').textContent = connected ? `${number(data.actions?.pending)} pending · ${number(data.actions?.cooldown)} cooldown · ${number(data.actions?.['dry-run'])} dry run` : 'Counters unavailable';
+  $('rule-summary').textContent = connected ? `${number(data.actions?.pending)} pending · ${number(data.actions?.cooldown)} cooldown · ${number(data.actions?.['restart-limit'])} restart limit · ${number(data.actions?.['dry-run'])} dry run` : 'Counters unavailable';
   $('mode').textContent = actions().enabled ? 'Manual controls enabled · one request at a time · autonomous rules remain active.' : 'Read-only access. No action can be triggered from this page.';
   let notice = message;
   if (!connected) notice = 'Connection lost. Measurements and controls are unavailable. Reconnecting does not repeat an action.';

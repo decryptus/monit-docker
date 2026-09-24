@@ -6,6 +6,17 @@ import math
 import time
 
 from monit_docker.domain.errors import MonitoringError
+from monit_docker.domain.models import ContainerSnapshot
+
+DEFAULT_MAX_RESTARTS = 3
+
+
+def restart_key(container_id):
+    return hashlib.sha256(('restart:' + container_id).encode('utf-8')).hexdigest()
+
+
+def is_restart(action):
+    return action.kind == 'docker' and action.command == 'restart'
 
 
 class CooldownPolicy(object):
@@ -77,3 +88,31 @@ class TriggerPolicy(CooldownPolicy):
         self.state.replace_observations(observations, read_only=read_only)
         self.previous[key] = observations[key]
         return now - since >= self.trigger_after
+
+
+class RestartPolicy(TriggerPolicy):
+    """A per-container automatic restart budget, latched until explicit rearm.
+
+    Aliases and rule identities share a budget. Health changes and process
+    restarts never reset it. The state lock covers preflight and reservations.
+    """
+    def __init__(self, state, rules, seconds, trigger_after=0, max_gap=None,
+                 clock=None, read_only=False, max_restarts=DEFAULT_MAX_RESTARTS):
+        if type(max_restarts) is not int or max_restarts < 1:
+            raise ValueError('restart limit must be a positive integer')
+        super().__init__(state, rules, seconds, trigger_after, max_gap, clock, read_only)
+        self.max_restarts = max_restarts
+
+    def permits(self, container_id, rule):
+        count = sum(is_restart(action) for action in rule.actions)
+        return not count or self.state.restarts.get(restart_key(container_id), 0) + count <= self.max_restarts
+
+    def claim_action(self, container_id, action, read_only=False):
+        return not is_restart(action) or self.state.reserve_restart(
+            restart_key(container_id), self.max_restarts, read_only=read_only)
+
+    def decorate(self, snapshot):
+        values = snapshot.to_dict()
+        values.update(restart_attempts=self.state.restarts.get(restart_key(snapshot.id), 0),
+                      restart_limit=self.max_restarts)
+        return ContainerSnapshot(**values)

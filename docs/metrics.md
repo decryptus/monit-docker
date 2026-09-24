@@ -17,7 +17,7 @@ start a monitoring cycle. See [serve configuration and freshness](serve.md).
 | `monit_docker_last_success_timestamp_seconds` | gauge | Unix seconds | none | Completion time of last successful cycle; absent until first success |
 | `monit_docker_action_decisions_total` | counter | actions | `outcome` | Successful executions or skipped/simulated actions since startup |
 
-`outcome` is exactly one of `executed`, `cooldown`, `pending`, or `dry-run`. A rule with
+`outcome` is exactly one of `executed`, `cooldown`, `pending`, `restart-limit`, or `dry-run`. A rule with
 multiple actions can increment multiple decisions. Failed actions do not count
 as `executed`; the failed cycle increments `cycle_errors_total`. Successful
 actions earlier in a failed cycle remain counted. A rule that does not match
@@ -43,6 +43,9 @@ or exception message is used as a metric label.
 | --- | --- | --- | --- |
 | `monit_docker_container_info` | gauge | always 1 | Identity and status from the cached snapshot |
 | `monit_docker_container_health_status` | gauge | always 1 | Current normalized health state in the additional `health` label |
+| `monit_docker_container_restart_attempts` | gauge | attempts | Automatic restart reservations since explicit rearm; present with automatic rules |
+| `monit_docker_container_restart_limit` | gauge | attempts | Configured automatic restart limit; present with automatic rules |
+| `monit_docker_container_restart_blocked` | gauge | boolean | Budget exhausted (1) or available (0); present with automatic rules |
 | `monit_docker_container_memory_usage_bytes` | gauge | bytes | Docker memory usage, minus `total_cache` when that field exists |
 | `monit_docker_container_memory_limit_bytes` | gauge | bytes | Limit reported by Docker |
 | `monit_docker_container_memory_usage_percent` | gauge | percent | Memory usage / reported limit × 100 |

@@ -21,6 +21,7 @@ For installation and the command reference, see the
    trigger-delay
    filesystems
    healthchecks
+   restart-limit
 
 .. toctree::
    :maxdepth: 2

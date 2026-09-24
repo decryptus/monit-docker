@@ -24,7 +24,9 @@ from docker.errors import NotFound
 from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
+from monit_docker.adapters.state import LocalState
 from monit_docker.core import MonitoringEngine
+from monit_docker.core.policy import RestartPolicy
 from monit_docker.domain.errors import ActionRejected, MonitoringError
 
 
@@ -81,6 +83,21 @@ class DockerIntegrationTests(unittest.TestCase):
         result = self.engine.run_once(rules=(rule,), resources=('health',))
         self.assertEqual(result.snapshots[0].health, 'unknown')
         self.assertEqual(result.actions, ())
+
+    def test_restart_budget_survives_fresh_cycles_against_docker(self):
+        obj = self.create_container()
+        rule = RuleParser().parse('restart')
+        with tempfile.TemporaryDirectory() as directory:
+            for cycle in range(3):
+                decisions = []
+                with LocalState(os.path.join(directory, 'state.json')) as state:
+                    policy = RestartPolicy(state, (rule,), 0, max_restarts=1)
+                    result = self.engine.run_once(rules=(rule,), resources=('health',),
+                                                  action_policy=policy, on_action=decisions.append)
+                self.assertEqual(decisions[0].status, 'executed' if cycle == 0 else 'restart-limit')
+                self.assertEqual(result.snapshots[0].id, obj.id)
+                self.assertEqual(result.snapshots[0].restart_attempts, 1)
+            self.executor.execute.assert_called_once()
 
     def test_busybox_filesystem_groups_and_missing_paths(self):
         obj = self.create_container()

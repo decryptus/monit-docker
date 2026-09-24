@@ -37,6 +37,14 @@ def render_metrics(data):
            [(labels(c) + (('status', c['status']),), 1) for c in containers])
     metric('container_health_status', 'gauge', 'Container health state; the current state has value 1.',
            [(labels(c) + (('health', c.get('health') or 'unknown'),), 1) for c in containers])
+    for field, description in (
+            ('restart_attempts', 'Automatic restart attempts reserved since explicit rearm.'),
+            ('restart_limit', 'Configured automatic restart attempt limit.')):
+        metric('container_' + field, 'gauge', description,
+               [(labels(c), c[field]) for c in containers if c.get(field) is not None])
+    metric('container_restart_blocked', 'gauge', 'Automatic restart budget exhausted; explicit rearm required.',
+           [(labels(c), int(c['restart_attempts'] >= c['restart_limit'])) for c in containers
+            if c.get('restart_limit') is not None and c.get('restart_attempts') is not None])
     for field, name, kind in (
             ('mem_usage', 'memory_usage_bytes', 'gauge'),
             ('mem_limit', 'memory_limit_bytes', 'gauge'),

@@ -83,6 +83,9 @@ class MonitoringEngine(object):
         dry_run reports matching actions without calling the executor. An
         optional action_policy claims a rule before its first action. Its optional
         observe(id, rule, matched, read_only=False) hook can delay a matched rule;
+        permits(id, rule) can reject a whole sequence before any side effects,
+        claim_action(id, action, read_only=False) reserves individual attempts,
+        and decorate(snapshot) adds policy state to the completed snapshot.
         on_action receives skipped, simulated and successful action decisions.
         No stdout, process exit, scheduler or persistent state belongs here.
         """
@@ -129,6 +132,9 @@ class MonitoringEngine(object):
                             self._apply(rule, snapshot, actions, dry_run, action_policy, on_action)
                 else:
                     snapshot = self.collector.collect(snapshot, resources)
+                decorate = getattr(action_policy, 'decorate', None)
+                if decorate:
+                    snapshot = decorate(snapshot)
                 snapshots.append(snapshot)
                 if on_snapshot:
                     on_snapshot(snapshot)
@@ -148,10 +154,14 @@ class MonitoringEngine(object):
         ready = observe is None or observe(snapshot.id, rule, matched, read_only=dry_run)
         if not matched:
             return
-        allowed = ready and (action_policy is None or action_policy.claim(
+        permits = getattr(action_policy, 'permits', None)
+        permitted = permits is None or permits(snapshot.id, rule)
+        allowed = ready and permitted and (action_policy is None or action_policy.claim(
             snapshot.id, rule, read_only=dry_run))
-        status = ('pending' if not ready else 'cooldown' if not allowed
+        status = ('pending' if not ready else 'restart-limit' if not permitted else 'cooldown' if not allowed
                   else 'dry-run' if dry_run else 'execute')
+        if status == 'restart-limit':
+            LOG.warning('automatic restart limit blocks rule on %s; explicit rearm required', snapshot.name)
         for action in rule.actions:
             correlation = uuid.uuid4().hex
             fields = dict(correlation_id=correlation, source=self.audit_source, actor=self.audit_actor,
@@ -159,6 +169,10 @@ class MonitoringEngine(object):
                           action=action.command if action.kind == 'docker' else 'exec',
                           command_id=hashlib.sha256(repr(action).encode('utf-8')).hexdigest(),
                           rule_id=hashlib.sha256(rule.source.encode('utf-8')).hexdigest())
+            claim_action = getattr(action_policy, 'claim_action', None)
+            if status in ('execute', 'dry-run') and claim_action is not None:
+                if not claim_action(snapshot.id, action, read_only=dry_run):
+                    status = 'restart-limit'
             if status != 'execute':
                 if self.audit:
                     self.audit.record('action', 'skipped', result='simulated' if dry_run else 'skipped', reason=status, **fields)

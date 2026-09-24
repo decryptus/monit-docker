@@ -22,7 +22,7 @@ FIELDS = ('id', 'name', 'status', 'pid', 'mem_usage', 'mem_limit',
 RESOURCE_FIELDS = FIELDS[2:]
 STATE_RESOURCES = ('pid', 'status', 'health')
 HEALTH_STATES = ('healthy', 'unhealthy', 'starting', 'none', 'unknown')
-_POLICY_FIELDS = ('manual_actions_protected',)
+_POLICY_FIELDS = ('manual_actions_protected', 'restart_attempts', 'restart_limit')
 
 
 class ContainerSnapshot(object):
@@ -57,7 +57,9 @@ class ContainerSnapshot(object):
                 continue
             if value is None:
                 continue
-            if field == 'health':
+            if field in ('restart_attempts', 'restart_limit'):
+                valid = type(value) is int and value >= (1 if field == 'restart_limit' else 0)
+            elif field == 'health':
                 valid = isinstance(value, STRING_TYPES) and value in HEALTH_STATES
             elif field in ('id', 'name', 'status'):
                 valid = isinstance(value, STRING_TYPES)

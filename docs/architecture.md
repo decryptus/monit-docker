@@ -136,7 +136,7 @@ to preserve its first-container exit behavior. Its exceptions still trigger clea
 calls the executor; `CycleResult.actions` includes only successful executions.
 The optional `on_action` callback receives an `ActionDecision(container_id, rule,
 command, status)` for each skipped, simulated or successful action. Its exceptions
-abort the cycle with normal cleanup. Decisions use `pending`, `cooldown`, `dry-run` or
+abort the cycle with normal cleanup. Decisions use `pending`, `cooldown`, `restart-limit`, `dry-run` or
 `executed` statuses and are internal values, not a frozen HTTP protocol.
 
 An optional policy exposes `claim(container_id, rule, read_only=False) -> bool`.
@@ -144,7 +144,8 @@ The engine calls it once per eligible matching rule before the first action.
 An optional `observe(container_id, rule, matched, read_only=False) -> bool` hook
 sees true and false evaluations and can keep matching rules pending. Policies
 with only `claim` remain supported. The CLI
-composes a per-cycle `TriggerPolicy` extending `CooldownPolicy` with a locked `LocalState`;
+composes a per-cycle `RestartPolicy` extending `TriggerPolicy` and `CooldownPolicy`
+with a locked `LocalState`;
 the cooldown policy depends only on `reserve(key, now, seconds, read_only=False) -> bool`
 and an injectable clock. Identity serialization happens for all selected rules
 before the cycle. The state adapter records the cooldown durably before allowing
@@ -155,6 +156,13 @@ flags enter the engine. `TriggerPolicy` additionally uses `observations` and
 collection and restores only observed true conditions. Trigger timing and
 cooldown identity remain separate. See [trigger delay semantics](trigger-delay.md)
 for reset, partial failure, preview and state migration behavior. See [cron semantics](cron.md) for retries and limits.
+
+`RestartPolicy.permits(id, rule)` checks the whole resolved sequence against a
+shared per-container restart budget before any rule side effects. Its
+`claim_action(id, action, read_only=False)` hook reserves each restart durably
+before execution, and `decorate(snapshot)` adds the budget to the snapshot.
+The explicit offline `restart-reset` command uses the same state lock and audit
+journal; health transitions do not rearm the budget. See [restart limits](restart-limit.md).
 
 The first failed action aborts the cycle with `MonitoringError(116, ...)`;
 absence of containers uses 114, and an exhausted statistics stream without two

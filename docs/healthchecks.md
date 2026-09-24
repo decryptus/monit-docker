@@ -28,7 +28,9 @@ monit-docker --name 'web-*' monit --dry-run \
 
 Remove `--dry-run` only when the selected restart action is intended. With `cron`
 or `serve`, use the existing cooldown and optional trigger delay to control
-repeated attempts. For example:
+repeated attempts. A persistent [restart limit](restart-limit.md) also stops
+automatic restarts after three attempts per container until explicit rearm.
+For example:
 
 ```sh
 monit-docker --name 'web-*' cron \

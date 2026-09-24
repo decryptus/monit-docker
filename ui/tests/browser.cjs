@@ -30,10 +30,11 @@ async function main() {
       api_version: 1, audit_enabled: true, ready: true, running: false, last_cycle_success: true,
       last_success_at: 1790129400, last_cycle_finished_at: 1790129400, age_seconds: 2,
       last_error_code: null, cycles_total: 2841, errors_total: 0,
-      actions: {executed: 3, cooldown: 8, pending: 1, 'dry-run': 0},
+      actions: {executed: 3, cooldown: 8, pending: 1, 'dry-run': 0, 'restart-limit': 2},
       containers: names.map((name, i) => ({id: String(i + 1).repeat(64), name,
         status: i === 4 ? 'exited' : 'running', health: ['healthy', 'unhealthy', 'starting', 'none', 'unknown'][i],
         cpu_percent: [4.2, 23.6, 1.8, .4, null][i],
+        restart_attempts: i === 1 ? 3 : 0, restart_limit: i === 4 ? null : 3,
         mem_usage: [84, 246, 512, 12, null][i] === null ? null : [84, 246, 512, 12][i] * 1048576,
         mem_limit: 1073741824, mem_percent: [8.2, 24, 50, 1.2, null][i]})),
       manual_actions: {enabled: true, allowed_states: {start: ['created', 'exited'],
@@ -59,6 +60,9 @@ async function main() {
     assert.equal(await page.locator('.container-row').count(), 5);
     assert.deepEqual(await page.locator('.health-state').allTextContents(),
       ['Health: healthy', 'Health: unhealthy', 'Health: starting', 'No healthcheck', 'Health: unknown']);
+    assert.equal(await page.locator('.restart-budget:visible').count(), 4);
+    assert.equal(await page.locator('.restart-budget').nth(1).textContent(), 'Auto restarts: 3/3 · blocked');
+    assert.match(await page.locator('#rule-summary').textContent(), /2 restart limit/);
     assert.equal(await page.locator('.container-row button:visible').count(), 9);
     // Protected containers stay visible, with disabled controls for every state.
     state.containers[2].manual_actions_protected = true;

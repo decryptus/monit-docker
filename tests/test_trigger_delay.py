@@ -276,7 +276,9 @@ class TriggerCliTests(unittest.TestCase):
     def test_unconditional_commands_keep_their_immediate_behavior(self):
         self.assertEqual(self.cycle(100, rule='restart'), (0, ['executed']))
         data = json.loads((Path(self.temp.name) / 'job.json').read_text())
-        self.assertEqual(data['version'], 1)
+        self.assertEqual(data['version'], 3)
+        self.assertEqual(data['observations'], {})
+        self.assertEqual(list(data['restarts'].values()), [1])
 
     def test_serve_and_cron_share_observations_and_expose_pending_counter(self):
         self.cycle(100)
