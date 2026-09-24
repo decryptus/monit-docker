@@ -48,7 +48,7 @@ async function main() {
     await page.waitForSelector('.log-event');
     const cards = page.locator('.log-event');
     assert.match(await cards.nth(0).textContent(), /Restart completed/);
-    assert.deepEqual(await cards.nth(0).locator('.log-tag').allTextContents(), ['Manual action', 'Actor: alice', 'Host: docker-host']);
+    assert.deepEqual(await cards.nth(0).locator('.log-tag').allTextContents(), ['Host: docker-host', 'Container: api-service', 'Manual action', 'Actor: alice']);
     assert.equal(await cards.nth(0).getAttribute('data-tone'), 'success');
     assert.equal(await cards.nth(1).locator('.badge').textContent(), 'Queued');
     assert.equal(await cards.nth(2).locator('.badge').textContent(), 'In progress');
@@ -72,7 +72,7 @@ async function main() {
     await page.locator('#older-logs').click();
     await page.waitForFunction(() => document.getElementById('log-page').textContent==='Page 2');
     assert.equal(await page.locator('.log-event img').count(),0);
-    assert.match(await page.locator('.log-event h3').textContent(), /<img/);
+    assert.match(await page.locator('.log-event .log-target').textContent(), /<img/);
     assert.equal(await page.locator('#older-logs').isDisabled(),true);
     await page.locator('#previous-logs').click();
     await page.waitForFunction(() => document.getElementById('log-page').textContent==='Page 1');
