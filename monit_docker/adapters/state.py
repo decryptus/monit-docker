@@ -9,11 +9,13 @@ import stat
 import tempfile
 
 from monit_docker.domain.errors import MonitoringError
+from monit_docker.domain.maintenance import MAX_MAINTENANCE_SECONDS
 
 _STATE_FIELDS = {
     1: {'version', 'cooldowns'},
     2: {'version', 'cooldowns', 'observations'},
     3: {'version', 'cooldowns', 'observations', 'restarts'},
+    4: {'version', 'cooldowns', 'observations', 'restarts', 'maintenance'},
 }
 
 
@@ -28,6 +30,7 @@ class LocalState(object):
         self.entries = {}
         self.observations = {}
         self.restarts = {}
+        self.maintenance = {}
         self.version = 1
 
     def __enter__(self):
@@ -80,6 +83,7 @@ class LocalState(object):
         self.entries = {}
         self.observations = {}
         self.restarts = {}
+        self.maintenance = {}
         self.version = 1
         try:
             fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0))
@@ -102,12 +106,18 @@ class LocalState(object):
         self.entries = data['cooldowns']
         if data['version'] >= 2:
             self.observations = self._validated_observations(data['observations'])
-        if data['version'] == 3:
+        if data['version'] >= 3:
             if (not isinstance(data['restarts'], dict) or any(
                     not self._valid_key(key) or type(count) is not int or count < 1
                     for key, count in data['restarts'].items())):
                 raise ValueError('invalid restart entry')
             self.restarts = data['restarts']
+        if data['version'] >= 4:
+            if (not isinstance(data['maintenance'], dict) or any(
+                    not self._valid_key(key) or not self._valid_time(until)
+                    for key, until in data['maintenance'].items())):
+                raise ValueError('invalid maintenance entry')
+            self.maintenance = data['maintenance']
         self.version = data['version']
 
     @staticmethod
@@ -162,7 +172,7 @@ class LocalState(object):
         if not read_only:
             self._save(self.entries, restarts=restarts)
         self.restarts = restarts
-        self.version = 3
+        self.version = max(self.version, 3)
         return True
 
     def reset_restarts(self, key):
@@ -176,7 +186,7 @@ class LocalState(object):
         del restarts[key]
         self._save(self.entries, restarts=restarts)
         self.restarts = restarts
-        self.version = 3
+        self.version = max(self.version, 3)
 
     def reserve(self, key, now, seconds, read_only=False):
         self._require_lock()
@@ -195,15 +205,48 @@ class LocalState(object):
         self.entries = entries
         return True
 
-    def _save(self, entries, observations=None, restarts=None):
+    def set_maintenance(self, container_id, seconds, now):
+        self._require_lock()
+        if (not self._valid_key(container_id) or type(seconds) is not int
+                or not 0 <= seconds <= MAX_MAINTENANCE_SECONDS
+                or not self._valid_time(now) or not self._valid_time(now + seconds)):
+            raise ValueError('invalid maintenance duration or container ID')
+        maintenance = dict(self.maintenance)
+        if seconds:
+            maintenance[container_id] = now + seconds
+        else:
+            maintenance.pop(container_id, None)
+        # Clear observed streaks on entry and early exit. Cooldowns and restart
+        # budgets are preserved; sustained conditions must be observed afresh.
+        self._save(self.entries, observations={}, maintenance=maintenance)
+        self.maintenance = maintenance
+        self.observations = {}
+        self.version = 4
+
+    def expire_maintenance(self, now, read_only=False):
+        self._require_lock()
+        if not self._valid_time(now):
+            raise ValueError('invalid maintenance time')
+        expired = [key for key, until in self.maintenance.items() if until <= now]
+        if expired:
+            maintenance = {key: until for key, until in self.maintenance.items() if until > now}
+            if not read_only:
+                self._save(self.entries, observations={}, maintenance=maintenance)
+            self.maintenance = maintenance
+            self.observations = {}
+        return expired
+
+    def _save(self, entries, observations=None, restarts=None, maintenance=None):
         temporary = None
         try:
             data = {'version': self.version, 'cooldowns': entries}
-            if observations is not None or restarts is not None or self.version >= 2:
+            if observations is not None or restarts is not None or maintenance is not None or self.version >= 2:
                 data.update(version=2, observations=(self.observations if observations is None
                                                      else observations))
-            if restarts is not None or self.version == 3:
+            if restarts is not None or maintenance is not None or self.version >= 3:
                 data.update(version=3, restarts=self.restarts if restarts is None else restarts)
+            if maintenance is not None or self.version >= 4:
+                data.update(version=4, maintenance=self.maintenance if maintenance is None else maintenance)
             fd, temporary = tempfile.mkstemp(prefix='.monit-state-', dir=self.directory)
             with os.fdopen(fd, 'w') as stream:
                 json.dump(data, stream, sort_keys=True, allow_nan=False)

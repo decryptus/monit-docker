@@ -27,7 +27,7 @@ class MonitorService(object):
         self._data = dict(api_version=1, running=False, last_cycle_success=False,
                           last_cycle_finished_at=None, last_success_at=None,
                           last_error_code=None, cycles_total=0, errors_total=0,
-                          actions=dict(executed=0, cooldown=0, pending=0, **{'dry-run': 0, 'restart-limit': 0}),
+                          actions=dict(executed=0, cooldown=0, pending=0, **{'dry-run': 0, 'restart-limit': 0, 'maintenance': 0}),
                           containers=[])
 
     def status(self):

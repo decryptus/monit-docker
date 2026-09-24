@@ -17,11 +17,11 @@ start a monitoring cycle. See [serve configuration and freshness](serve.md).
 | `monit_docker_last_success_timestamp_seconds` | gauge | Unix seconds | none | Completion time of last successful cycle; absent until first success |
 | `monit_docker_action_decisions_total` | counter | actions | `outcome` | Successful executions or skipped/simulated actions since startup |
 
-`outcome` is exactly one of `executed`, `cooldown`, `pending`, `restart-limit`, or `dry-run`. A rule with
+`outcome` is exactly one of `executed`, `cooldown`, `pending`, `restart-limit`, `maintenance`, or `dry-run`. A rule with
 multiple actions can increment multiple decisions. Failed actions do not count
 as `executed`; the failed cycle increments `cycle_errors_total`. Successful
 actions earlier in a failed cycle remain counted. A rule that does not match
-produces no decision. All four outcome series are present at startup, at zero.
+produces no decision. All outcome series are present at startup, at zero.
 
 `pending` counts actions skipped because their local [trigger delay](trigger-delay.md)
 has not elapsed. It is not a gauge of currently pending rules.
@@ -98,6 +98,13 @@ do not sum them as independent storage capacity. All available fields above
 are exposed for each requested group. Missing inode accounting is omitted,
 not reported as zero; explicitly requesting an unavailable field fails collection.
 As with other container metrics, a failed or stale cycle withholds all samples.
+
+## Maintenance indicators
+
+`monit_docker_container_maintenance_active` is 1 when automatic actions were paused
+at the last collection, otherwise 0. `monit_docker_container_maintenance_until_seconds`
+is the configured expiry time in Unix seconds, absent without a pause. Both use
+`id` and `name` labels and are omitted when the cache is stale. See [maintenance](maintenance.md).
 
 ## Optional runtime checks
 

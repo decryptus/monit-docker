@@ -23,6 +23,7 @@ For installation and the command reference, see the
    healthchecks
    runtime-checks
    restart-limit
+   maintenance
 
 .. toctree::
    :maxdepth: 2

@@ -32,6 +32,15 @@ class CooldownPolicy(object):
         except (TypeError, ValueError) as error:
             raise MonitoringError(110, 'cron rules require JSON-compatible arguments: %s' % error)
 
+    def maintenance_active(self, container_id):
+        return self.state.maintenance.get(container_id, 0) > self.clock()
+
+    def decorate(self, snapshot):
+        values = snapshot.to_dict()
+        values.update(maintenance_until=self.state.maintenance.get(snapshot.id),
+                      maintenance_active=self.maintenance_active(snapshot.id))
+        return ContainerSnapshot(**values)
+
     def key(self, container_id, rule):
         identity = json.dumps((container_id, self.identities[id(rule)]),
                               separators=(',', ':')).encode('utf-8')
@@ -67,6 +76,8 @@ class TriggerPolicy(CooldownPolicy):
         state.replace_observations({}, read_only=read_only)
 
     def observe(self, container_id, rule, matched, read_only=False):
+        if self.maintenance_active(container_id):
+            matched = False
         if not self.trigger_after or not rule.conditions:
             return True
         identity = json.dumps((self.key(container_id, rule), self.trigger_after, self.max_gap),
@@ -112,7 +123,7 @@ class RestartPolicy(TriggerPolicy):
             restart_key(container_id), self.max_restarts, read_only=read_only)
 
     def decorate(self, snapshot):
-        values = snapshot.to_dict()
+        values = super().decorate(snapshot).to_dict()
         values.update(restart_attempts=self.state.restarts.get(restart_key(snapshot.id), 0),
                       restart_limit=self.max_restarts)
         return ContainerSnapshot(**values)
