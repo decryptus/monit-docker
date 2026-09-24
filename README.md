@@ -90,6 +90,21 @@ the release workflow does not update `latest`.
 Before running configured rules, use [`check-config`](docs/check-config.md) to validate
 the YAML, imports, selectors and aliases without connecting to Docker.
 
+For reusable jobs, define [named scenarios](docs/scenarios.md) containing container
+selection, rules and execution settings, then use short commands:
+
+```bash
+monit-docker scenario list
+monit-docker scenario show web-guard
+monit-docker run web-guard --dry-run
+monit-docker run web-guard
+```
+
+See [examples/scenarios.yml](examples/scenarios.yml) for `stats`, `cron` and `serve`
+definitions. Install the configuration at the default path or select it with `-c`.
+Scenario support requires a build containing this change; it is not included in
+the published 0.0.69 packages.
+
 ### Simple mode: run a command and exit
 
 Read the available statistics without taking any action:

@@ -15,6 +15,13 @@ from monit_docker.domain.runtime import EVENT_RESOURCES
 from monit_docker.domain.rules import Rule
 from monit_docker.adapters.filesystems import directory_groups
 from monit_docker.domain.filesystems import FilesystemSample, FILESYSTEM_NUMERIC_FIELDS
+from monit_docker.adapters.scenarios import SCENARIO_FIELDS, SCENARIO_NAME, validate_scenario
+
+_CONFIG_FIELDS = frozenset(('general', 'vars', 'clients', 'ctn-groups', 'dir-groups',
+                            'conditions', 'commands', 'scenarios'))
+_ENTRY_REQUIRED = {'client': 'config', 'ctn-group': 'match', 'dir-group': 'paths',
+                   'condition': 'expr', 'command': 'exec', 'scenario': None}
+_ENTRY_VARIABLES = frozenset(('vars', '@import_vars'))
 
 
 class ConfigurationCheckError(ValueError):
@@ -92,8 +99,7 @@ class CheckedConfiguration(Configuration):
         if self._root_pending:
             self._root_pending = False
             mapping(result, self.source)
-            allowed = {'general', 'vars', 'clients', 'ctn-groups', 'dir-groups', 'conditions', 'commands'}
-            require(not set(result) - allowed, self.source, 'unknown top-level section')
+            require(not set(result) - _CONFIG_FIELDS, self.source, 'unknown top-level section')
             for name, value in result.items():
                 mapping(value, '%s: %s' % (self.source, name))
         return result
@@ -122,7 +128,7 @@ class CheckedConfiguration(Configuration):
     @staticmethod
     def _entries(conf, kind):
         mapping(conf, kind)
-        required = {'client': 'config', 'ctn-group': 'match', 'dir-group': 'paths', 'condition': 'expr', 'command': 'exec'}[kind]
+        required = _ENTRY_REQUIRED[kind]
         for name, value in conf.items():
             location = '%s.%s' % (kind, name)
             if name.startswith('@'):
@@ -132,8 +138,15 @@ class CheckedConfiguration(Configuration):
             if kind in ('condition', 'command', 'dir-group'):
                 require(re.match(r'^[a-zA-Z][a-zA-Z0-9_.-]{0,64}$', name), location, 'invalid alias name')
             mapping(value, location)
-            require(required in value, location, 'missing %s' % required)
-            require(not set(value) - {required, 'vars', '@import_vars'}, location, 'unknown entry field')
+            if kind == 'scenario':
+                require(SCENARIO_NAME.fullmatch(name), location, 'invalid scenario name')
+                allowed = SCENARIO_FIELDS | _ENTRY_VARIABLES
+            else:
+                require(required in value, location, 'missing %s' % required)
+                allowed = {required} | _ENTRY_VARIABLES
+                if kind == 'dir-group':
+                    allowed = allowed | {'access'}
+            require(not set(value) - allowed, location, 'unknown entry field')
             if 'vars' in value:
                 mapping(value['vars'], location + '.vars')
 
@@ -213,5 +226,10 @@ def check_configuration(conffile, inline=None, selectors=None, selected_groups=(
     parser = RuleParser(commands, conditions, dir_groups)
     for index, expression in enumerate(expressions):
         _validate_rule(parser, expression, '--cmd-if[%s]' % index)
-    return {'clients': len(config.get('clients', {})), 'groups': len(config.get('ctn-groups', {})),
-            'commands': len(commands), 'conditions': len(conditions), 'rules': len(expressions)}
+    for name in config.get('scenarios', {}):
+        checked('scenarios.' + name, lambda: validate_scenario(config, name))
+    summary = {'clients': len(config.get('clients', {})), 'groups': len(config.get('ctn-groups', {})),
+               'commands': len(commands), 'conditions': len(conditions), 'rules': len(expressions)}
+    if config.get('scenarios'):
+        summary['scenarios'] = len(config['scenarios'])
+    return summary
