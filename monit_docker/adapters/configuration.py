@@ -15,6 +15,11 @@ except ImportError:
 
 _TPL_IMPORTS = ('from os import environ as ENV',
                 'from sonicprobe.helpers import to_yaml as my')
+_CONFIG_SECTIONS = (('clients', 'client', 'config'),
+                    ('ctn-groups', 'ctn-group', 'match'),
+                    ('dir-groups', 'dir-group', 'paths'),
+                    ('conditions', 'condition', 'expr'),
+                    ('commands', 'command', 'exec'))
 
 
 class Configuration(object):
@@ -128,10 +133,7 @@ class Configuration(object):
             if conf.get(key):
                 self._common_conf[key] = dict(conf[key])
         result = {}
-        for key, kind, section in (('clients', 'client', 'config'),
-                                   ('ctn-groups', 'ctn-group', 'match'),
-                                   ('conditions', 'condition', 'expr'),
-                                   ('commands', 'command', 'exec')):
+        for key, kind, section in _CONFIG_SECTIONS:
             if not include_rules and key in ('conditions', 'commands'):
                 continue
             if conf.get(key):

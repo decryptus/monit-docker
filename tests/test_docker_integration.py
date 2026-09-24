@@ -54,6 +54,28 @@ class DockerIntegrationTests(unittest.TestCase):
         self.objects.append(obj)
         return obj
 
+    def test_busybox_filesystem_groups_and_missing_paths(self):
+        obj = self.create_container()
+        groups = {'system': {'paths': ['/', '/tmp']}, 'shared': {'paths': ['/dev/shm']}}
+        collector = DockerCollector(lambda: docker.from_env(timeout=15), self.selector, groups)
+        engine = MonitoringEngine(collector, DockerActionExecutor(collector))
+        result = engine.run_once(resources=('disk_percent[system]', 'inode_percent[shared]'))
+        samples = result.snapshots[0].filesystems
+        self.assertEqual([sample.path for sample in samples], ['/', '/tmp', '/dev/shm'])
+        for sample in samples:
+            self.assertGreater(sample.disk_total, 0)
+            self.assertGreaterEqual(sample.disk_percent, 0)
+            self.assertLessEqual(sample.disk_percent, 100)
+        self.assertEqual(samples[0].disk_total, samples[1].disk_total)
+        self.assertIsNotNone(samples[2].inode_percent)
+        rule = RuleParser(dir_groups=groups).parse('disk_percent[system] >= 0 ? (true)')
+        self.assertEqual(len(engine.run_once(rules=(rule,)).actions), 1)
+        collector.dir_groups['system'] = ('/monit-does-not-exist',)
+        with self.assertRaisesRegex(MonitoringError, '/monit-does-not-exist'):
+            engine.run_once(resources=('disk_percent[system]',))
+        obj.reload()
+        self.assertEqual(obj.status, 'running')
+
     def test_protected_container_allows_automatic_rules_but_no_manual_commands(self):
         obj = self.create_container(labels={'monit-docker.protected': 'true'})
         initial = self.engine.run_once(resources=('cpu_percent',))

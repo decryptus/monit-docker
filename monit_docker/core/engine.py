@@ -18,6 +18,7 @@ from monit_docker.core.rules import RuleEvaluator
 from monit_docker.core.manual import ALLOWED_STATES
 from monit_docker.domain.errors import ActionRejected, MonitoringError
 from monit_docker.domain.models import ContainerSnapshot
+from monit_docker.domain.filesystems import filesystem_resource
 from monit_docker.domain.rules import Action, ActionDecision, ActionResult, CycleResult
 
 LOG = logging.getLogger('monit-docker')
@@ -92,7 +93,8 @@ class MonitoringEngine(object):
             if resources is None:
                 resources = () if rules else ContainerSnapshot.RESOURCE_FIELDS
             resources = tuple(resources)
-            invalid = set(resources) - set(ContainerSnapshot.RESOURCE_FIELDS)
+            invalid = {resource for resource in resources
+                       if resource not in ContainerSnapshot.RESOURCE_FIELDS and not filesystem_resource(resource)}
             if invalid:
                 raise ValueError('unknown resources: %s' % ', '.join(sorted(invalid)))
             return self._run_cycle(rules, resources, on_snapshot, dry_run,

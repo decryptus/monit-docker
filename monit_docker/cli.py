@@ -30,6 +30,7 @@ from monit_docker.core import MonitoringEngine
 from monit_docker.core.policy import CooldownPolicy, TriggerPolicy
 from monit_docker.domain.errors import CommandExecutionError, MonitoringError
 from monit_docker.outputs.formatting import format_resource
+from monit_docker.domain.filesystems import filesystem_resource
 
 SYSLOG_NAME = 'monit-docker'
 LOG = logging.getLogger(SYSLOG_NAME)
@@ -41,6 +42,12 @@ MONIT_DOCKER_CONFFILE = os.environ.get('MONIT_DOCKER_CONFFILE') or DEFAULT_CONFF
 MONIT_DOCKER_LOGFILE = os.environ.get('MONIT_DOCKER_LOGFILE') or DEFAULT_LOGFILE
 MONIT_DOCKER_RUNTIMEDIR = os.environ.get('MONIT_DOCKER_RUNTIMEDIR') or DEFAULT_RUNTIMEDIR
 _SUBCMDS = {}
+
+
+def _resource_argument(value):
+    if value not in RESOURCE_CHOICES and not filesystem_resource(value):
+        raise argparse.ArgumentTypeError('unknown resource; filesystem resources use disk_percent[group] or inode_percent[group]')
+    return value
 
 def argv_parse_check():
     """
@@ -238,9 +245,14 @@ class MonitDockerSubCmdStats(object):
             statuses=options.status, groups=config.get('ctn-groups'), selected_groups=options.ctn_grp)
         self.rules = ()
         if self.USE_RULES:
-            parser = RuleParser(config.get('commands'), config.get('conditions'))
+            parser = RuleParser(config.get('commands'), config.get('conditions'), config.get('dir-groups'))
             self.rules = tuple(parser.parse(expression) for expression in options.cmd)
-        collector = DockerCollector(client_factory(config, options.client, options.client_from_env), selector)
+        collector = DockerCollector(client_factory(config, options.client, options.client_from_env),
+                                    selector, config.get('dir-groups'))
+        for resource in options.resource or ():
+            filesystem = filesystem_resource(resource)
+            if filesystem and filesystem[1] not in collector.dir_groups:
+                raise MonitoringError(110, 'unknown directory group: %s' % filesystem[1])
         self.audit = None
         if self.rules or getattr(options, 'allow_actions', False) or getattr(options, 'notification_token_file', None) or getattr(options, 'audit_read_token_file', None):
             self.audit = _audit_journal(options)
@@ -262,7 +274,7 @@ class MonitDockerSubCmdStats(object):
                             action  = 'append',
                             dest    = 'resource',
                             default = [],
-                            choices = RESOURCE_CHOICES,
+                            type    = _resource_argument,
                             help    = "resource information")
 
     @classmethod
@@ -275,13 +287,13 @@ class MonitDockerSubCmdStats(object):
 
     def _output_snapshot(self, snapshot):
         if self.options.output == 'json':
-            values = dict((resource, self._display_value(resource, getattr(snapshot, resource)))
+            values = dict((resource, self._display_value(resource, snapshot.resource_value(resource)))
                           for resource in self.options.resource)
             sys.stdout.write(json.dumps({snapshot.name: values}) + '\n')
         else:
             values = [snapshot.name]
             for resource in self.options.resource:
-                value = self._display_value(resource, getattr(snapshot, resource))
+                value = self._display_value(resource, snapshot.resource_value(resource))
                 if value is None or (resource == 'pid' and not value):
                     value = 'null'
                 values.append('%s:%s' % (resource, value))
@@ -312,7 +324,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         parser.set_defaults(resource=[])
         if cls.ALLOW_RESOURCE_QUERY:
             parser.add_argument("--rsc", action='append', dest='resource',
-                                choices=RESOURCE_CHOICES, help='resource information')
+                                type=_resource_argument, help='resource information')
         parser.add_argument("--cmd",
                             "--cmd-if",
                             action  = 'append',
@@ -444,7 +456,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--port', type=int, default=9808, help='HTTP port (default: 9808)')
         parser.add_argument('--interval', type=float, default=30, help='seconds to wait after each cycle (default: 30)')
         parser.add_argument('--stale-after', type=float, default=None, help='maximum cache age in seconds (default: max(90, 3 * interval))')
-        parser.add_argument('--rsc', action='append', dest='resource', default=[], choices=RESOURCE_CHOICES)
+        parser.add_argument('--rsc', action='append', dest='resource', default=[], type=_resource_argument)
         parser.add_argument('--cmd', '--cmd-if', action='append', default=[], help='optional remediation rule')
         parser.add_argument('--state-file', help='persistent cooldown state; required with rules')
         parser.add_argument('--cooldown', type=float, default=300, help='seconds between attempts of the same rule (default: 300)')

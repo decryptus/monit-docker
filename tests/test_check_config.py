@@ -143,7 +143,7 @@ class CheckConfigTests(unittest.TestCase):
             self.skipTest('requires example files from source checkout')
         result = check_configuration(str(sample))
         self.assertEqual(result['commands'], 3)
-        self.assertEqual(result['conditions'], 3)
+        self.assertEqual(result['conditions'], 5)
 
 
 if __name__ == '__main__':
