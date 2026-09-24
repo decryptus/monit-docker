@@ -29,6 +29,7 @@ from monit_docker.adapters.syntax import RESOURCE_CHOICES, DEFAULT_RESOURCE_CHOI
 from monit_docker.domain.runtime import DEFAULT_EVENT_WINDOW, valid_event_window
 from monit_docker.core import MonitoringEngine
 from monit_docker.core.policy import CooldownPolicy, RestartPolicy, DEFAULT_MAX_RESTARTS, restart_key
+from monit_docker.domain.maintenance import MAX_MAINTENANCE_SECONDS, MAINTENANCE_COMMANDS
 from monit_docker.domain.errors import ActionRejected, CommandExecutionError, MonitoringError
 from monit_docker.outputs.formatting import format_resource
 from monit_docker.domain.filesystems import filesystem_resource
@@ -279,6 +280,45 @@ class MonitDockerSubCmdRestartReset(object):
         return 0
 
 
+class MonitDockerSubCmdMaintenance(MonitDockerSubCmdRestartReset):
+    CMD_NAME = 'maintenance'
+    CMD_HELP = 'suspend automatic actions for one exact container ID; duration 0 resumes'
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help=cls.CMD_HELP)
+        parser.add_argument('--state-file', required=True)
+        parser.add_argument('--container-id', required=True, help='full Docker container ID')
+        parser.add_argument('--duration', required=True, type=int, help='seconds, 1..86400; 0 resumes early')
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        super().valid_subcmd_parser(parser, options)
+        if not 0 <= options.duration <= MAX_MAINTENANCE_SECONDS:
+            parser.error('--duration must be between 0 and 86400 seconds')
+
+    def __call__(self):
+        import time
+        import uuid
+        from monit_docker.adapters.state import LocalState
+        with LocalState(self.options.state_file) as state:
+            audit = _audit_journal(self.options)
+            now = time.time()
+            fields = dict(correlation_id=uuid.uuid4().hex, source='manual', actor=getpass.getuser(),
+                          container_id=self.options.container_id, action='maintenance',
+                          reason='duration_seconds=%d' % self.options.duration)
+            audit.record('action', 'started', result='pending', **fields)
+            try:
+                state.set_maintenance(self.options.container_id, self.options.duration, now)
+            except Exception as error:
+                audit.finish('action', 'completed', result='failed', error_code=getattr(error, 'code', None), **fields)
+                raise
+            audit.finish('action', 'completed', result='succeeded', **fields)
+        print(json.dumps(dict(container_id=self.options.container_id,
+                              maintenance_until=now + self.options.duration if self.options.duration else None)))
+        return 0
+
+
 class MonitDockerSubCmdStats(object):
     CMD_NAME = 'stats'
     CMD_HELP = 'display stats information'
@@ -457,7 +497,26 @@ def _validate_policy_options(parser, options):
         parser.error('--max-gap requires a positive --trigger-after')
 
 
-def _rule_policy(state, rules, options):
+def _rule_policy(state, rules, options, audit=None):
+    import time
+    import uuid
+    now = time.time()
+    expired = [identifier for identifier, until in state.maintenance.items() if until <= now]
+    fields = []
+    if audit and not options.dry_run:
+        for identifier in expired:
+            event = dict(correlation_id=uuid.uuid4().hex, source='automatic', actor='rule-engine',
+                         container_id=identifier, action='maintenance-expired')
+            audit.record('action', 'started', result='pending', **event)
+            fields.append(event)
+    try:
+        state.expire_maintenance(now, read_only=options.dry_run)
+    except Exception as error:
+        for event in fields:
+            audit.finish('action', 'completed', result='failed', error_code=getattr(error, 'code', None), **event)
+        raise
+    for event in fields:
+        audit.finish('action', 'completed', result='succeeded', **event)
     if not rules:
         return CooldownPolicy(state, rules, options.cooldown)
     return RestartPolicy(state, rules, options.cooldown, options.trigger_after,
@@ -492,7 +551,7 @@ class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
     def __call__(self):
         from monit_docker.adapters.state import LocalState
         with LocalState(self.options.state_file) as state:
-            policy = _rule_policy(state, self.rules, self.options)
+            policy = _rule_policy(state, self.rules, self.options, self.audit)
             return self.engine.run_once(rules=self.rules, resources=(),
                                         dry_run=self.options.dry_run, action_policy=policy,
                                         on_action=self._output_action)
@@ -515,6 +574,8 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--state-file', help='persistent cooldown state; required with rules')
         parser.add_argument('--cooldown', type=float, default=300, help='seconds between attempts of the same rule (default: 300)')
         parser.add_argument('--dry-run', action='store_true', help='evaluate remediation rules without executing them')
+        parser.add_argument('--allow-maintenance', action='store_true',
+                            help='also enable authenticated per-container maintenance controls')
         parser.add_argument('--allow-actions', action='store_true', help='enable the authenticated manual action API')
         parser.add_argument('--action-origin', help='exact HTTPS browser origin allowed to submit actions')
         parser.add_argument('--action-token-file', help='file containing a 64-character hex proxy secret')
@@ -549,6 +610,8 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--state-file must not be empty')
         if options.dry_run and not options.cmd:
             parser.error('--dry-run requires --cmd or --cmd-if')
+        if options.allow_maintenance and not options.allow_actions:
+            parser.error('--allow-maintenance requires --allow-actions')
         if options.allow_actions:
             from urllib.parse import urlsplit
             try:
@@ -588,7 +651,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             if self.options.state_file:
                 from monit_docker.adapters.state import LocalState
                 with LocalState(self.options.state_file) as state:
-                    return run(_rule_policy(state, self.rules, self.options))
+                    return run(_rule_policy(state, self.rules, self.options, self.audit))
             return run()
         except APIError as error:
             raise MonitoringError(180, str(error))
@@ -611,7 +674,8 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             except (OSError, UnicodeError, ValueError):
                 raise MonitoringError(110, 'action token file must contain a 64-character hex secret')
             actions = ManualActions(self._manual_action, self.options.action_origin, token,
-                                    audit=self.audit, trust_actor=self.options.trust_proxy_user)
+                                    audit=self.audit, trust_actor=self.options.trust_proxy_user,
+                                    allow_maintenance=self.options.allow_maintenance)
         notifications = None
         if self.options.notification_token_file:
             from monit_docker.notification_audit import NotificationAudit
@@ -638,8 +702,11 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
                         raise ActionRejected('no_restart_attempts')
                     key = hashlib.sha256(('manual:' + identifier).encode('ascii')).hexdigest()
                     return state.reserve(key, time.time(), self.options.action_cooldown)
+                if command in MAINTENANCE_COMMANDS and not self.options.allow_maintenance:
+                    raise ActionRejected('unsupported_action')
                 self.engine.run_manual_action(container_id, command, claim,
-                                             reset_restarts=lambda identifier: state.reset_restarts(restart_key(identifier)))
+                                             reset_restarts=lambda identifier: state.reset_restarts(restart_key(identifier)),
+                                             set_maintenance=lambda identifier, seconds: state.set_maintenance(identifier, seconds, time.time()))
         except APIError as error:
             raise MonitoringError(180, str(error))
         except DockerException as error:
@@ -689,6 +756,7 @@ class MonitDockerSubCmdCheckConfig(object):
 
 _SUBCMDS['audit-export'] = MonitDockerSubCmdAudit
 _SUBCMDS['audit-send'] = MonitDockerSubCmdAuditSend
+_SUBCMDS['maintenance'] = MonitDockerSubCmdMaintenance
 _SUBCMDS['restart-reset'] = MonitDockerSubCmdRestartReset
 _SUBCMDS['check-config'] = MonitDockerSubCmdCheckConfig
 _SUBCMDS['serve'] = MonitDockerSubCmdServe
@@ -702,7 +770,7 @@ def main(options):
     Main function
     """
     # Offline commands do not require logging setup, runtime directories or Docker.
-    if options.subcommand in ('check-config', 'audit-export', 'audit-send', 'restart-reset'):
+    if options.subcommand in ('check-config', 'audit-export', 'audit-send', 'restart-reset', 'maintenance'):
         try:
             return _SUBCMDS[options.subcommand](options)()
         except (MonitoringError, OSError, ValueError) as error:

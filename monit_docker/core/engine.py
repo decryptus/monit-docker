@@ -16,6 +16,7 @@ from threading import Lock
 
 from monit_docker.core.rules import RuleEvaluator
 from monit_docker.core.manual import ALLOWED_STATES
+from monit_docker.domain.maintenance import MAINTENANCE_COMMANDS
 from monit_docker.domain.errors import ActionRejected, MonitoringError
 from monit_docker.domain.models import ContainerSnapshot, DEFAULT_RESOURCES
 from monit_docker.domain.filesystems import filesystem_resource
@@ -33,7 +34,7 @@ class MonitoringEngine(object):
         self.evaluator = evaluator or RuleEvaluator()
         self._cycle_lock = Lock()
 
-    def run_manual_action(self, container_id, command, claim, reset_restarts=None):
+    def run_manual_action(self, container_id, command, claim, reset_restarts=None, set_maintenance=None):
         """Reselect by exact ID and serialize with cycles; never resolve aliases.
 
         claim(id) reserves a persistent per-container manual cooldown before
@@ -41,7 +42,8 @@ class MonitoringEngine(object):
         budget without executing a Docker command. Manual operations do not
         evaluate autonomous rules.
         """
-        if command not in ALLOWED_STATES or (command == 'restart-reset' and reset_restarts is None):
+        if (command not in ALLOWED_STATES or (command == 'restart-reset' and reset_restarts is None)
+                or (command in MAINTENANCE_COMMANDS and set_maintenance is None)):
             raise ActionRejected('unsupported_action')
         if not self._cycle_lock.acquire(False):
             raise ActionRejected('busy')
@@ -57,6 +59,9 @@ class MonitoringEngine(object):
                     raise ActionRejected('state_changed')
                 if not claim(container_id):
                     raise ActionRejected('cooldown')
+                if command in MAINTENANCE_COMMANDS:
+                    set_maintenance(container_id, MAINTENANCE_COMMANDS[command])
+                    return
                 if command == 'restart-reset':
                     reset_restarts(container_id)
                     return
@@ -162,11 +167,13 @@ class MonitoringEngine(object):
         ready = observe is None or observe(snapshot.id, rule, matched, read_only=dry_run)
         if not matched:
             return
+        maintenance = getattr(action_policy, 'maintenance_active', None)
+        suspended = maintenance is not None and maintenance(snapshot.id)
         permits = getattr(action_policy, 'permits', None)
         permitted = permits is None or permits(snapshot.id, rule)
-        allowed = ready and permitted and (action_policy is None or action_policy.claim(
+        allowed = not suspended and ready and permitted and (action_policy is None or action_policy.claim(
             snapshot.id, rule, read_only=dry_run))
-        status = ('pending' if not ready else 'restart-limit' if not permitted else 'cooldown' if not allowed
+        status = ('maintenance' if suspended else 'pending' if not ready else 'restart-limit' if not permitted else 'cooldown' if not allowed
                   else 'dry-run' if dry_run else 'execute')
         if status == 'restart-limit':
             LOG.warning('automatic restart limit blocks rule on %s; explicit rearm required', snapshot.name)

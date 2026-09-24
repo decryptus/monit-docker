@@ -24,7 +24,7 @@ DEFAULT_RESOURCES = FIELDS[2:]
 RESOURCE_FIELDS = DEFAULT_RESOURCES + RUNTIME_RESOURCES
 STATE_RESOURCES = ('pid', 'status', 'health') + EVENT_RESOURCES
 HEALTH_STATES = ('healthy', 'unhealthy', 'starting', 'none', 'unknown')
-_POLICY_FIELDS = ('manual_actions_protected', 'restart_attempts', 'restart_limit')
+_POLICY_FIELDS = ('manual_actions_protected', 'restart_attempts', 'restart_limit', 'maintenance_until', 'maintenance_active')
 
 
 class ContainerSnapshot(object):
@@ -42,6 +42,7 @@ class ContainerSnapshot(object):
     def __init__(self, **values):
         values.setdefault('manual_actions_protected', False)
         values.setdefault('health', 'unknown')
+        values.setdefault('maintenance_active', False)
         samples = values.get('filesystems') or ()
         values['filesystems'] = tuple(FilesystemSample(**item) if isinstance(item, dict)
                                      else item for item in samples)
@@ -55,7 +56,7 @@ class ContainerSnapshot(object):
                 if any(item.fs_mode is not None and item.fs_mode not in FILESYSTEM_MODES for item in value):
                     raise TypeError('Invalid filesystem mount mode')
                 continue
-            if field == 'manual_actions_protected':
+            if field in ('manual_actions_protected', 'maintenance_active'):
                 if not isinstance(value, bool):
                     raise TypeError('Invalid value for snapshot field: %s' % field)
                 continue

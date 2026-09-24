@@ -54,6 +54,10 @@ def render_metrics(data):
     metric('container_restart_blocked', 'gauge', 'Automatic restart budget exhausted; explicit rearm required.',
            [(labels(c), int(c['restart_attempts'] >= c['restart_limit'])) for c in containers
             if c.get('restart_limit') is not None and c.get('restart_attempts') is not None])
+    metric('container_maintenance_active', 'gauge', 'Automatic rule actions suspended by maintenance at the last cycle.',
+           [(labels(c), int(c.get('maintenance_active', False))) for c in containers])
+    metric('container_maintenance_until_seconds', 'gauge', 'Unix time when maintenance ends.',
+           [(labels(c), c['maintenance_until']) for c in containers if c.get('maintenance_until') is not None])
     for field, description in _RUNTIME_METRICS:
         metric('container_' + field, 'gauge', description,
                [(labels(c), c[field]) for c in containers if c.get(field) is not None])

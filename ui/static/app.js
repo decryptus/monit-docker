@@ -3,7 +3,7 @@
 // No external resources, HTML interpolation, credentials or Docker access.
 const $ = id => document.getElementById(id);
 const rows = new Map();
-const labels = {start: 'Start', stop: 'Stop', restart: 'Restart', 'restart-reset': 'Rearm auto restarts'};
+const labels = {start: 'Start', stop: 'Stop', restart: 'Restart', 'restart-reset': 'Rearm auto restarts', 'maintenance-15m': 'Maintenance 15 min', 'maintenance-1h': 'Maintenance 1 h', 'maintenance-off': 'Resume auto actions'};
 const HEALTH_LABELS = {
   healthy: 'Health: healthy', unhealthy: 'Health: unhealthy',
   starting: 'Health: starting', none: 'No healthcheck', unknown: 'Health: unknown'
@@ -51,6 +51,7 @@ function busy() { return (actions().recent || []).some(item => ['queued', 'runni
 function canAct(container, action) {
   return connected && performance.now() - receivedAt <= 10000 && data?.ready
     && actions().enabled && !container.manual_actions_protected && !posting && !unresolved && !busy()
+    && (action !== 'maintenance-off' || container.maintenance_active)
     && (action !== 'restart-reset' || hasRestartBudget(container))
     && (actions().allowed_states?.[action] || []).includes(container.status);
 }
@@ -60,6 +61,7 @@ function hasRestartBudget(container) {
 }
 function runtimeSummary(container) {
   const parts = [];
+  if (container.maintenance_active) parts.push(`Maintenance until ${date(container.maintenance_until)} · automatic actions paused`);
   if (Number.isFinite(container.pids_current)) {
     parts.push(`PIDs: ${number(container.pids_current)}${Number.isFinite(container.pids_limit) ? '/' + number(container.pids_limit) + ' · ' + percent(container.pids_percent) : ' · no configured limit'}`);
   }
@@ -139,6 +141,7 @@ function renderContainers() {
     row.readonly.hidden = actions().enabled;
     for (const [action, button] of Object.entries(row.buttons)) {
       button.hidden = !actions().enabled || !(actions().allowed_states?.[action] || []).includes(container.status)
+        || (action === 'maintenance-off' && !container.maintenance_active)
         || (action === 'restart-reset' && !hasRestartBudget(container));
       button.disabled = !canAct(container, action);
       button.title = container.manual_actions_protected ? reasons.container_protected : '';
@@ -166,8 +169,8 @@ function render() {
   $('cycles').textContent = connected ? number(data.cycles_total) : '—';
   $('errors').textContent = connected ? `${number(data.errors_total)} failed · since agent startup` : 'Agent unavailable';
   $('executed').textContent = connected ? number(data.actions?.executed) : '—';
-  $('rule-summary').textContent = connected ? `${number(data.actions?.pending)} pending · ${number(data.actions?.cooldown)} cooldown · ${number(data.actions?.['restart-limit'])} restart limit · ${number(data.actions?.['dry-run'])} dry run` : 'Counters unavailable';
-  $('mode').textContent = actions().enabled ? 'Manual controls enabled · one request at a time · autonomous rules remain active.' : 'Read-only access. No action can be triggered from this page.';
+  $('rule-summary').textContent = connected ? `${number(data.actions?.pending)} pending · ${number(data.actions?.cooldown)} cooldown · ${number(data.actions?.maintenance ?? 0)} maintenance · ${number(data.actions?.['restart-limit'])} restart limit · ${number(data.actions?.['dry-run'])} dry run` : 'Counters unavailable';
+  $('mode').textContent = actions().enabled ? 'Manual controls enabled · one request at a time · automatic actions pause during maintenance.' : 'Read-only access. No action can be triggered from this page.';
   let notice = message;
   if (!connected) notice = 'Connection lost. Measurements and controls are unavailable. Reconnecting does not repeat an action.';
   else if (!ready) notice = data.last_error_code ? `Collection failed (code ${data.last_error_code}). Old measurements are hidden.` : 'Waiting for fresh data. The agent may be starting, collecting, or refreshing after an action.';
@@ -228,7 +231,10 @@ function confirmAction(id, action) {
   const rearm = action === 'restart-reset';
   $('confirm-title').textContent = rearm ? 'Rearm automatic restarts?' : `${labels[action]} container?`;
   $('confirm-description').textContent = `${container.name} (${container.id.slice(0, 12)})`;
-  $('confirm-note').textContent = rearm
+  $('confirm-note').textContent = action.startsWith('maintenance-')
+    ? (action === 'maintenance-off' ? 'Resume automatic rule actions on the next cycle, subject to existing cooldowns and restart limits.'
+      : 'Pause this agent’s automatic rule actions for this container. Monitoring, manual controls and external notifications continue. Docker restart policies and other agents are unaffected. The pause expires automatically.')
+    : rearm
     ? `Reset ${number(container.restart_attempts)} recorded attempts to zero. This does not restart the container itself; matching monitoring rules may restart it on the next cycle. Existing cooldowns remain in effect.`
     : 'Stopping or restarting interrupts the service. Configured monitoring rules may subsequently change its state again.';
   $('confirm-action').textContent = labels[action]; $('confirm-action').disabled = false;

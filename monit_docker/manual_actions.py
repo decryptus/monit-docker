@@ -11,6 +11,7 @@ import time
 from threading import Lock
 
 from monit_docker.core.manual import ALLOWED_STATES
+from monit_docker.domain.maintenance import MAINTENANCE_COMMANDS
 from monit_docker.domain.errors import ActionRejected
 
 
@@ -22,7 +23,9 @@ _QUEUE_TIMEOUT     = 60
 
 
 class ManualActions(object):
-    def __init__(self, execute, origin, token, clock=None, monotonic=None, audit=None, trust_actor=False):
+    def __init__(self, execute, origin, token, clock=None, monotonic=None, audit=None, trust_actor=False, allow_maintenance=False):
+        self.allowed_states = {key: value for key, value in ALLOWED_STATES.items()
+                               if allow_maintenance or key not in MAINTENANCE_COMMANDS}
         self.audit = audit
         self.trust_actor = trust_actor
         self.execute = execute
@@ -39,7 +42,7 @@ class ManualActions(object):
 
     def status(self):
         with self._lock:
-            return dict(enabled=True, allowed_states=copy.deepcopy(ALLOWED_STATES),
+            return dict(enabled=True, allowed_states=copy.deepcopy(self.allowed_states),
                         recent=copy.deepcopy(list(self._requests.values())))
 
     def _audit(self, event, payload, actor='anonymous', name=None, result=None, reason=None, final=False, error_code=None, duration_ms=None):
@@ -70,7 +73,7 @@ class ManualActions(object):
                 or not all(isinstance(value, str) for value in payload.values())
                 or not _REQUEST_ID.fullmatch(payload['request_id'])
                 or not _CONTAINER_ID.fullmatch(payload['container_id'])
-                or payload['action'] not in ALLOWED_STATES):
+                or payload['action'] not in self.allowed_states):
             raise ActionRejected('invalid_request')
         with self._lock:
             old = self._requests.get(payload['request_id'])
