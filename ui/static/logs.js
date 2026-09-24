@@ -28,13 +28,15 @@ function eventPresentation(record) {
     || ['secondary', outcome || 'Recorded', record.event || 'recorded'];
   const action = record.category === 'notification' ? 'Notification'
     : (Object.hasOwn(ACTION_LABELS, record.action) && ACTION_LABELS[record.action]) || record.action || 'Action';
-  const target = record.container_name || record.container_id || record.alert_name || record.channel;
+  const target = record.container_name || record.container_id
+    ? `Container: ${record.container_name || record.container_id}`
+    : record.alert_name ? `Alert: ${record.alert_name}` : record.channel ? `Channel: ${record.channel}` : null;
   const source = record.source === 'manual' ? 'Manual action'
     : record.source === 'automatic' ? 'Automatic action' : `Source: ${record.source || 'unknown'}`;
   const actor = record.actor ? `Actor: ${record.actor}` : 'Actor: unknown';
   const sourceTone = record.source === 'manual' ? 'manual' : record.source === 'automatic' ? 'automatic' : 'neutral';
   return {tone: state[0], status: state[1],
-    title: [action + ' ' + state[2], target].filter(Boolean).join(' · '),
+    title: action + ' ' + state[2], target,
     source, sourceTone, actor, host: record.host && `Host: ${record.host}`};
 }
 let filters = new URLSearchParams();
@@ -68,13 +70,21 @@ function render() {
     stamp.dateTime = record.timestamp;
     const result = node('span', 'badge', presentation.status);
     result.dataset.result = record.result || '';
-    heading.append(stamp, result);
     const title = node('h3', '', presentation.title);
+    heading.append(title);
+    if (presentation.host) {
+      const host = node('span', 'log-heading-part');
+      host.append(node('span', 'log-separator', '·'), node('span', 'log-tag log-host', presentation.host));
+      heading.append(host);
+    }
+    const date = node('span', 'log-heading-part log-date');
+    date.append(node('span', 'log-separator', '·'), stamp);
+    heading.append(date);
     const summary = node('p', 'log-meta');
     const source = node('span', 'log-tag', presentation.source);
     source.dataset.kind = presentation.sourceTone;
-    summary.append(source, node('span', 'log-tag', presentation.actor));
-    if (presentation.host) summary.append(node('span', 'log-tag', presentation.host));
+    if (presentation.target) summary.append(node('span', 'log-tag log-target', presentation.target));
+    summary.append(source, node('span', 'log-tag', presentation.actor), result);
     const details = node('details');
     details.append(node('summary', '', 'Event details'));
     const values = node('dl');
@@ -83,7 +93,7 @@ function render() {
       values.append(node('dt', '', key.replaceAll('_', ' ')), node('dd', '', String(record[key])));
     }
     details.append(values);
-    row.append(heading, title, summary);
+    row.append(heading, summary);
     if (record.reason !== null && record.reason !== undefined && record.reason !== '') {
       const reason = node('p', 'log-reason');
       reason.append(node('strong', '', 'Reason: '), node('code', '', String(record.reason)));
