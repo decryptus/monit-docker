@@ -125,7 +125,13 @@ def _exec_output(api, identifier, command, max_output=_MAX_OUTPUT, user=None):
             raise ValueError('filesystem probe failed; check the path, permissions and required utilities')
         return bytes(output)
     finally:
-        connection.close()
+        try:
+            connection.close()
+        finally:
+            # Docker may return SocketIO: closing the file wrapper alone does
+            # not close its socket owner until garbage collection.
+            if transport is not connection:
+                transport.close()
 
 
 def collect_filesystems(api, identifier, container_name, groups, requested, identities=None):

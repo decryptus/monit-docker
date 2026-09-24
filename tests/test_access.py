@@ -16,6 +16,25 @@ GROUPS = {'data': {'paths': ['/data'], 'access': {'uid': 1000, 'gid': 1000, 'gro
 
 
 class AccessTests(unittest.TestCase):
+    def test_docker_socket_wrapper_and_owner_are_both_closed(self):
+        import socket
+        import struct
+        from types import SimpleNamespace
+        from monit_docker.adapters.filesystems import _exec_output
+        reader, writer = socket.socketpair()
+        self.addCleanup(reader.close)
+        self.addCleanup(writer.close)
+        writer.sendall(struct.pack('>BxxxI', 1, len(OUTPUT)) + OUTPUT)
+        writer.shutdown(socket.SHUT_WR)
+        wrapper = SimpleNamespace(_sock=reader, close=Mock())
+        api = Mock()
+        api.exec_create.return_value = {'Id': 'probe'}
+        api.exec_start.return_value = wrapper
+        api.exec_inspect.return_value = {'Running': False, 'ExitCode': 0}
+        self.assertEqual(collect_access(_exec_output, api, 'id', '/data', IDENTITY), (1, 0, 1))
+        wrapper.close.assert_called_once_with()
+        self.assertEqual(reader.fileno(), -1)
+
     def test_explicit_identity_and_groups_are_strict(self):
         self.assertEqual(access_identities(GROUPS), {'data': IDENTITY})
         for identity in ({}, {'uid': '1000', 'gid': 1000, 'groups': [1000]},
