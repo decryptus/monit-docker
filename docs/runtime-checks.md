@@ -1,6 +1,6 @@
 # OOM, repeated starts and PID checks
 
-These optional checks are available in the source tree after 0.0.67. They use
+These optional checks are available since 0.0.68. They use
 Docker metadata and statistics, without running commands inside containers.
 Existing default checks make no additional event-history request.
 

@@ -15,7 +15,7 @@
 [Live demo](https://demo.monit-docker.com/)
 
 For persistent action and notification history, available since **0.0.65**, see
-the [audit journal guide](docs/audit.md). The source tree also includes an optional
+the [audit journal guide](docs/audit.md). Since **0.0.66**, it also includes an optional
 authenticated journal page with filters, bounded reads and page exports.
 
 monit-docker is a free, open-source tool for checking Docker containers and
@@ -41,7 +41,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
    - [Wait for sustained conditions before acting](docs/trigger-delay.md)
    - [Disk space, inodes and ro/rw mounts with reusable directory groups](docs/filesystems.md)
    - [Docker healthchecks and unhealthy-container rules](docs/healthchecks.md)
-   - [OOM events, repeated starts and process/thread checks](docs/runtime-checks.md) (source tree)
+   - [OOM events, repeated starts and process/thread checks](docs/runtime-checks.md)
    - [Bound automatic restarts and explicitly rearm](docs/restart-limit.md)
 4. [Serve mode guide](docs/serve.md)
    - [Web interface previews](#optional-web-interface)
