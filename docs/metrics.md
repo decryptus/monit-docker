@@ -64,6 +64,32 @@ samples are omitted; agent metrics remain present. No explicit sample timestamps
 are sent: Prometheus timestamps each scrape. Scraping faster than the monitoring
 interval can therefore record the same cached values more than once.
 
+## Filesystem metrics
+
+Filesystem samples add `group` and `path` labels to the container `id` and
+`name`. Collection is opt-in through resources or rules referencing a configured
+directory group. See [disk space and inode checks](filesystems.md) for YAML,
+selection, requirements and error handling.
+
+| Metric | Type | Unit | Meaning |
+| --- | --- | --- | --- |
+| `monit_docker_container_disk_usage_bytes` | gauge | bytes | Used filesystem space |
+| `monit_docker_container_disk_available_bytes` | gauge | bytes | Space available to an unprivileged writer |
+| `monit_docker_container_disk_total_bytes` | gauge | bytes | Total filesystem space, including reserved blocks |
+| `monit_docker_container_disk_usage_percent` | gauge | percent | Used / (used + available) × 100 |
+| `monit_docker_container_inode_usage` | gauge | inodes | Used inodes |
+| `monit_docker_container_inode_available` | gauge | inodes | Free inodes |
+| `monit_docker_container_inode_total` | gauge | inodes | Total inodes |
+| `monit_docker_container_inode_usage_percent` | gauge | percent | Used / total inodes × 100 |
+
+These are capacity gauges, not cumulative I/O counters: do not use `rate()` to
+measure their occupancy. Paths report their containing filesystem's capacity,
+not directory sizes. Paths sharing a filesystem can report identical values;
+do not sum them as independent storage capacity. All available fields above
+are exposed for each requested group. Missing inode accounting is omitted,
+not reported as zero; explicitly requesting an unavailable field fails collection.
+As with other container metrics, a failed or stale cycle withholds all samples.
+
 ## Prometheus configuration
 
 For Prometheus running on the same host/network namespace as the default listener:
