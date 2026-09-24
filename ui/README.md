@@ -27,6 +27,17 @@ test tool outside the component, checks multiple viewport sizes and captures
 desktop/mobile screenshots using synthetic data. None of those dependencies or
 fixtures are copied into the image.
 
+## Journal readability
+
+Since 0.0.71, journal events use contextual alert cards with English action
+headings and reasons visible without expanding details. Success is green,
+failure or rejection red, skipped actions yellow, pending work and notification
+acceptance blue, and simulations neutral. Every color has a visible text label.
+Notification acceptance does not imply delivery to a person.
+
+The presentation uses the existing CSS and JavaScript, without Bootstrap or
+another runtime dependency. Raw fields remain in Event details and exports.
+
 ## Product boundary
 
 This is a free, single-host Community UI. A future paid control plane remains

@@ -6,7 +6,36 @@ const ERRORS = {
   404: 'The private journal is not enabled on this agent.', 410: 'This view expired after rotation or a restart. Choose Latest events.',
   503: 'The journal is busy or unavailable. Try again shortly.'
 };
-const DETAIL_FIELDS = ['event_id', 'correlation_id', 'container_id', 'command_id', 'rule_id', 'reason', 'error_code', 'exit_code', 'duration_ms', 'channel', 'notification_id', 'alert_name', 'alert_status', 'delivery_status'];
+const DETAIL_FIELDS = ['category', 'event', 'result', 'source', 'actor', 'host', 'event_id', 'correlation_id', 'container_id', 'command_id', 'rule_id', 'reason', 'error_code', 'exit_code', 'duration_ms', 'channel', 'notification_id', 'alert_name', 'alert_status', 'delivery_status'];
+const ACTION_LABELS = {
+  start: 'Start', stop: 'Stop', restart: 'Restart', pause: 'Pause', unpause: 'Resume',
+  'maintenance-15m': 'Maintenance pause (15 minutes)',
+  'maintenance-1h': 'Maintenance pause (1 hour)', 'maintenance-off': 'Maintenance resume',
+  'restart-reset': 'Restart budget reset'
+};
+function eventPresentation(record) {
+  const outcome = record.result || record.event;
+  const states = {
+    failed: ['danger', 'Failed', 'failed'], rejected: ['danger', 'Rejected', 'rejected'],
+    succeeded: ['success', 'Succeeded', 'completed'], skipped: ['warning', 'Skipped', 'skipped'],
+    simulated: ['secondary', 'Simulation', 'simulated'],
+    accepted: ['info', 'Accepted', 'accepted'], received: ['info', 'Received', 'received']
+  };
+  const pending = {
+    queued: ['info', 'Queued', 'queued'], started: ['info', 'In progress', 'started']
+  };
+  const state = (Object.hasOwn(states, outcome) && states[outcome]) || ((outcome === 'pending' || !record.result) && Object.hasOwn(pending, record.event) && pending[record.event])
+    || ['secondary', outcome || 'Recorded', record.event || 'recorded'];
+  const action = record.category === 'notification' ? 'Notification'
+    : (Object.hasOwn(ACTION_LABELS, record.action) && ACTION_LABELS[record.action]) || record.action || 'Action';
+  const target = record.container_name || record.container_id || record.alert_name || record.channel;
+  const source = record.source === 'manual' ? 'Manual action'
+    : record.source === 'automatic' ? 'Automatic action' : `Source: ${record.source || 'unknown'}`;
+  const actor = record.actor ? `Actor: ${record.actor}` : 'Actor: unknown';
+  return {tone: state[0], status: state[1],
+    title: [action + ' ' + state[2], target].filter(Boolean).join(' · '),
+    context: [source, actor, record.host && `Host: ${record.host}`].filter(Boolean).join(' · ')};
+}
 let filters = new URLSearchParams();
 let history = [null];
 let pageIndex = 0;
@@ -30,15 +59,17 @@ function controls() {
 function render() {
   const fragment = document.createDocumentFragment();
   for (const record of current.records) {
+    const presentation = eventPresentation(record);
     const row = node('li', 'log-event');
+    row.dataset.tone = presentation.tone;
     const heading = node('div', 'log-event-heading');
     const stamp = node('time', '', new Date(record.timestamp).toLocaleString());
     stamp.dateTime = record.timestamp;
-    const result = node('span', 'badge', record.result || record.event);
+    const result = node('span', 'badge', presentation.status);
     result.dataset.result = record.result || '';
     heading.append(stamp, result);
-    const title = node('h3', '', [record.container_name || record.alert_name || record.channel || record.category, record.action || record.event].filter(Boolean).join(' · '));
-    const summary = node('p', 'log-meta', [record.category, record.event, record.source, record.actor || 'unknown actor', record.host].filter(Boolean).join(' · '));
+    const title = node('h3', '', presentation.title);
+    const summary = node('p', 'log-meta', presentation.context);
     const details = node('details');
     details.append(node('summary', '', 'Event details'));
     const values = node('dl');
@@ -47,7 +78,13 @@ function render() {
       values.append(node('dt', '', key.replaceAll('_', ' ')), node('dd', '', String(record[key])));
     }
     details.append(values);
-    row.append(heading, title, summary, details);
+    row.append(heading, title, summary);
+    if (record.reason !== null && record.reason !== undefined && record.reason !== '') {
+      const reason = node('p', 'log-reason');
+      reason.append(node('strong', '', 'Reason: '), node('code', '', String(record.reason)));
+      row.append(reason);
+    }
+    row.append(details);
     fragment.append(row);
   }
   $('log-events').replaceChildren(fragment);
