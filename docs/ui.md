@@ -43,7 +43,7 @@ To reproduce on a disposable Linux Docker host with Python 3, OpenSSL, Node and
 Playwright Chromium installed:
 
 ```sh
-MONIT_UI_RELEASE=0.0.66 \
+MONIT_UI_RELEASE=0.0.69 \
 PLAYWRIGHT_MODULE=/path/to/node_modules/playwright \
 UI_SCREENSHOTS=/tmp/monit-ui-release-results \
 python3 .github/scripts/check-ui-release.py

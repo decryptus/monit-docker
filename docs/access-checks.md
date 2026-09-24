@@ -1,4 +1,4 @@
-# File and directory access checks (source tree after 0.0.68)
+# File and directory access checks (since 0.0.69)
 
 `fs_readable[group]`, `fs_writable[group]` and `fs_executable[group]` report
 kernel access checks as **1 allowed / 0 denied** for an explicitly configured
