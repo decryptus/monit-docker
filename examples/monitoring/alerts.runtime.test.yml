@@ -1,0 +1,168 @@
+rule_files:
+- alerts.runtime.yml
+evaluation_interval: 30s
+tests:
+- name: MonitDockerContainerOOM
+  interval: 30s
+  input_series:
+  - &id001
+    series: up{job="monit-docker",instance="agent:9808"}
+    values: 1+0x8
+  - &id002
+    series: monit_docker_ready{job="monit-docker",instance="agent:9808"}
+    values: 1+0x8
+  - series: monit_docker_container_oom_events{job="monit-docker",instance="agent:9808",id="abc",name="web",window_seconds="300"}
+    values: 0 1 1 0 0
+  alert_rule_test:
+  - eval_time: 30s
+    alertname: MonitDockerContainerOOM
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent:9808
+        id: abc
+        name: web
+        severity: warning
+        window_seconds: '300'
+      exp_annotations:
+        summary: Docker reported an OOM for web
+        description: An OOM event remains in the last 300 seconds. Inspect memory
+          pressure; a restart may already have occurred.
+  - eval_time: 0s
+    alertname: MonitDockerContainerOOM
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: MonitDockerContainerOOM
+    exp_alerts: []
+- name: MonitDockerContainerStartsFrequent
+  interval: 30s
+  input_series:
+  - *id001
+  - *id002
+  - series: monit_docker_container_starts_recent{job="monit-docker",instance="agent:9808",id="abc",name="web",window_seconds="300"}
+    values: 2 3 4 2 2
+  alert_rule_test:
+  - eval_time: 30s
+    alertname: MonitDockerContainerStartsFrequent
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent:9808
+        id: abc
+        name: web
+        severity: warning
+        window_seconds: '300'
+      exp_annotations:
+        summary: Container web starts repeatedly
+        description: At least three starts in five minutes, including the initial
+          start and Docker or operator restarts. Inspect the cause before restarting
+          again.
+  - eval_time: 0s
+    alertname: MonitDockerContainerStartsFrequent
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: MonitDockerContainerStartsFrequent
+    exp_alerts: []
+- name: MonitDockerContainerPIDsHigh
+  interval: 30s
+  input_series:
+  - *id001
+  - *id002
+  - series: monit_docker_container_pids_percent{job="monit-docker",instance="agent:9808",id="abc",name="web"}
+    values: 90 91 91 91 90
+  alert_rule_test:
+  - eval_time: 90s
+    alertname: MonitDockerContainerPIDsHigh
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent:9808
+        id: abc
+        name: web
+        severity: warning
+      exp_annotations:
+        summary: Container web is approaching its PID limit
+        description: Processes and threads exceed 90% of the configured PID limit
+          for one minute. Inspect process creation and the container limit.
+  - eval_time: 0s
+    alertname: MonitDockerContainerPIDsHigh
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: MonitDockerContainerPIDsHigh
+    exp_alerts: []
+- name: MonitDockerEventHistoryIncomplete
+  interval: 30s
+  input_series:
+  - *id001
+  - *id002
+  - series: monit_docker_container_event_history_complete{job="monit-docker",instance="agent:9808",id="abc",name="web"}
+    values: 1 0 0 1 1
+  alert_rule_test:
+  - eval_time: 30s
+    alertname: MonitDockerEventHistoryIncomplete
+    exp_alerts:
+    - exp_labels:
+        job: monit-docker
+        instance: agent:9808
+        id: abc
+        name: web
+        severity: warning
+      exp_annotations:
+        summary: Event history is incomplete for web
+        description: Docker retained fewer events than the requested window needs.
+          OOM and start counts are unavailable; consider a shorter window or a dedicated
+          event collector.
+  - eval_time: 0s
+    alertname: MonitDockerEventHistoryIncomplete
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: MonitDockerEventHistoryIncomplete
+    exp_alerts: []
+- name: MonitDockerContainerOOM unavailable agent suppresses samples
+  interval: 30s
+  input_series:
+  - *id001
+  - series: monit_docker_ready{job="monit-docker",instance="agent:9808"}
+    values: 0+0x8
+  - series: monit_docker_container_oom_events{job="monit-docker",instance="agent:9808",id="abc",name="web",window_seconds="300"}
+    values: 99+0x8
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: MonitDockerContainerOOM
+    exp_alerts: []
+- name: MonitDockerContainerStartsFrequent unavailable agent suppresses samples
+  interval: 30s
+  input_series:
+  - *id001
+  - series: monit_docker_ready{job="monit-docker",instance="agent:9808"}
+    values: 0+0x8
+  - series: monit_docker_container_starts_recent{job="monit-docker",instance="agent:9808",id="abc",name="web",window_seconds="300"}
+    values: 99+0x8
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: MonitDockerContainerStartsFrequent
+    exp_alerts: []
+- name: MonitDockerContainerPIDsHigh unavailable agent suppresses samples
+  interval: 30s
+  input_series:
+  - *id001
+  - series: monit_docker_ready{job="monit-docker",instance="agent:9808"}
+    values: 0+0x8
+  - series: monit_docker_container_pids_percent{job="monit-docker",instance="agent:9808",id="abc",name="web"}
+    values: 99+0x8
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: MonitDockerContainerPIDsHigh
+    exp_alerts: []
+- name: MonitDockerEventHistoryIncomplete unavailable agent suppresses samples
+  interval: 30s
+  input_series:
+  - *id001
+  - series: monit_docker_ready{job="monit-docker",instance="agent:9808"}
+    values: 0+0x8
+  - series: monit_docker_container_event_history_complete{job="monit-docker",instance="agent:9808",id="abc",name="web"}
+    values: 0+0x8
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: MonitDockerEventHistoryIncomplete
+    exp_alerts: []

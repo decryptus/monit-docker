@@ -5,6 +5,15 @@ _FILESYSTEM_METRICS = (
     ('disk_total', 'disk_total_bytes'), ('disk_percent', 'disk_usage_percent'),
     ('inode_usage', 'inode_usage'), ('inode_available', 'inode_available'),
     ('inode_total', 'inode_total'), ('inode_percent', 'inode_usage_percent'))
+_RUNTIME_METRICS = (
+    ('pids_current', 'Current processes and threads in the container cgroup.'),
+    ('pids_limit', 'Configured finite container PID limit; absent when unlimited.'),
+    ('pids_percent', 'Processes and threads as a percentage of the configured PID limit.'),
+    ('event_history_complete', 'Requested window fits the retained daemon event buffer; not durable across daemon restarts.'),
+    ('event_window_end', 'Unix timestamp of the sampled Docker event cutoff.'))
+_EVENT_METRICS = (
+    ('oom_events', 'Docker OOM events in the configured recent window.'),
+    ('starts_recent', 'Docker start events in the recent window, including the initial start.'))
 
 def _label(value):
     return str(value).replace('\\', '\\\\').replace('\n', '\\n').replace('"', '\\"')
@@ -45,6 +54,13 @@ def render_metrics(data):
     metric('container_restart_blocked', 'gauge', 'Automatic restart budget exhausted; explicit rearm required.',
            [(labels(c), int(c['restart_attempts'] >= c['restart_limit'])) for c in containers
             if c.get('restart_limit') is not None and c.get('restart_attempts') is not None])
+    for field, description in _RUNTIME_METRICS:
+        metric('container_' + field, 'gauge', description,
+               [(labels(c), c[field]) for c in containers if c.get(field) is not None])
+    for field, description in _EVENT_METRICS:
+        metric('container_' + field, 'gauge', description,
+               [(labels(c) + (('window_seconds', c['event_window_seconds']),), c[field])
+                for c in containers if c.get(field) is not None])
     for field, name, kind in (
             ('mem_usage', 'memory_usage_bytes', 'gauge'),
             ('mem_limit', 'memory_limit_bytes', 'gauge'),

@@ -11,6 +11,7 @@ from collections import OrderedDict
 import math
 from numbers import Integral, Real
 from monit_docker.domain.filesystems import FilesystemSample, filesystem_resource, FILESYSTEM_MODES
+from monit_docker.domain.runtime import EVENT_RESOURCES, RUNTIME_RESOURCES, RUNTIME_METADATA
 
 try:
     STRING_TYPES = (basestring,)
@@ -19,8 +20,9 @@ except NameError:
 
 FIELDS = ('id', 'name', 'status', 'pid', 'mem_usage', 'mem_limit',
           'mem_percent', 'cpu_percent', 'io_read', 'io_write', 'net_tx', 'net_rx', 'health')
-RESOURCE_FIELDS = FIELDS[2:]
-STATE_RESOURCES = ('pid', 'status', 'health')
+DEFAULT_RESOURCES = FIELDS[2:]
+RESOURCE_FIELDS = DEFAULT_RESOURCES + RUNTIME_RESOURCES
+STATE_RESOURCES = ('pid', 'status', 'health') + EVENT_RESOURCES
 HEALTH_STATES = ('healthy', 'unhealthy', 'starting', 'none', 'unknown')
 _POLICY_FIELDS = ('manual_actions_protected', 'restart_attempts', 'restart_limit')
 
@@ -33,7 +35,7 @@ class ContainerSnapshot(object):
     are left to the collector; this model validates types and finite values.
     """
 
-    FIELDS = FIELDS + _POLICY_FIELDS + ('filesystems',)
+    FIELDS = FIELDS + RUNTIME_RESOURCES + RUNTIME_METADATA + _POLICY_FIELDS + ('filesystems',)
     RESOURCE_FIELDS = RESOURCE_FIELDS
     __slots__ = FIELDS
 
@@ -59,7 +61,11 @@ class ContainerSnapshot(object):
                 continue
             if value is None:
                 continue
-            if field in ('restart_attempts', 'restart_limit'):
+            if field == 'event_history_complete':
+                valid = type(value) is int and value in (0, 1)
+            elif field in EVENT_RESOURCES + ('pids_current', 'pids_limit', 'event_window_seconds', 'event_window_end'):
+                valid = type(value) is int and value >= 0
+            elif field in ('restart_attempts', 'restart_limit'):
                 valid = type(value) is int and value >= (1 if field == 'restart_limit' else 0)
             elif field == 'health':
                 valid = isinstance(value, STRING_TYPES) and value in HEALTH_STATES

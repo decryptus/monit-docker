@@ -25,7 +25,8 @@ from monit_docker.adapters.configuration import Configuration
 from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor, client_factory
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
-from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC, HEALTH_RC
+from monit_docker.adapters.syntax import RESOURCE_CHOICES, DEFAULT_RESOURCE_CHOICES, STATUS_RC, HEALTH_RC
+from monit_docker.domain.runtime import DEFAULT_EVENT_WINDOW, valid_event_window
 from monit_docker.core import MonitoringEngine
 from monit_docker.core.policy import CooldownPolicy, RestartPolicy, DEFAULT_MAX_RESTARTS, restart_key
 from monit_docker.domain.errors import ActionRejected, CommandExecutionError, MonitoringError
@@ -113,6 +114,8 @@ def argv_parse_check():
                         default = [],
                         help    = "match containers by name")
 
+    parser.add_argument('--event-window', type=int, default=DEFAULT_EVENT_WINDOW,
+                        help='seconds of Docker history for OOM/start checks (1..86400; default: 300)')
     parser.add_argument('--audit-file', default=os.environ.get('MONIT_DOCKER_AUDIT_FILE'),
                         help='persistent event journal (default: audit/events.jsonl beside state file, otherwise user state directory)')
     parser.add_argument('--audit-max-bytes', type=int, default=DEFAULT_MAX_BYTES, help='maximum bytes per audit file (default: 5 MiB)')
@@ -129,6 +132,8 @@ def argv_parse_check():
         parser.error("no argument is allowed - use option --help to get an help screen")
 
     options.loglevel = getattr(logging, options.loglevel.upper(), logging.INFO)
+    if not valid_event_window(options.event_window):
+        parser.error('--event-window must be between 1 and 86400 seconds')
     if options.audit_file is not None and not options.audit_file.strip():
         parser.error('--audit-file must not be empty')
     if options.audit_max_bytes < 65536 or not 1 <= options.audit_files <= 100:
@@ -291,7 +296,7 @@ class MonitDockerSubCmdStats(object):
             parser = RuleParser(config.get('commands'), config.get('conditions'), config.get('dir-groups'))
             self.rules = tuple(parser.parse(expression) for expression in options.cmd)
         collector = DockerCollector(client_factory(config, options.client, options.client_from_env),
-                                    selector, config.get('dir-groups'))
+                                    selector, config.get('dir-groups'), options.event_window)
         for resource in options.resource or ():
             filesystem = filesystem_resource(resource)
             if filesystem and filesystem[1] not in collector.dir_groups:
@@ -323,7 +328,7 @@ class MonitDockerSubCmdStats(object):
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
         if not options.resource:
-            options.resource = RESOURCE_CHOICES
+            options.resource = DEFAULT_RESOURCE_CHOICES
 
     def _display_value(self, resource, value):
         return value if self.CMD_NAME == 'monit' else format_resource(resource, value)
@@ -572,7 +577,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         _validate_policy_options(parser, options)
         if options.trigger_after and options.max_gap <= options.interval:
             parser.error('--max-gap must exceed --interval to allow time for collection')
-        options.resource = options.resource or RESOURCE_CHOICES
+        options.resource = options.resource or DEFAULT_RESOURCE_CHOICES
 
     def _cycle(self, observer):
         def run(policy=None):

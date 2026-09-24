@@ -41,6 +41,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
    - [Wait for sustained conditions before acting](docs/trigger-delay.md)
    - [Disk space, inodes and ro/rw mounts with reusable directory groups](docs/filesystems.md)
    - [Docker healthchecks and unhealthy-container rules](docs/healthchecks.md)
+   - [OOM events, repeated starts and process/thread checks](docs/runtime-checks.md) (source tree)
    - [Bound automatic restarts and explicitly rearm](docs/restart-limit.md)
 4. [Serve mode guide](docs/serve.md)
    - [Web interface previews](#optional-web-interface)

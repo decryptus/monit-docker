@@ -182,6 +182,9 @@ jobs:
           docker run --rm --entrypoint promtool \
             -v "$PWD/examples/monitoring:/etc/prometheus:ro" \
             prom/prometheus:v3.5.0 test rules /etc/prometheus/alerts.test.yml
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/examples/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0 test rules /etc/prometheus/alerts.runtime.test.yml
       - name: Import dashboard into a disposable Grafana
         run: |
           trap 'docker rm -f monit-grafana >/dev/null 2>&1 || true' EXIT
@@ -212,4 +215,5 @@ jobs:
           MONIT_DOCKER_INTEGRATION: '1'
         run: |
           docker pull alpine:3.20
+          python -m unittest discover -s tests -p test_runtime_docker.py -v
           python -m unittest discover -s tests -p test_docker_integration.py -v

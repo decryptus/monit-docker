@@ -18,6 +18,8 @@ from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import DOCKER_COMMANDS
 from monit_docker.adapters.filesystems import directory_groups, collect_filesystems
 from monit_docker.domain.filesystems import filesystem_resource
+from monit_docker.domain.runtime import EVENT_RESOURCES, PID_RESOURCES, DEFAULT_EVENT_WINDOW, valid_event_window
+from monit_docker.adapters.events import collect_events
 
 LOG = logging.getLogger('monit-docker')
 
@@ -63,18 +65,27 @@ def client_factory(config, name=None, from_env=False):
 
 
 class DockerCollector(object):
-    def __init__(self, connect, selector=None, dir_groups=None):
+    def __init__(self, connect, selector=None, dir_groups=None, event_window=DEFAULT_EVENT_WINDOW):
+        if not valid_event_window(event_window):
+            raise MonitoringError(110, 'event window must be an integer between 1 and 86400 seconds')
         self.connect = connect
         self.selector = selector or ContainerSelector()
         self.client = None
         self._containers = OrderedDict()
         self.calculator = ResourceCalculator()
         self.dir_groups = directory_groups(dir_groups)
+        self.event_window = event_window
+        self._requested = ()
+        self._events = {}
+
+    def prepare_resources(self, resources):
+        self._requested = tuple(resources)
 
     def begin_cycle(self):
         if self.client is not None:
             raise RuntimeError('Docker collector already has an active cycle')
         self._containers.clear()
+        self._events.clear()
         self.client = self.connect()
 
     def select(self):
@@ -86,6 +97,8 @@ class DockerCollector(object):
             labels = obj.labels.values() if self.selector.patterns['label'] else ()
             if self.selector.matches(obj.id, obj.name, obj.status, labels, tags):
                 self._containers[obj.id] = obj
+        if self._containers and set(self._requested).intersection(EVENT_RESOURCES):
+            self._events = collect_events(self.client.api, self._containers, self.event_window)
         return tuple(self.describe(identifier) for identifier in self._containers)
 
     def describe(self, identifier, snapshot=None):
@@ -95,6 +108,7 @@ class DockerCollector(object):
                      and str(labels[_MANUAL_PROTECTION_LABEL]).strip().lower()
                      not in _UNPROTECTED_LABEL_VALUES)
         values = snapshot.to_dict() if snapshot is not None else {}
+        values.update(self._events.get(identifier, {}))
         values.update(id=obj.id, name=obj.name, status=obj.status,
                       health=container_health(obj),
                       pid=obj.attrs['State'].get('Pid'),
@@ -142,7 +156,17 @@ class DockerCollector(object):
                     continue
                 values = snapshot.to_dict()
                 values.update((resource, self.calculator.get(resource, current, previous))
-                              for resource in metrics)
+                              for resource in metrics if resource not in PID_RESOURCES)
+                if set(metrics).intersection(PID_RESOURCES):
+                    pids = current.get('pids_stats', {}).get('current')
+                    limit = self._containers[snapshot.id].attrs.get('HostConfig', {}).get('PidsLimit')
+                    if type(pids) is not int or pids < 0:
+                        raise MonitoringError(115, 'PID accounting unavailable for container: %s' % snapshot.name)
+                    if limit is not None and (type(limit) is not int or limit < -1):
+                        raise MonitoringError(115, 'invalid PID limit for container: %s' % snapshot.name)
+                    limit = limit if limit and limit > 0 else None
+                    values.update(pids_current=pids, pids_limit=limit,
+                                  pids_percent=round(100.0 * pids / limit, 2) if limit else None)
                 return ContainerSnapshot(**values)
             raise MonitoringError(115, 'no complete statistics for the container: %s' % snapshot.name)
         finally:
@@ -159,6 +183,8 @@ class DockerCollector(object):
     def end_cycle(self):
         client, self.client = self.client, None
         self._containers.clear()
+        self._events.clear()
+        self._requested = ()
         if client is not None:
             client.api.close()
 

@@ -180,6 +180,14 @@ keep their existing mapping. Invalid or unavailable exec statuses remain 116.
 
 ## Compatibility and validation
 
+Collectors may implement `prepare_resources(resources)`. The engine calls this
+optional hook before opening a cycle with the union of requested and rule
+resources. The Docker collector uses it for one bounded event-history query
+shared by all selected containers. Event-only rules run in the metadata phase,
+including on stopped containers. Each cycle discards its event cache; manual
+actions do not inherit a previous cycle's event probe. Runtime checks are opt-in
+and do not change the default resource set. See [runtime checks](runtime-checks.md).
+
 Existing CLI flags, text/JSON formatting, rule phase ordering, aliases, unit
 conversion, multicore CPU values and exit mappings are preserved. Deliberate
 lifecycle changes are:

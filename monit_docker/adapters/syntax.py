@@ -2,6 +2,7 @@
 
 import re
 from monit_docker.domain.models import STATE_RESOURCES
+from monit_docker.domain.runtime import RUNTIME_RESOURCES
 
 DOCKER_COMMANDS         = ('start',
                            'stop',
@@ -12,7 +13,7 @@ DOCKER_COMMANDS         = ('start',
                            'pause',
                            'unpause')
 
-RESOURCE_CHOICES        = ('mem_usage',
+DEFAULT_RESOURCE_CHOICES = ('mem_usage',
                            'mem_limit',
                            'mem_percent',
                            'cpu_percent',
@@ -23,6 +24,7 @@ RESOURCE_CHOICES        = ('mem_usage',
                            'status',
                            'pid',
                            'health')
+RESOURCE_CHOICES = DEFAULT_RESOURCE_CHOICES + RUNTIME_RESOURCES
 
 STATUS_RC               = {'running': 0,
                            'created': 10,

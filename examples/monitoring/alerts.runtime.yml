@@ -1,0 +1,47 @@
+groups:
+  - name: monit-docker-runtime
+    rules:
+      - alert: MonitDockerContainerOOM
+        expr: |
+          (monit_docker_container_oom_events{job="monit-docker"} > 0)
+          and on (job, instance) (up{job="monit-docker"} == 1)
+          and on (job, instance) (monit_docker_ready{job="monit-docker"} == 1)
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Docker reported an OOM for {{ $labels.name }}'
+          description: 'An OOM event remains in the last {{ $labels.window_seconds }} seconds. Inspect memory pressure; a restart may already have occurred.'
+
+      - alert: MonitDockerContainerStartsFrequent
+        expr: |
+          (monit_docker_container_starts_recent{job="monit-docker",window_seconds="300"} >= 3)
+          and on (job, instance) (up{job="monit-docker"} == 1)
+          and on (job, instance) (monit_docker_ready{job="monit-docker"} == 1)
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Container {{ $labels.name }} starts repeatedly'
+          description: 'At least three starts in five minutes, including the initial start and Docker or operator restarts. Inspect the cause before restarting again.'
+
+      - alert: MonitDockerContainerPIDsHigh
+        expr: |
+          (monit_docker_container_pids_percent{job="monit-docker"} > 90)
+          and on (job, instance) (up{job="monit-docker"} == 1)
+          and on (job, instance) (monit_docker_ready{job="monit-docker"} == 1)
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Container {{ $labels.name }} is approaching its PID limit'
+          description: 'Processes and threads exceed 90% of the configured PID limit for one minute. Inspect process creation and the container limit.'
+
+      - alert: MonitDockerEventHistoryIncomplete
+        expr: |
+          (monit_docker_container_event_history_complete{job="monit-docker"} == 0)
+          and on (job, instance) (up{job="monit-docker"} == 1)
+          and on (job, instance) (monit_docker_ready{job="monit-docker"} == 1)
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Event history is incomplete for {{ $labels.name }}'
+          description: 'Docker retained fewer events than the requested window needs. OOM and start counts are unavailable; consider a shorter window or a dedicated event collector.'
