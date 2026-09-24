@@ -18,7 +18,7 @@ async function main() {
   try {
     const page = await browser.newPage({viewport:{width:1440,height:1050}, acceptDownloads:true});
     const errors = []; page.on('pageerror', e => errors.push(e.message));
-    let requests = 0, mode = 200;
+    let requests = 0, mode = 200, lastParams, exportParams;
     const event = {schema_version:2,event_id:'1234',timestamp:'2026-09-23T18:30:00Z',host:'docker-host',category:'action',event:'completed',source:'manual',actor:'alice',container_name:'api-service',action:'restart',result:'succeeded',duration_ms:180,correlation_id:'request-1234',reason:null};
     const examples = [
       event,
@@ -29,18 +29,23 @@ async function main() {
       {...event, event_id:'simulation', event:'skipped', result:'simulated', reason:'dry-run'},
       {...event, event_id:'accepted', category:'notification', event:'accepted', result:'accepted', source:'redis', action:null}
     ];
+    event.container_id = 'a'.repeat(64);
+    for (const example of examples) example.container_id = event.container_id;
     await page.route('**/v1/audit?*', async route => {
       requests++;
       if (mode !== 200) return route.fulfill({status:mode,json:{error:'denied'}});
       const params = new URL(route.request().url()).searchParams;
+      lastParams = params;
       const older = params.get('cursor') === 'older';
       if (params.get('container') === 'slow') {
         await new Promise(resolve => setTimeout(resolve, 250));
       }
-      await route.fulfill({json:{records:params.get('container') === 'absent' ? [] : older ? [{...event, event_id:'older',result:'failed',reason:'execution_failed',container_name:'<img src=x onerror=alert(1)>'}] : examples,next_cursor:older ? null : 'older',page_cursor:older ? 'older' : 'first',scanned_bytes:1000,limit:100}}).catch(() => {});
+      const matching = examples.filter(record => ['source', 'result', 'category'].every(key => !params.has(key) || params.get(key) === record[key]));
+      await route.fulfill({json:{records:params.get('container') === 'absent' ? [] : older ? [{...event, event_id:'older',result:'failed',reason:'execution_failed',container_name:'<img src=x onerror=alert(1)>'}] : matching,next_cursor:older ? null : 'older',page_cursor:older ? 'older' : 'first',scanned_bytes:1000,limit:100}}).catch(() => {});
     });
     await page.route('**/v1/audit/export?*', route => {
       const params = new URL(route.request().url()).searchParams;
+      exportParams = params;
       assert.equal(params.get('cursor'), 'first');
       return route.fulfill({contentType:'text/csv',body:'actor,result\r\nalice,succeeded\r\n'});
     });
@@ -69,6 +74,63 @@ async function main() {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true,`overflow at ${width}`);
       if (width===390) await page.screenshot({path:path.join(output,'journal-mobile.png'),fullPage:true});
     }
+    const loaded = () => page.waitForFunction(() => !document.getElementById('log-notice').textContent.startsWith('Loading'));
+    assert.equal(await cards.nth(6).locator('[data-kind="neutral"]').evaluate(el => el.tagName), 'SPAN', 'unsupported sources must not offer an invalid filter');
+    await cards.nth(0).locator('.log-target').focus();
+    await page.keyboard.press('Enter');
+    await loaded();
+    assert.equal(lastParams.get('container'), event.container_id, 'prefer the complete container ID');
+    assert.equal(await page.locator('[name=container]').inputValue(), event.container_id);
+    assert.equal(await page.locator('[data-filter=container]').evaluate(el => el === document.activeElement), true);
+    await cards.nth(0).locator('[data-kind=manual]').click();
+    await loaded();
+    await cards.nth(1).locator('.badge').click();
+    await loaded();
+    assert.equal(await cards.count(), 2, 'pending includes queued and started');
+    assert.equal(lastParams.get('source'), 'manual');
+    assert.equal(lastParams.get('result'), 'pending');
+    assert.equal(await page.locator('#active-log-filters button').count(), 3);
+    assert.match(await page.locator('[data-filter=result]').textContent(), /queued or in progress/);
+    assert.equal(await cards.first().locator('.badge').getAttribute('aria-pressed'), 'true');
+    const filteredDownload = page.waitForEvent('download');
+    await page.locator('#export-jsonl').click();
+    await filteredDownload;
+    assert.equal(exportParams.get('container'), event.container_id);
+    assert.equal(exportParams.get('source'), 'manual');
+    assert.equal(exportParams.get('result'), 'pending');
+    await page.setViewportSize({width:360,height:844});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true,'active filters must wrap on mobile');
+    await page.screenshot({path:path.join(output,'journal-filters-mobile.png'),fullPage:true});
+    await page.locator('#older-logs').click();
+    await loaded();
+    await page.locator('[data-filter=result]').click();
+    await loaded();
+    assert.equal(lastParams.has('cursor'), false, 'changing filters restarts pagination');
+    assert.equal(lastParams.has('result'), false);
+    assert.equal(lastParams.get('source'), 'manual');
+    assert.equal(await page.locator('#log-page').textContent(), 'Page 1');
+    assert.equal(await page.locator('[name=result]').inputValue(), '');
+    await page.locator('[name=source]').selectOption('automatic');
+    await cards.first().locator('.badge').click();
+    await loaded();
+    assert.equal(lastParams.get('source'), 'manual', 'quick filters use the applied view, not an unsubmitted draft');
+    assert.equal(await page.locator('[name=source]').inputValue(), 'manual');
+    await page.locator('#reset-logs').click();
+    await loaded();
+    assert.equal(await page.locator('#active-log-filters').isHidden(), true);
+    assert.equal(lastParams.size, 0);
+    await page.locator('[name=since]').fill('2026-09-01T10:30');
+    await page.locator('[name=category]').selectOption('action');
+    await page.locator('#log-filters').evaluate(form => form.requestSubmit());
+    await loaded();
+    const since = lastParams.get('since');
+    await cards.first().locator('[data-kind=manual]').click();
+    await loaded();
+    assert.equal(lastParams.get('since'), since);
+    assert.equal(lastParams.get('category'), 'action');
+    assert.equal(await page.locator('[name=since]').inputValue(), '2026-09-01T10:30');
+    await page.locator('#reset-logs').click();
+    await loaded();
     await page.locator('#older-logs').click();
     await page.waitForFunction(() => document.getElementById('log-page').textContent==='Page 2');
     assert.equal(await page.locator('.log-event img').count(),0);

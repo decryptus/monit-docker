@@ -33,6 +33,12 @@ main{max-width:1288px;margin:auto;padding:46px 24px 0}.intro{display:flex;justif
 .log-tag {max-width:100%; padding:.2rem .45rem; border:1px solid #d4d9df; border-radius:5px; background:#f1f3f5; color:#424b57; overflow-wrap:anywhere}
 .log-tag[data-kind="manual"] {border-color:#b8cfeb; background:#e4efff; color:#214f85}
 .log-tag[data-kind="automatic"] {border-color:#e8ce97; background:#fff2d8; color:#765214}
+.log-event button.log-filter-link {min-height:28px; font-size:inherit; font-weight:600; line-height:1.5; text-align:left}
+.log-event button.log-filter-link:hover {background:#fff; border-color:currentColor; text-decoration:underline}
+.log-event button.log-filter-link[aria-pressed="true"] {box-shadow:inset 0 -2px currentColor}
+.active-log-filters {display:flex; flex-wrap:wrap; gap:.5rem; margin:0 0 1rem}
+.active-log-filters[hidden] {display:none}
+.active-log-filters button {min-height:32px; font-size:.8rem; text-align:left}
 .log-reason {margin:.35rem 0 0; font-size:.8rem; line-height:1.6; white-space:pre-wrap}
 .log-reason code {font-size:inherit}
 .log-event details {margin:0}

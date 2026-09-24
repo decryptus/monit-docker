@@ -13,6 +13,8 @@ const ACTION_LABELS = {
   'maintenance-1h': 'Maintenance pause (1 hour)', 'maintenance-off': 'Maintenance resume',
   'restart-reset': 'Restart budget reset'
 };
+const FILTER_LABELS = {since: 'From', until: 'To', container: 'Container', source: 'Source', category: 'Category', result: 'Result'};
+const RESULT_LABELS = {pending: 'Pending (queued or in progress)', succeeded: 'Succeeded', failed: 'Failed', rejected: 'Rejected', skipped: 'Skipped', simulated: 'Simulation', accepted: 'Accepted', received: 'Received'};
 function eventPresentation(record) {
   const outcome = record.result || record.event;
   const states = {
@@ -54,6 +56,51 @@ function node(tag, className, text) {
   if (text !== undefined) element.textContent = text;
   return element;
 }
+function filterTag(className, text, key, value) {
+  const field = $('log-filters').elements.namedItem(key);
+  const supported = value && (field.tagName !== 'SELECT' || Array.from(field.options).some(option => option.value === value));
+  const tag = node(supported ? 'button' : 'span', className, text);
+  if (supported) {
+    tag.type = 'button';
+    tag.classList.add('log-filter-link');
+    tag.title = `Filter by ${FILTER_LABELS[key].toLowerCase()}: ${key === 'result' ? RESULT_LABELS[value] : value}`;
+    tag.setAttribute('aria-label', tag.title);
+    tag.setAttribute('aria-pressed', String(filters.get(key) === value));
+    tag.addEventListener('click', () => {
+      const next = new URLSearchParams(filters);
+      next.set(key, value);
+      setFilters(next);
+      $('active-log-filters').querySelector(`[data-filter="${key}"]`).focus();
+    });
+  }
+  return tag;
+}
+function setFilters(next) {
+  filters = next;
+  const active = $('active-log-filters');
+  active.replaceChildren();
+  for (const [key, label] of Object.entries(FILTER_LABELS)) {
+    const value = filters.get(key) || '';
+    const field = $('log-filters').elements.namedItem(key);
+    const date = value && (key === 'since' || key === 'until') ? new Date(value) : null;
+    field.value = date ? new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : value;
+    if (!value) continue;
+    const display = date ? date.toLocaleString() : key === 'result' ? RESULT_LABELS[value] || value : value;
+    const remove = node('button', 'log-tag', `${label}: ${display} ×`);
+    remove.type = 'button';
+    remove.dataset.filter = key;
+    remove.setAttribute('aria-label', `Remove ${label.toLowerCase()} filter: ${display}`);
+    remove.addEventListener('click', () => {
+      const remaining = new URLSearchParams(filters);
+      remaining.delete(key);
+      setFilters(remaining);
+      (active.querySelector('button') || $('log-filters').querySelector('[type="submit"]')).focus();
+    });
+    active.append(remove);
+  }
+  active.hidden = filters.size === 0;
+  load(null, 0, true);
+}
 function controls() {
   $('previous-logs').disabled = loading || exporting || pageIndex === 0;
   $('older-logs').disabled = loading || exporting || !current?.next_cursor;
@@ -68,7 +115,7 @@ function render() {
     const heading = node('div', 'log-event-heading');
     const stamp = node('time', '', new Date(record.timestamp).toLocaleString());
     stamp.dateTime = record.timestamp;
-    const result = node('span', 'badge', presentation.status);
+    const result = filterTag('badge', presentation.status, 'result', record.result);
     result.dataset.result = record.result || '';
     const title = node('h3', '', presentation.title);
     heading.append(title);
@@ -81,9 +128,9 @@ function render() {
     date.append(node('span', 'log-separator', '·'), stamp);
     heading.append(date);
     const summary = node('p', 'log-meta');
-    const source = node('span', 'log-tag', presentation.source);
+    const source = filterTag('log-tag', presentation.source, 'source', record.source);
     source.dataset.kind = presentation.sourceTone;
-    if (presentation.target) summary.append(node('span', 'log-tag log-target', presentation.target));
+    if (presentation.target) summary.append(filterTag('log-tag log-target', presentation.target, 'container', record.container_id || record.container_name));
     summary.append(source, node('span', 'log-tag', presentation.actor), result);
     const details = node('details');
     details.append(node('summary', '', 'Event details'));
@@ -147,8 +194,7 @@ function applyFilters() {
     if (!value) continue;
     next.set(key, key === 'since' || key === 'until' ? new Date(value).toISOString() : value);
   }
-  filters = next;
-  load(null, 0, true);
+  setFilters(next);
 }
 async function download(format) {
   if (!current || loading || exporting) return;
