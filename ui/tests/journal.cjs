@@ -20,6 +20,15 @@ async function main() {
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     let requests = 0, mode = 200;
     const event = {schema_version:2,event_id:'1234',timestamp:'2026-09-23T18:30:00Z',host:'docker-host',category:'action',event:'completed',source:'manual',actor:'alice',container_name:'api-service',action:'restart',result:'succeeded',duration_ms:180,correlation_id:'request-1234',reason:null};
+    const examples = [
+      event,
+      {...event, event_id:'queued', event:'queued', result:'pending'},
+      {...event, event_id:'started', event:'started', result:'pending'},
+      {...event, event_id:'failed', result:'failed', reason:'execution_failed'},
+      {...event, event_id:'skipped', event:'skipped', result:'skipped', source:'automatic', actor:'cron', reason:'maintenance'},
+      {...event, event_id:'simulation', event:'skipped', result:'simulated', reason:'dry-run'},
+      {...event, event_id:'accepted', category:'notification', event:'accepted', result:'accepted', source:'redis', action:null}
+    ];
     await page.route('**/v1/audit?*', async route => {
       requests++;
       if (mode !== 200) return route.fulfill({status:mode,json:{error:'denied'}});
@@ -28,7 +37,7 @@ async function main() {
       if (params.get('container') === 'slow') {
         await new Promise(resolve => setTimeout(resolve, 250));
       }
-      await route.fulfill({json:{records:params.get('container') === 'absent' ? [] : [older ? {...event, event_id:'older',result:'failed',reason:'execution_failed',container_name:'<img src=x onerror=alert(1)>'} : event],next_cursor:older ? null : 'older',page_cursor:older ? 'older' : 'first',scanned_bytes:1000,limit:100}}).catch(() => {});
+      await route.fulfill({json:{records:params.get('container') === 'absent' ? [] : older ? [{...event, event_id:'older',result:'failed',reason:'execution_failed',container_name:'<img src=x onerror=alert(1)>'}] : examples,next_cursor:older ? null : 'older',page_cursor:older ? 'older' : 'first',scanned_bytes:1000,limit:100}}).catch(() => {});
     });
     await page.route('**/v1/audit/export?*', route => {
       const params = new URL(route.request().url()).searchParams;
@@ -37,6 +46,21 @@ async function main() {
     });
     await page.goto(`http://127.0.0.1:${server.address().port}/logs`);
     await page.waitForSelector('.log-event');
+    const cards = page.locator('.log-event');
+    assert.match(await cards.nth(0).textContent(), /Restart completed/);
+    assert.match(await cards.nth(0).textContent(), /Manual action · Actor: alice/);
+    assert.equal(await cards.nth(0).getAttribute('data-tone'), 'success');
+    assert.equal(await cards.nth(1).locator('.badge').textContent(), 'Queued');
+    assert.equal(await cards.nth(2).locator('.badge').textContent(), 'In progress');
+    assert.equal(await cards.nth(3).getAttribute('data-tone'), 'danger');
+    assert.equal(await cards.nth(3).locator('.log-reason').isVisible(), true);
+    assert.match(await cards.nth(3).locator('.log-reason').textContent(), /execution_failed/);
+    assert.equal(await cards.nth(4).getAttribute('data-tone'), 'warning');
+    assert.match(await cards.nth(4).textContent(), /Automatic action/);
+    assert.equal(await cards.nth(5).getAttribute('data-tone'), 'secondary');
+    assert.equal(await cards.nth(6).getAttribute('data-tone'), 'info', 'accepted must not imply delivery');
+    assert.match(await cards.nth(6).locator('h3').textContent(), /Notification accepted/);
+    assert.equal(await page.locator('.log-event[role=alert]').count(), 0, 'history must not announce every row as a live alert');
     const before = requests; await page.waitForTimeout(300); assert.equal(requests,before,'journal must not poll');
     fs.mkdirSync(output,{recursive:true});
     await page.screenshot({path:path.join(output,'journal-desktop.png'),fullPage:true});
