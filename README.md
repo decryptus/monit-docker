@@ -40,6 +40,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 3. [Simple mode guide](docs/simple.md)
    - [Wait for sustained conditions before acting](docs/trigger-delay.md)
    - [Disk space, inodes and ro/rw mounts with reusable directory groups](docs/filesystems.md)
+   - [File and directory access, including POSIX ACLs](docs/access-checks.md) (source tree)
    - [Docker healthchecks and unhealthy-container rules](docs/healthchecks.md)
    - [OOM events, repeated starts and process/thread checks](docs/runtime-checks.md)
    - [Bound automatic restarts and explicitly rearm](docs/restart-limit.md)

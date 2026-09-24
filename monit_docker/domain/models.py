@@ -10,7 +10,7 @@ from __future__ import absolute_import
 from collections import OrderedDict
 import math
 from numbers import Integral, Real
-from monit_docker.domain.filesystems import FilesystemSample, filesystem_resource, FILESYSTEM_MODES
+from monit_docker.domain.filesystems import FilesystemSample, filesystem_resource, FILESYSTEM_MODES, FILESYSTEM_ACCESS_FIELDS
 from monit_docker.domain.runtime import EVENT_RESOURCES, RUNTIME_RESOURCES, RUNTIME_METADATA
 
 try:
@@ -55,6 +55,9 @@ class ContainerSnapshot(object):
                     raise TypeError('Invalid filesystem samples')
                 if any(item.fs_mode is not None and item.fs_mode not in FILESYSTEM_MODES for item in value):
                     raise TypeError('Invalid filesystem mount mode')
+                if any(getattr(item, field) is not None and (type(getattr(item, field)) is not int or getattr(item, field) not in (0, 1))
+                       for item in value for field in FILESYSTEM_ACCESS_FIELDS):
+                    raise TypeError('Invalid filesystem access result')
                 continue
             if field in ('manual_actions_protected', 'maintenance_active'):
                 if not isinstance(value, bool):

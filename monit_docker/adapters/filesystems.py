@@ -6,7 +6,8 @@ import struct
 import time
 
 from monit_docker.domain.errors import MonitoringError
-from monit_docker.domain.filesystems import GROUP_PATTERN, FilesystemSample, FILESYSTEM_NUMERIC_FIELDS
+from monit_docker.domain.filesystems import GROUP_PATTERN, FilesystemSample, FILESYSTEM_NUMERIC_FIELDS, FILESYSTEM_ACCESS_FIELDS
+from monit_docker.adapters.access import access_identities, collect_access
 
 _GROUP_RE = re.compile(GROUP_PATTERN)
 _STAT_COMMAND = ('stat', '-f', '-c', '%S %b %f %a %c %d', '--')
@@ -34,6 +35,7 @@ def directory_groups(groups):
                     or any(ord(char) < 32 or ord(char) == 127 for char in path)):
                 raise MonitoringError(110, 'directory group %s requires absolute paths without control characters' % name)
         result[name] = tuple(dict.fromkeys(paths))
+    access_identities(groups)  # Validate optional identities even before a probe is requested.
     return result
 
 
@@ -81,9 +83,10 @@ def _exec_mode(api, identifier, path):
     return mount_mode(_exec_output(api, identifier, list(_MODE_COMMAND) + [path], _MAX_MOUNT_OUTPUT))
 
 
-def _exec_output(api, identifier, command, max_output=_MAX_OUTPUT):
+def _exec_output(api, identifier, command, max_output=_MAX_OUTPUT, user=None):
+    options = {} if user is None else dict(user=user)
     created = api.exec_create(identifier, command,
-                              stdout=True, stderr=True, stdin=False, tty=False)
+                              stdout=True, stderr=True, stdin=False, tty=False, **options)
     connection = api.exec_start(created['Id'], socket=True, tty=False)
     transport = getattr(connection, '_sock', connection)
     deadline = time.monotonic() + _EXEC_TIMEOUT
@@ -122,11 +125,18 @@ def _exec_output(api, identifier, command, max_output=_MAX_OUTPUT):
             raise ValueError('filesystem probe failed; check the path, permissions and required utilities')
         return bytes(output)
     finally:
-        connection.close()
+        try:
+            connection.close()
+        finally:
+            # Docker may return SocketIO: closing the file wrapper alone does
+            # not close its socket owner until garbage collection.
+            if transport is not connection:
+                transport.close()
 
 
-def collect_filesystems(api, identifier, container_name, groups, requested):
-    samples, cache = [], {}
+def collect_filesystems(api, identifier, container_name, groups, requested, identities=None):
+    samples, cache, access_cache = [], {}, {}
+    identities = identities or {}
     path_fields = {}
     for group, fields in requested.items():
         for path in groups[group]:
@@ -143,5 +153,18 @@ def collect_filesystems(api, identifier, container_name, groups, requested):
                 except Exception as error:
                     raise MonitoringError(115, 'filesystem check failed for %s, group %s, path %s (%s)' %
                                           (container_name, group, path, type(error).__name__)) from error
-            samples.append(FilesystemSample(group, path, *cache[path]))
+            access = (None,) * len(FILESYSTEM_ACCESS_FIELDS)
+            if set(requested[group]).intersection(FILESYSTEM_ACCESS_FIELDS):
+                identity = identities.get(group)
+                if identity is None:
+                    raise MonitoringError(110, 'access identity is required for directory group: %s' % group)
+                key = (path, identity)
+                if key not in access_cache:
+                    try:
+                        access_cache[key] = collect_access(_exec_output, api, identifier, path, identity)
+                    except Exception as error:
+                        raise MonitoringError(115, 'access check unavailable for %s, group %s, path %s (%s)' %
+                                              (container_name, group, path, type(error).__name__)) from error
+                access = access_cache[key]
+            samples.append(FilesystemSample(group, path, *cache[path], *access))
     return tuple(samples)

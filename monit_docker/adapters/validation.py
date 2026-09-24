@@ -170,7 +170,7 @@ def _validate_rule(parser, expression, location):
                       if field not in STATE_RESOURCES)
         values.update(cpu_percent=1.0, mem_percent=1.0, pids_percent=1.0, health='healthy')
         values.update((field, 1) for field in EVENT_RESOURCES)
-        values['filesystems'] = tuple(FilesystemSample(group, path, *([1.0] * len(FILESYSTEM_NUMERIC_FIELDS)), fs_mode='rw')
+        values['filesystems'] = tuple(FilesystemSample(group, path, *([1.0] * len(FILESYSTEM_NUMERIC_FIELDS)), fs_mode='rw', fs_readable=1, fs_writable=1, fs_executable=1)
                                      for group, paths in parser.dir_groups.items() for path in paths)
         snapshot = ContainerSnapshot(status='running', pid=1, **values)
         for condition in rule.conditions:

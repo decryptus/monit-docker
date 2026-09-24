@@ -17,7 +17,8 @@ from monit_docker.domain.models import ContainerSnapshot, STATE_RESOURCES
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import DOCKER_COMMANDS
 from monit_docker.adapters.filesystems import directory_groups, collect_filesystems
-from monit_docker.domain.filesystems import filesystem_resource
+from monit_docker.adapters.access import access_identities
+from monit_docker.domain.filesystems import filesystem_resource, FILESYSTEM_ACCESS_FIELDS
 from monit_docker.domain.runtime import EVENT_RESOURCES, PID_RESOURCES, DEFAULT_EVENT_WINDOW, valid_event_window
 from monit_docker.adapters.events import collect_events
 
@@ -74,11 +75,16 @@ class DockerCollector(object):
         self._containers = OrderedDict()
         self.calculator = ResourceCalculator()
         self.dir_groups = directory_groups(dir_groups)
+        self.access_identities = access_identities(dir_groups)
         self.event_window = event_window
         self._requested = ()
         self._events = {}
 
     def prepare_resources(self, resources):
+        for resource in resources:
+            filesystem = filesystem_resource(resource)
+            if filesystem and filesystem[0] in FILESYSTEM_ACCESS_FIELDS and filesystem[1] not in self.access_identities:
+                raise MonitoringError(110, 'access identity is required for directory group: %s' % filesystem[1])
         self._requested = tuple(resources)
 
     def begin_cycle(self):
@@ -131,7 +137,7 @@ class DockerCollector(object):
         if requested and snapshot.status == 'running':
             values = snapshot.to_dict()
             values['filesystems'] = collect_filesystems(self.client.api, snapshot.id, snapshot.name,
-                                                        self.dir_groups, requested)
+                                                        self.dir_groups, requested, self.access_identities)
             for resource in resources:
                 filesystem = filesystem_resource(resource)
                 if filesystem and any(getattr(sample, filesystem[0]) is None
