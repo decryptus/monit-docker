@@ -60,4 +60,7 @@ def render_metrics(data):
         metric('container_' + name, 'gauge', 'Container filesystem ' + name.replace('_', ' ') + '.',
                [(labels(c) + (('group', sample['group']), ('path', sample['path'])), sample[field])
                 for c in containers for sample in c.get('filesystems', ()) if sample[field] is not None])
+    metric('container_filesystem_read_only', 'gauge', 'Filesystem mount is read-only (1) or read-write (0).',
+           [(labels(c) + (('group', sample['group']), ('path', sample['path'])), int(sample['fs_mode'] == 'ro'))
+            for c in containers for sample in c.get('filesystems', ()) if sample.get('fs_mode') in ('ro', 'rw')])
     return '\n'.join(lines) + '\n'

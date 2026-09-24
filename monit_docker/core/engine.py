@@ -33,13 +33,15 @@ class MonitoringEngine(object):
         self.evaluator = evaluator or RuleEvaluator()
         self._cycle_lock = Lock()
 
-    def run_manual_action(self, container_id, command, claim):
+    def run_manual_action(self, container_id, command, claim, reset_restarts=None):
         """Reselect by exact ID and serialize with cycles; never resolve aliases.
 
         claim(id) reserves a persistent per-container manual cooldown before
-        execution. Manual operations do not evaluate autonomous rules.
+        execution. reset_restarts(id), when supplied, rearms the local restart
+        budget without executing a Docker command. Manual operations do not
+        evaluate autonomous rules.
         """
-        if command not in ALLOWED_STATES:
+        if command not in ALLOWED_STATES or (command == 'restart-reset' and reset_restarts is None):
             raise ActionRejected('unsupported_action')
         if not self._cycle_lock.acquire(False):
             raise ActionRejected('busy')
@@ -55,6 +57,9 @@ class MonitoringEngine(object):
                     raise ActionRejected('state_changed')
                 if not claim(container_id):
                     raise ActionRejected('cooldown')
+                if command == 'restart-reset':
+                    reset_restarts(container_id)
+                    return
                 action = Action('docker', command, (), {})
                 if not self.executor.execute(container_id, action):
                     raise MonitoringError(116, 'manual action failed')

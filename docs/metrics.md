@@ -89,6 +89,7 @@ selection, requirements and error handling.
 | `monit_docker_container_inode_available` | gauge | inodes | Free inodes |
 | `monit_docker_container_inode_total` | gauge | inodes | Total inodes |
 | `monit_docker_container_inode_usage_percent` | gauge | percent | Used / total inodes × 100 |
+| `monit_docker_container_filesystem_read_only` | gauge | boolean | Mount is `ro` (1) or `rw` (0); only when `fs_mode[group]` is requested |
 
 These are capacity gauges, not cumulative I/O counters: do not use `rate()` to
 measure their occupancy. Paths report their containing filesystem's capacity,

@@ -28,7 +28,7 @@ from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC, HEALTH_RC
 from monit_docker.core import MonitoringEngine
 from monit_docker.core.policy import CooldownPolicy, RestartPolicy, DEFAULT_MAX_RESTARTS, restart_key
-from monit_docker.domain.errors import CommandExecutionError, MonitoringError
+from monit_docker.domain.errors import ActionRejected, CommandExecutionError, MonitoringError
 from monit_docker.outputs.formatting import format_resource
 from monit_docker.domain.filesystems import filesystem_resource
 
@@ -629,9 +629,12 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         try:
             with LocalState(self.options.state_file) as state:
                 def claim(identifier):
+                    if command == 'restart-reset' and restart_key(identifier) not in state.restarts:
+                        raise ActionRejected('no_restart_attempts')
                     key = hashlib.sha256(('manual:' + identifier).encode('ascii')).hexdigest()
                     return state.reserve(key, time.time(), self.options.action_cooldown)
-                self.engine.run_manual_action(container_id, command, claim)
+                self.engine.run_manual_action(container_id, command, claim,
+                                             reset_restarts=lambda identifier: state.reset_restarts(restart_key(identifier)))
         except APIError as error:
             raise MonitoringError(180, str(error))
         except DockerException as error:

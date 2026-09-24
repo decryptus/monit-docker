@@ -90,6 +90,10 @@ class ManualActions(object):
                 raise ActionRejected('container_protected')
             if target['status'] not in ALLOWED_STATES[payload['action']]:
                 raise ActionRejected('state_changed')
+            if payload['action'] == 'restart-reset' and not (
+                    isinstance(target.get('restart_attempts'), int) and target['restart_attempts'] > 0
+                    and isinstance(target.get('restart_limit'), int) and target['restart_limit'] > 0):
+                raise ActionRejected('no_restart_attempts')
             self._audit('queued', payload, actor, target['name'], result='pending')
             record = dict(payload, actor=actor, container_name=target['name'], status='queued', submitted_at=self.clock(),
                           finished_at=None, error=None, error_code=None)

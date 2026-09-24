@@ -54,7 +54,7 @@ class ManualTests(unittest.TestCase):
         self.monitor.cycle.return_value = snapshot(manual_actions_protected=True)
         self.monitor.run_cycle()
         self.assertTrue(self.monitor.status()['containers'][0]['manual_actions_protected'])
-        for action in ('start', 'stop', 'restart'):
+        for action in ('start', 'stop', 'restart', 'restart-reset'):
             with self.subTest(action=action), self.assertRaisesRegex(ActionRejected, 'container_protected'):
                 self.submit(payload(action=action))
         self.assertEqual(self.actions.status()['recent'], [])
@@ -76,6 +76,18 @@ class ManualTests(unittest.TestCase):
         self.execute.assert_called_once_with(ID, 'restart')
         self.monitor.run_cycle()
         self.assertTrue(self.monitor.status()['ready'])
+
+    def test_rearm_requires_a_budget_and_duplicate_request_is_not_replayed(self):
+        request = payload(action='restart-reset')
+        with self.assertRaisesRegex(ActionRejected, 'no_restart_attempts'):
+            self.submit(request)
+        self.monitor.cycle.return_value = snapshot(restart_attempts=3, restart_limit=3)
+        self.monitor.run_cycle()
+        self.assertEqual(self.submit(request)['status'], 'queued')
+        self.assertEqual(self.submit(request)['status'], 'queued')
+        self.monitor.run_pending_action()
+        self.assertEqual(self.submit(request)['status'], 'succeeded')
+        self.execute.assert_called_once_with(ID, 'restart-reset')
 
     def test_expiry_and_bounded_history(self):
         self.submit()
@@ -318,7 +330,7 @@ class ManualHttpTests(unittest.TestCase):
         status_code, status = self.request(path='/v1/status', method='GET')
         self.assertEqual(status_code, 200)
         self.assertTrue(status['containers'][0]['manual_actions_protected'])
-        for action in ('start', 'stop', 'restart'):
+        for action in ('start', 'stop', 'restart', 'restart-reset'):
             with self.subTest(action=action):
                 code, body = self.request(body=json.dumps(payload(action=action)))
                 self.assertEqual((code, body), (403, {'error': 'container_protected'}))
@@ -338,6 +350,18 @@ class ManualHttpTests(unittest.TestCase):
         self.assertEqual(self.actions.status()['recent'], [])
         self.monitor.manual_actions = None
         self.assertEqual(self.request()[0], 405)
+
+    def test_rearm_uses_the_same_authenticated_endpoint(self):
+        self.monitor.cycle.return_value = snapshot(restart_attempts=3, restart_limit=3)
+        self.monitor.run_cycle()
+        body = json.dumps(payload(action='restart-reset'))
+        for headers in ({'X-Monit-Action-Token': None}, {'X-Monit-Action-Token': 'wrong'},
+                        {'Origin': 'https://untrusted.example'}):
+            self.assertEqual(self.request(body=body, headers=headers)[0], 403)
+        self.assertEqual(self.actions.status()['recent'], [])
+        self.assertEqual(self.request(body=body)[0], 202)
+        self.monitor.run_pending_action()
+        self.actions.execute.assert_called_once_with(ID, 'restart-reset')
 
 
 class ManualCliTests(unittest.TestCase):

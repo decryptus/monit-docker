@@ -99,6 +99,21 @@ class DockerIntegrationTests(unittest.TestCase):
                 self.assertEqual(result.snapshots[0].restart_attempts, 1)
             self.executor.execute.assert_called_once()
 
+    def test_read_only_root_bind_mount_and_writable_tmpfs_modes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            obj = self.client.containers.run('alpine:3.20', ['sleep', '120'], name=self.name,
+                detach=True, read_only=True, tmpfs={'/writable': 'rw,size=1m'},
+                volumes={directory: {'bind': '/bound', 'mode': 'ro'}})
+            self.objects.append(obj)
+            self.assertEqual(obj.exec_run(['ln', '-s', '/bound', '/writable/link']).exit_code, 0)
+            groups = {'data': {'paths': ['/etc', '/writable', '/bound', '/writable/link']}}
+            collector = DockerCollector(lambda: docker.from_env(timeout=15), self.selector, groups)
+            engine = MonitoringEngine(collector, DockerActionExecutor(collector))
+            rule = RuleParser(dir_groups=groups).parse('fs_mode[data] == ro ? (true)')
+            result = engine.run_once(rules=(rule,), resources=('fs_mode[data]',))
+            self.assertEqual([s.fs_mode for s in result.snapshots[0].filesystems], ['ro', 'rw', 'ro', 'ro'])
+            self.assertEqual(len(result.actions), 1)
+
     def test_busybox_filesystem_groups_and_missing_paths(self):
         obj = self.create_container()
         groups = {'system': {'paths': ['/', '/tmp']}, 'shared': {'paths': ['/dev/shm']}}

@@ -10,7 +10,7 @@ from __future__ import absolute_import
 from collections import OrderedDict
 import math
 from numbers import Integral, Real
-from monit_docker.domain.filesystems import FilesystemSample, filesystem_resource
+from monit_docker.domain.filesystems import FilesystemSample, filesystem_resource, FILESYSTEM_MODES
 
 try:
     STRING_TYPES = (basestring,)
@@ -50,6 +50,8 @@ class ContainerSnapshot(object):
             if field == 'filesystems':
                 if not all(isinstance(item, FilesystemSample) for item in value):
                     raise TypeError('Invalid filesystem samples')
+                if any(item.fs_mode is not None and item.fs_mode not in FILESYSTEM_MODES for item in value):
+                    raise TypeError('Invalid filesystem mount mode')
                 continue
             if field == 'manual_actions_protected':
                 if not isinstance(value, bool):

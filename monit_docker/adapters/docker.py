@@ -102,8 +102,12 @@ class DockerCollector(object):
         return ContainerSnapshot(**values)
 
     def collect(self, snapshot, resources):
-        requested = tuple(dict.fromkeys(filesystem_resource(resource)[1] for resource in resources
-                                        if filesystem_resource(resource)))
+        requested = {}
+        for resource in resources:
+            filesystem = filesystem_resource(resource)
+            if filesystem:
+                field, group = filesystem
+                requested.setdefault(group, set()).add(field)
         if any(group not in self.dir_groups for group in requested):
             raise MonitoringError(110, 'unknown directory group')
         if requested and snapshot.status == 'paused':

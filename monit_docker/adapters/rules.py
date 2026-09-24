@@ -8,12 +8,12 @@ from monit_docker.adapters.syntax import (COND_MATCH, CMD_MATCH, EXPR_MATCH,
 from monit_docker.domain.errors import (MonitoringError, RuleSyntaxError,
                                         ResourceTypeError)
 from monit_docker.domain.rules import Action, Condition, Rule
-from monit_docker.domain.filesystems import filesystem_resource
+from monit_docker.domain.filesystems import filesystem_resource, FILESYSTEM_MODES
 from monit_docker.adapters.filesystems import directory_groups
 from monit_docker.domain.models import HEALTH_STATES
 
 LOG = logging.getLogger('monit-docker')
-_HEALTH_OPERATORS = ('==', '!=', 'in', 'not in')
+_STATE_OPERATORS = ('==', '!=', 'in', 'not in')
 
 
 class RuleParser(object):
@@ -119,7 +119,9 @@ class RuleParser(object):
 
         for cond in r['conditions']:
             resource = cond['parsed']['datatype']
-            if resource == 'health':
+            filesystem = filesystem_resource(resource)
+            if resource == 'health' or (filesystem and filesystem[0] == 'fs_mode'):
+                choices = HEALTH_STATES if resource == 'health' else FILESYSTEM_MODES
                 parsed = cond['parsed']
                 operator = parsed['op'].strip()
                 value = parsed['value']
@@ -128,13 +130,14 @@ class RuleParser(object):
                     states = value[1:-1].split(',') if valid else ()
                 else:
                     states = (value,)
-                if (operator not in _HEALTH_OPERATORS or parsed.get('pre_value') is not None
-                        or not states or any(state not in HEALTH_STATES for state in states)):
-                    raise RuleSyntaxError('health requires a known state and an equality or membership comparison')
-            filesystem = filesystem_resource(resource)
+                if (operator not in _STATE_OPERATORS or parsed.get('pre_value') is not None
+                        or not states or any(state not in choices for state in states)):
+                    raise RuleSyntaxError('%s requires a known state and an equality or membership comparison' % resource)
             if filesystem:
                 if filesystem[1] not in self.dir_groups:
                     raise MonitoringError(110, 'unknown directory group: %s' % filesystem[1])
+                if filesystem[0] == 'fs_mode':
+                    continue
                 if cond['parsed']['op'].strip() in ('in', 'not in'):
                     raise RuleSyntaxError('filesystem resources require numeric comparisons')
                 for key in ('value', 'pre_value'):

@@ -38,15 +38,16 @@ async function main() {
         mem_usage: [84, 246, 512, 12, null][i] === null ? null : [84, 246, 512, 12][i] * 1048576,
         mem_limit: 1073741824, mem_percent: [8.2, 24, 50, 1.2, null][i]})),
       manual_actions: {enabled: true, allowed_states: {start: ['created', 'exited'],
-        stop: ['running', 'restarting'], restart: ['running']}, recent: []}
+        stop: ['running', 'restarting'], restart: ['running'],
+        'restart-reset': ['created', 'running', 'paused', 'restarting', 'exited', 'dead']}, recent: []}
     };
-    let offline = false, posts = 0, ambiguous = false;
+    let offline = false, posts = 0, ambiguous = false, expectedAction = 'restart';
     await page.route('**/v1/status', route => offline ? route.abort() : route.fulfill({json: state}));
     await page.route('**/v1/actions', async route => {
       posts++;
       const submitted = route.request().postDataJSON();
       assert.equal(route.request().headers()['content-type'], 'application/json');
-      assert.equal(submitted.action, 'restart');
+      assert.equal(submitted.action, expectedAction);
       assert.match(submitted.request_id, /^[0-9a-f]{32}$/);
       if (ambiguous) return route.fulfill({status: 504, body: 'timeout'});
       const record = {...submitted, status: 'queued', submitted_at: 1790129400, error: null};
@@ -63,7 +64,7 @@ async function main() {
     assert.equal(await page.locator('.restart-budget:visible').count(), 4);
     assert.equal(await page.locator('.restart-budget').nth(1).textContent(), 'Auto restarts: 3/3 · blocked');
     assert.match(await page.locator('#rule-summary').textContent(), /2 restart limit/);
-    assert.equal(await page.locator('.container-row button:visible').count(), 9);
+    assert.equal(await page.locator('.container-row button:visible').count(), 10);
     // Protected containers stay visible, with disabled controls for every state.
     state.containers[2].manual_actions_protected = true;
     state.containers[4].manual_actions_protected = true;
@@ -97,6 +98,7 @@ async function main() {
     state.containers[1].manual_actions_protected = true;
     await page.evaluate(() => refresh());
     assert.equal(await page.locator('#confirm-action').isDisabled(), true);
+    assert.equal(await page.getByRole('button', {name: 'Rearm auto restarts api-service', exact: true}).isDisabled(), true);
     await page.getByRole('button', {name: 'Cancel', exact: true}).click();
     assert.equal(posts, 0);
     delete state.containers[1].manual_actions_protected;
@@ -122,6 +124,21 @@ async function main() {
     await page.reload();
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Healthy');
     await page.locator('#auto').uncheck();
+    // Rearming is a separate, confirmed request, never a Docker restart request.
+    ambiguous = false; expectedAction = 'restart-reset';
+    await page.getByRole('button', {name: 'Rearm auto restarts api-service', exact: true}).click();
+    assert.equal(await page.locator('#confirm-title').textContent(), 'Rearm automatic restarts?');
+    assert.match(await page.locator('#confirm-note').textContent(), /next cycle/);
+    await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+    assert.equal(posts, 2);
+    await page.getByRole('button', {name: 'Rearm auto restarts api-service', exact: true}).click();
+    await page.locator('#confirm-action').click();
+    await page.waitForFunction(() => document.querySelector('#activity li')?.textContent.includes('Rearm auto restarts'));
+    assert.equal(posts, 3);
+    state.manual_actions.recent.at(-1).status = 'succeeded';
+    state.containers[1].restart_attempts = 0;
+    await page.locator('#refresh').click();
+    await page.waitForFunction(() => !document.querySelector('[aria-label="Rearm auto restarts api-service"]')?.checkVisibility());
     state.ready = false; state.last_error_code = 170;
     await page.locator('#refresh').click();
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Not ready');
@@ -136,7 +153,7 @@ async function main() {
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Healthy');
     assert.equal(await page.locator('.container-row button:visible').count(), 0);
     assert.equal(await page.locator('#journal-link').isVisible(), false);
-    assert.equal(posts, 2);
+    assert.equal(posts, 3);
     assert.deepEqual(errors, []);
     console.log('Browser checks passed: protection, mobile/desktop, XSS text, confirmations, queue, stale/offline, old API.');
   } finally { await browser.close(); server.close(); }

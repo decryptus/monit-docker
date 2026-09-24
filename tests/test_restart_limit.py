@@ -16,6 +16,7 @@ from monit_docker.core.policy import restart_key
 from monit_docker.domain.errors import MonitoringError
 from monit_docker.outputs.prometheus import render_metrics
 from monit_docker.service import MonitorService
+from monit_docker.manual_actions import ManualActions
 import test_monit_docker as legacy
 
 
@@ -167,6 +168,52 @@ class RestartCliTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 self.invoke('restart-reset', '--state-file', str(self.path), '--container-id', value)
         self.client.containers.list.assert_not_called()
+
+    def manual_monitor(self):
+        obj = self.client.containers.list.return_value[0]
+        obj.id = 'a' * 64
+        with LocalState(str(self.path)) as state:
+            state.reserve_restart(restart_key(obj.id), 3)
+        with patch('sys.argv', ['monit-docker', '-c', str(self.conf), 'serve',
+                               '--state-file', str(self.path), '--rsc', 'health',
+                               '--cmd-if', 'health == unhealthy ? restart']):
+            command = cli.MonitDockerSubCmdServe(cli.argv_parse_check())
+        actions = ManualActions(command._manual_action, 'https://monitor.example', 'b' * 64, audit=command.audit)
+        monitor = MonitorService(command._cycle, manual_actions=actions)
+        monitor.run_cycle()
+        request = dict(request_id='c' * 32, container_id=obj.id, action='restart-reset')
+        actions.submit(request, monitor.status(), actor='Adrien')
+        return monitor, obj
+
+    def test_ui_rearm_persists_without_restarting_and_is_audited(self):
+        monitor, obj = self.manual_monitor()
+        self.assertTrue(monitor.run_pending_action())
+        record = monitor.status()['manual_actions']['recent'][0]
+        self.assertEqual(record['status'], 'succeeded')
+        obj.restart.assert_not_called()
+        monitor.run_cycle()
+        self.assertEqual(monitor.status()['containers'][0]['restart_attempts'], 0)
+        with LocalState(str(self.path)) as state:
+            self.assertNotIn(restart_key(obj.id), state.restarts)
+        events = [json.loads(line) for line in (self.path.parent / 'audit/events.jsonl').read_text().splitlines()]
+        self.assertTrue(any(e.get('action') == 'restart-reset' and e.get('result') == 'succeeded'
+                            and e.get('actor') == 'Adrien' for e in events))
+
+    def test_queued_ui_rearm_rechecks_protection_and_budget(self):
+        monitor, obj = self.manual_monitor()
+        obj.attrs['Config'] = {'Labels': {'monit-docker.protected': 'true'}}
+        monitor.run_pending_action()
+        self.assertEqual(monitor.status()['manual_actions']['recent'][0]['error'], 'container_protected')
+        with LocalState(str(self.path)) as state:
+            self.assertEqual(state.restarts[restart_key(obj.id)], 1)
+        del obj.attrs['Config']
+        monitor.run_cycle()
+        monitor.manual_actions.submit(dict(request_id='d' * 32, container_id=obj.id, action='restart-reset'), monitor.status())
+        with LocalState(str(self.path)) as state:
+            state.reset_restarts(restart_key(obj.id))
+        monitor.run_pending_action()
+        self.assertEqual(monitor.status()['manual_actions']['recent'][-1]['error'], 'no_restart_attempts')
+        obj.restart.assert_not_called()
 
 
 class RestartStateTests(unittest.TestCase):

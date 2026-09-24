@@ -45,6 +45,14 @@ containers' counters remain intact. It does not contact Docker or restart the
 container. An unknown ID with no recorded attempts returns code 110; contention
 returns 117; state failures return 118 and journal failures return 119.
 
+With [authenticated UI actions](ui.md) enabled, **Rearm auto restarts** provides
+the same reset for a selected container with a nonzero counter. It requires
+confirmation and respects container protection and the manual action cooldown.
+The queued request is audited, and selection and protection are checked again
+before execution. Its result appears in Manual activity. Neither reset method
+restarts the container itself; matching automatic rules may act on the next
+cycle once their cooldown and trigger requirements permit.
+
 Keep the state file on persistent storage. Files from schema versions 1 and 2
 are upgraded to version 3 on the first restart reservation, preserving their
 existing entries. Older monit-docker versions cannot read version 3. Deleting

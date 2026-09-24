@@ -39,7 +39,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 2. [Quickstart: simple or serve](#quickstart)
 3. [Simple mode guide](docs/simple.md)
    - [Wait for sustained conditions before acting](docs/trigger-delay.md)
-   - [Disk space and inodes with reusable directory groups](docs/filesystems.md)
+   - [Disk space, inodes and ro/rw mounts with reusable directory groups](docs/filesystems.md)
    - [Docker healthchecks and unhealthy-container rules](docs/healthchecks.md)
    - [Bound automatic restarts and explicitly rearm](docs/restart-limit.md)
 4. [Serve mode guide](docs/serve.md)
