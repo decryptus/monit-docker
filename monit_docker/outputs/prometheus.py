@@ -1,5 +1,7 @@
 """Prometheus text exposition 0.0.4 from the service cache (no collection)."""
 
+from monit_docker.domain.filesystems import FILESYSTEM_ACCESS_FIELDS
+
 _FILESYSTEM_METRICS = (
     ('disk_usage', 'disk_usage_bytes'), ('disk_available', 'disk_available_bytes'),
     ('disk_total', 'disk_total_bytes'), ('disk_percent', 'disk_usage_percent'),
@@ -83,4 +85,8 @@ def render_metrics(data):
     metric('container_filesystem_read_only', 'gauge', 'Filesystem mount is read-only (1) or read-write (0).',
            [(labels(c) + (('group', sample['group']), ('path', sample['path'])), int(sample['fs_mode'] == 'ro'))
             for c in containers for sample in c.get('filesystems', ()) if sample.get('fs_mode') in ('ro', 'rw')])
+    for field in FILESYSTEM_ACCESS_FIELDS:
+        metric('container_' + field, 'gauge', 'Kernel access check for the configured probe identity (1 allowed, 0 denied).',
+               [(labels(c) + (('group', sample['group']), ('path', sample['path'])), sample[field])
+                for c in containers for sample in c.get('filesystems', ()) if sample.get(field) is not None])
     return '\n'.join(lines) + '\n'

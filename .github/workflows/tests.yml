@@ -215,5 +215,6 @@ jobs:
           MONIT_DOCKER_INTEGRATION: '1'
         run: |
           docker pull alpine:3.20
+          python -m unittest discover -s tests -p test_access_docker.py -v
           python -m unittest discover -s tests -p test_runtime_docker.py -v
           python -m unittest discover -s tests -p test_docker_integration.py -v

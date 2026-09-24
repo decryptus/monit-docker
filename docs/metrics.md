@@ -99,6 +99,15 @@ are exposed for each requested group. Missing inode accounting is omitted,
 not reported as zero; explicitly requesting an unavailable field fails collection.
 As with other container metrics, a failed or stale cycle withholds all samples.
 
+## Access permission metrics
+
+`monit_docker_container_fs_readable`, `monit_docker_container_fs_writable` and
+`monit_docker_container_fs_executable` are optional gauges (1 allowed, 0 denied)
+for the configured probe identity. Labels are `id`, `name`, `group`, `path`.
+Unknown results fail collection instead of becoming healthy values; stale samples
+are omitted. See [file and directory access checks](access-checks.md) for ACL
+semantics, explicit identities and the limits of non-mutating access predictions.
+
 ## Maintenance indicators
 
 `monit_docker_container_maintenance_active` is 1 when automatic actions were paused

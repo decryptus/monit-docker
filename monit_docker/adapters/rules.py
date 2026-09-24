@@ -9,8 +9,9 @@ from monit_docker.adapters.syntax import (COND_MATCH, CMD_MATCH, EXPR_MATCH,
 from monit_docker.domain.errors import (MonitoringError, RuleSyntaxError,
                                         ResourceTypeError)
 from monit_docker.domain.rules import Action, Condition, Rule
-from monit_docker.domain.filesystems import filesystem_resource, FILESYSTEM_MODES
+from monit_docker.domain.filesystems import filesystem_resource, FILESYSTEM_MODES, FILESYSTEM_ACCESS_FIELDS
 from monit_docker.adapters.filesystems import directory_groups
+from monit_docker.adapters.access import access_identities
 from monit_docker.domain.models import HEALTH_STATES
 from monit_docker.domain.runtime import RUNTIME_RESOURCES
 
@@ -23,6 +24,7 @@ _NUMERIC_CONDITION_PARTS = (('value', 'value_unit'), ('pre_value', 'pre_value_un
 class RuleParser(object):
     def __init__(self, commands=None, conditions=None, dir_groups=None):
         self.dir_groups = directory_groups(dir_groups)
+        self.access_identities = access_identities(dir_groups)
         self._COMMANDS = {}
         self._CONDITIONS = {}
         self._EXPRS = {}
@@ -156,6 +158,14 @@ class RuleParser(object):
             if filesystem:
                 if filesystem[1] not in self.dir_groups:
                     raise MonitoringError(110, 'unknown directory group: %s' % filesystem[1])
+                if filesystem[0] in FILESYSTEM_ACCESS_FIELDS:
+                    parsed = cond['parsed']
+                    if filesystem[1] not in self.access_identities:
+                        raise MonitoringError(110, 'access identity is required for directory group: %s' % filesystem[1])
+                    if (parsed['op'].strip() not in ('==', '!=') or parsed.get('pre_value') is not None
+                            or parsed.get('value_unit') or str(parsed['value']).strip() not in ('0', '1')):
+                        raise RuleSyntaxError('access checks require == or != and 0 or 1')
+                    continue
                 if filesystem[0] == 'fs_mode':
                     continue
                 if cond['parsed']['op'].strip() in ('in', 'not in'):
