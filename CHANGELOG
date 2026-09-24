@@ -1,3 +1,11 @@
+monit-docker (0.0.72) unstable; urgency=medium
+
+  * Distinguish in-progress journal events with a purple alert color.
+  * Keep queued events blue and preserve explicit English status labels.
+  * Separate manual/automatic sources and actor/host metadata into small alerts.
+
+ -- Codex <codex@openai.com>  Thu, 24 Sep 2026 22:30:00 +0000
+
 monit-docker (0.0.71) unstable; urgency=medium
 
   * Display journal events as lightweight contextual alert cards.

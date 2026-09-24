@@ -31,9 +31,12 @@ fixtures are copied into the image.
 
 Since 0.0.71, journal events use contextual alert cards with English action
 headings and reasons visible without expanding details. Success is green,
-failure or rejection red, skipped actions yellow, pending work and notification
-acceptance blue, and simulations neutral. Every color has a visible text label.
+failure or rejection red, skipped actions yellow, queued work and notification
+acceptance blue, work in progress purple (since 0.0.72), and simulations neutral. Every color has a visible text label.
 Notification acceptance does not imply delivery to a person.
+
+Since 0.0.72, small metadata alerts also distinguish manual actions (blue) from
+automatic actions (amber), with neutral light-gray actor and host labels.
 
 The presentation uses the existing CSS and JavaScript, without Bootstrap or
 another runtime dependency. Raw fields remain in Event details and exports.

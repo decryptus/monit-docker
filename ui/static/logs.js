@@ -22,7 +22,7 @@ function eventPresentation(record) {
     accepted: ['info', 'Accepted', 'accepted'], received: ['info', 'Received', 'received']
   };
   const pending = {
-    queued: ['info', 'Queued', 'queued'], started: ['info', 'In progress', 'started']
+    queued: ['info', 'Queued', 'queued'], started: ['progress', 'In progress', 'started']
   };
   const state = (Object.hasOwn(states, outcome) && states[outcome]) || ((outcome === 'pending' || !record.result) && Object.hasOwn(pending, record.event) && pending[record.event])
     || ['secondary', outcome || 'Recorded', record.event || 'recorded'];
@@ -32,9 +32,10 @@ function eventPresentation(record) {
   const source = record.source === 'manual' ? 'Manual action'
     : record.source === 'automatic' ? 'Automatic action' : `Source: ${record.source || 'unknown'}`;
   const actor = record.actor ? `Actor: ${record.actor}` : 'Actor: unknown';
+  const sourceTone = record.source === 'manual' ? 'manual' : record.source === 'automatic' ? 'automatic' : 'neutral';
   return {tone: state[0], status: state[1],
     title: [action + ' ' + state[2], target].filter(Boolean).join(' · '),
-    context: [source, actor, record.host && `Host: ${record.host}`].filter(Boolean).join(' · ')};
+    source, sourceTone, actor, host: record.host && `Host: ${record.host}`};
 }
 let filters = new URLSearchParams();
 let history = [null];
@@ -69,7 +70,11 @@ function render() {
     result.dataset.result = record.result || '';
     heading.append(stamp, result);
     const title = node('h3', '', presentation.title);
-    const summary = node('p', 'log-meta', presentation.context);
+    const summary = node('p', 'log-meta');
+    const source = node('span', 'log-tag', presentation.source);
+    source.dataset.kind = presentation.sourceTone;
+    summary.append(source, node('span', 'log-tag', presentation.actor));
+    if (presentation.host) summary.append(node('span', 'log-tag', presentation.host));
     const details = node('details');
     details.append(node('summary', '', 'Event details'));
     const values = node('dl');

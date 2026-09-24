@@ -48,7 +48,7 @@ async function main() {
     await page.waitForSelector('.log-event');
     const cards = page.locator('.log-event');
     assert.match(await cards.nth(0).textContent(), /Restart completed/);
-    assert.match(await cards.nth(0).textContent(), /Manual action · Actor: alice/);
+    assert.deepEqual(await cards.nth(0).locator('.log-tag').allTextContents(), ['Manual action', 'Actor: alice', 'Host: docker-host']);
     assert.equal(await cards.nth(0).getAttribute('data-tone'), 'success');
     assert.equal(await cards.nth(1).locator('.badge').textContent(), 'Queued');
     assert.equal(await cards.nth(2).locator('.badge').textContent(), 'In progress');
