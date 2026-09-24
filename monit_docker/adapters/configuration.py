@@ -19,7 +19,8 @@ _CONFIG_SECTIONS = (('clients', 'client', 'config'),
                     ('ctn-groups', 'ctn-group', 'match'),
                     ('dir-groups', 'dir-group', 'paths'),
                     ('conditions', 'condition', 'expr'),
-                    ('commands', 'command', 'exec'))
+                    ('commands', 'command', 'exec'),
+                    ('scenarios', 'scenario', None))
 
 
 class Configuration(object):
@@ -105,7 +106,9 @@ class Configuration(object):
             if 'vars' in value:
                 c['vars'].update(copy.deepcopy(value['vars']))
 
-            if section in value:
+            if section is None:
+                r[name] = self._render_conf_object(value, c)
+            elif section in value:
                 r[name][section] = self._render_conf_object(value[section], c)
             else:
                 raise MonitoringError(110, "missing %s in %s: %r" % (section, xtype, name))

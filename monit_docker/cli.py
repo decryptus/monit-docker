@@ -51,11 +51,11 @@ def _resource_argument(value):
         raise argparse.ArgumentTypeError('unknown resource; filesystem resources use disk_percent[group] or inode_percent[group]')
     return value
 
-def argv_parse_check():
+def argv_parse_check(argv=None, parser_class=argparse.ArgumentParser):
     """
     Parse (and check a little) command line parameters
     """
-    parser        = argparse.ArgumentParser()
+    parser        = parser_class()
 
     parser.add_argument("-c",
                         dest    = 'conffile',
@@ -127,7 +127,7 @@ def argv_parse_check():
     for subcmd in six.itervalues(_SUBCMDS):
         subcmd.load_subcmd_parser(subparsers)
 
-    options, args = parser.parse_known_args()
+    options, args = parser.parse_known_args(argv)
 
     if args:
         parser.error("no argument is allowed - use option --help to get an help screen")
@@ -326,8 +326,10 @@ class MonitDockerSubCmdStats(object):
 
     def __init__(self, options):
         self.options = options
-        config = Configuration(options.conffile, MONIT_DOCKER_CONFIG).load(
-            include_rules=self.USE_RULES)
+        config = getattr(options, '_scenario_config', None)
+        if config is None:
+            config = Configuration(options.conffile, MONIT_DOCKER_CONFIG).load(
+                include_rules=self.USE_RULES)
         selector = ContainerSelector(
             selectors=dict((kind, getattr(options, kind)) for kind in ('id', 'name', 'label', 'image')),
             statuses=options.status, groups=config.get('ctn-groups'), selected_groups=options.ctn_grp)
@@ -754,6 +756,53 @@ class MonitDockerSubCmdCheckConfig(object):
         return 0 if result['valid'] else 110
 
 
+class MonitDockerSubCmdRun(object):
+    CMD_NAME = 'run'
+    CMD_HELP = 'run a named monitoring scenario from configuration'
+
+    def __init__(self, options):
+        self.options = options
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help=cls.CMD_HELP)
+        parser.add_argument('scenario', help='exact scenario name')
+        parser.add_argument('--dry-run', action='store_true',
+                            help='simulate matching actions using the existing policy state')
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        from monit_docker.adapters.scenarios import reject_selection_overrides
+        reject_selection_overrides(parser, options)
+
+    def __call__(self):
+        from monit_docker.adapters.scenarios import run_scenario
+        return run_scenario(self.options, MONIT_DOCKER_CONFIG)
+
+
+class MonitDockerSubCmdScenario(MonitDockerSubCmdRun):
+    CMD_NAME = 'scenario'
+    CMD_HELP = 'list or inspect named scenarios without connecting to Docker'
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help=cls.CMD_HELP)
+        parser.add_argument('operation', choices=('list', 'show'))
+        parser.add_argument('scenario', nargs='?', help='exact scenario name for show')
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        super(MonitDockerSubCmdScenario, cls).valid_subcmd_parser(parser, options)
+        if (options.operation == 'show') != bool(options.scenario):
+            parser.error('scenario show requires a name; scenario list takes no name')
+
+    def __call__(self):
+        from monit_docker.adapters.scenarios import inspect_scenarios
+        return inspect_scenarios(self.options, MONIT_DOCKER_CONFIG)
+
+
+_SUBCMDS['run'] = MonitDockerSubCmdRun
+_SUBCMDS['scenario'] = MonitDockerSubCmdScenario
 _SUBCMDS['audit-export'] = MonitDockerSubCmdAudit
 _SUBCMDS['audit-send'] = MonitDockerSubCmdAuditSend
 _SUBCMDS['maintenance'] = MonitDockerSubCmdMaintenance
@@ -769,8 +818,8 @@ def main(options):
     """
     Main function
     """
-    # Offline commands do not require logging setup, runtime directories or Docker.
-    if options.subcommand in ('check-config', 'audit-export', 'audit-send', 'restart-reset', 'maintenance'):
+    # Resolve named jobs before setup; offline commands need no logging or Docker.
+    if options.subcommand in ('check-config', 'audit-export', 'audit-send', 'restart-reset', 'maintenance', 'run', 'scenario'):
         try:
             return _SUBCMDS[options.subcommand](options)()
         except (MonitoringError, OSError, ValueError) as error:

@@ -17,6 +17,7 @@ For installation and the command reference, see the
    :caption: Simple mode
 
    simple
+   scenarios
    cron
    trigger-delay
    filesystems

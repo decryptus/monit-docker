@@ -1,0 +1,31 @@
+# Install at /etc/monit-docker/monit-docker.yml or select with -c.
+# Replace container names and persistent paths for your deployment.
+scenarios:
+  web-stats:
+    description: Read web container CPU and memory usage
+    mode: stats
+    select:
+      name: ['web-*']
+    resources: [cpu_percent, mem_usage]
+
+  web-guard:
+    description: Restart web containers after sustained high memory usage
+    mode: cron
+    select:
+      name: ['web-*']
+    rules:
+      - 'mem_percent > 90 ? restart'
+    state-file: /var/lib/monit-docker/web-guard.json
+    cooldown: 300
+    max-restarts: 3
+    trigger-after: 120
+    max-gap: 90
+
+  web-monitor:
+    description: Continuously observe web containers without remediation
+    mode: serve
+    select:
+      name: ['web-*']
+    bind: 127.0.0.1
+    port: 9808
+    interval: 30
