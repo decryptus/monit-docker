@@ -1,3 +1,11 @@
+monit-docker (0.0.74) unstable; urgency=medium
+
+  * Filter journal events directly from container, source and result labels.
+  * Show removable active filters and preserve filtering in page exports.
+  * Keep keyboard navigation and compact mobile layouts.
+
+ -- Codex <codex@openai.com>  Thu, 24 Sep 2026 23:19:20 -0000
+
 monit-docker (0.0.73) unstable; urgency=medium
 
   * Compact journal cards with action, host and date in the heading.

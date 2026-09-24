@@ -216,6 +216,14 @@ and result. Event details include correlation IDs, safe failure reasons and
 notification delivery status. It refreshes only when requested; there is no
 polling, external JavaScript, database or additional service.
 
+Since 0.0.74, click a container, Manual action / Automatic action, or result label
+to filter the journal. Filters combine, restart at the newest page, and appear
+above the events as removable buttons. Clear removes all filters. Container
+labels use the full container ID when available, otherwise the name; the API
+retains its existing case-insensitive substring matching. Queued and In progress
+both select Pending. Exports follow the applied filters and current page.
+Quick filters use the applied view and replace unsubmitted form edits.
+
 The API is disabled by default. Enable `serve --audit-read-token-file FILE` and
 supply an explicit global `--audit-file PATH`. Use a separate 64-character hex
 secret, never the action or notification secret. An authenticated proxy must

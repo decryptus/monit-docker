@@ -42,6 +42,14 @@ Since 0.0.73, compact cards place the action, host and timestamp in the heading,
 separated by middle dots, with Event details on the right. Container, source and
 actor labels appear below, wrapping on narrow screens.
 
+Since 0.0.74, click a container, Manual action / Automatic action, or result label
+to filter the journal. Filters combine, restart at the newest page, and appear
+above the events as removable buttons. Clear removes all filters. Container
+labels use the full container ID when available, otherwise the name; the API
+retains its existing case-insensitive substring matching. Queued and In progress
+both select Pending. Exports follow the applied filters and current page.
+Quick filters use the applied view and replace unsubmitted form edits.
+
 The presentation uses the existing CSS and JavaScript, without Bootstrap or
 another runtime dependency. Raw fields remain in Event details and exports.
 

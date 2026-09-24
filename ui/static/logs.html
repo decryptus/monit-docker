@@ -18,11 +18,12 @@
       <label>Result<select name="result"><option value="">All results</option><option>pending</option><option>succeeded</option><option>failed</option><option>rejected</option><option>skipped</option><option>simulated</option><option>accepted</option><option>received</option></select></label>
       <div class="filter-buttons"><button class="primary" type="submit">Apply filters</button><button id="reset-logs" type="button">Clear</button></div>
     </form>
+    <div id="active-log-filters" class="active-log-filters" role="group" aria-label="Active filters" hidden></div>
     <p id="log-notice" class="notice" role="status" aria-live="polite">Loading recent events…</p>
     <section class="containers" aria-labelledby="events-title"><div class="section-heading"><div><h2 id="events-title">Events <span id="log-count" class="count">0</span></h2><p>Newest first · up to 100 per page · refresh on demand</p></div><div class="log-exports"><button id="export-jsonl" type="button" disabled>Export page · JSONL</button><button id="export-csv" type="button" disabled>Export page · CSV</button></div></div>
       <ol id="log-events" class="log-events"></ol><p id="log-empty" class="empty" hidden>No events in this part of the journal.</p>
       <div class="log-paging"><button id="previous-logs" type="button" disabled>Previous page</button><span id="log-page">Page 1</span><button id="older-logs" type="button" disabled>Older events</button></div>
-      <p class="section-note">Dates use your local timezone. “Accepted” means the destination acknowledged a notification, not that a person received it. Visible text escapes are preserved in exports.</p>
+      <p class="section-note">Click a container, source or result label to filter. Remove active filters individually or choose Clear. Queued and In progress share the Pending filter. Dates use your local timezone. “Accepted” means the destination acknowledged a notification, not that a person received it. Visible text escapes are preserved in exports.</p>
     </section>
     <footer><span>monit-docker <span class="footer-dot">/</span> Lightweight monitoring</span><a href="/">Back to overview</a></footer>
   </main>
