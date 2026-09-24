@@ -1,4 +1,4 @@
-# Named scenarios
+# Named scenarios (since 0.0.70)
 
 Define a monitoring job once, then run it by name. A scenario combines container
 selection, rules or resources, and execution settings. It uses the existing
