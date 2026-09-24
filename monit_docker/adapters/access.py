@@ -5,25 +5,28 @@ from monit_docker.domain.errors import MonitoringError
 _IDENTITY_FIELDS = frozenset(('uid', 'gid', 'groups'))
 _MAX_ID = 4294967294
 _MAX_GROUPS = 128
-_ACCESS_COMMAND = ('sh', '-c', '''set -eu
-printf 'monit-access-v1\n'
-id -u
-id -g
-id -G
-while IFS= read -r line; do
-  case "$line" in CapEff:*|CapPrm:*) printf '%s\n' "$line";; esac
-done < /proc/self/status
-if test -d "$1"; then printf 'directory\n'
-elif test -f "$1"; then printf 'file\n'
-else exit 2; fi
-check() {
-  if test "$1" "$2"; then printf '1\n'
-  else rc=$?; test "$rc" -eq 1 || exit 2; printf '0\n'; fi
-}
-check -r "$1"
-check -w "$1"
-check -x "$1"
-''', 'monit-access')
+_ACCESS_COMMAND = ('python3', '-I', '-S', '-c', '''import os, stat, sys
+if sys.platform != 'linux':
+    raise RuntimeError('Linux is required')
+with open('/proc/self/status') as stream:
+    status = dict(line.split(':', 1) for line in stream if ':' in line)
+if (len(set(map(int, status['Uid'].split()))) != 1
+        or len(set(map(int, status['Gid'].split()))) != 1):
+    raise RuntimeError('real, effective, saved and filesystem IDs must agree')
+mode = os.stat(sys.argv[1]).st_mode
+kind = 'directory' if stat.S_ISDIR(mode) else 'file' if stat.S_ISREG(mode) else None
+if kind is None:
+    raise RuntimeError('only regular files and directories are supported')
+print('monit-access-v1')
+print(os.getuid())
+print(os.getgid())
+print(' '.join(map(str, sorted(set(os.getgroups()) | {os.getgid()}))))
+print('CapPrm:' + status['CapPrm'].strip())
+print('CapEff:' + status['CapEff'].strip())
+print(kind)
+for flag in (os.R_OK, os.W_OK, os.X_OK):
+    print(int(os.access(sys.argv[1], flag)))
+''')
 
 
 def access_identities(groups):

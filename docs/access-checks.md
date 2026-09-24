@@ -35,8 +35,12 @@ both be zero; privileged/root probes with capabilities are rejected.
 The group and path identify the sample in JSON and Prometheus. No recursive
 scan occurs. One bounded exec checks all three rights for each distinct
 path/identity pair in a cycle. Checks are opt-in and do not run for CPU/memory,
-disk-space or inode checks alone. `sh`, `id`, shell `test`, and Linux
-`/proc/self/status` must be available inside the container. Paused containers
+disk-space or inode checks alone. `python3` and Linux `/proc/self/status` must be available inside the container.
+The isolated standard-library probe uses `os.access` with matching real, effective,
+saved and filesystem IDs. It deliberately avoids shell `test`, which may
+calculate permission bits without accounting for ACLs (notably BusyBox).
+No Python package is installed by the probe; images without Python report the
+check as unavailable. Paused containers
 cannot run probes. A missing/inaccessible path, missing utilities, identity
 mismatch or malformed response fails collection (code 115); an omitted access
 identity is a configuration error (110). Unknown results never become 1.

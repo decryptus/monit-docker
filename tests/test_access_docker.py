@@ -10,7 +10,7 @@ from monit_docker.core import MonitoringEngine
 from monit_docker.domain.errors import MonitoringError
 
 _SETUP = '''set -eu
-apk add --no-cache acl >/dev/null
+apk add --no-cache acl python3 >/dev/null
 mkdir -p /checks/acl /checks/default /checks/group /checks/no-search
 chmod 755 /checks
 chmod 700 /checks/*

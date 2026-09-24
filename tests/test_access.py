@@ -42,7 +42,7 @@ class AccessTests(unittest.TestCase):
         path = '/data/a ; $(touch injected)'
         self.assertEqual(collect_access(run, 'api', 'id', path, IDENTITY), (1, 0, 1))
         self.assertEqual(run.call_args.args[-1][-1], path)
-        self.assertNotIn(path, run.call_args.args[-1][2])
+        self.assertNotIn(path, run.call_args.args[-1][-2])
         self.assertEqual(run.call_args.kwargs, {'user': '1000:1000'})
 
     def test_same_path_with_distinct_identities_never_reuses_access_result(self):
