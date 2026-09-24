@@ -10,6 +10,7 @@ from __future__ import absolute_import
 from collections import OrderedDict
 import math
 from numbers import Integral, Real
+from monit_docker.domain.filesystems import FilesystemSample, filesystem_resource
 
 try:
     STRING_TYPES = (basestring,)
@@ -30,16 +31,23 @@ class ContainerSnapshot(object):
     are left to the collector; this model validates types and finite values.
     """
 
-    FIELDS = FIELDS + _POLICY_FIELDS
+    FIELDS = FIELDS + _POLICY_FIELDS + ('filesystems',)
     RESOURCE_FIELDS = RESOURCE_FIELDS
     __slots__ = FIELDS
 
     def __init__(self, **values):
         values.setdefault('manual_actions_protected', False)
+        samples = values.get('filesystems') or ()
+        values['filesystems'] = tuple(FilesystemSample(**item) if isinstance(item, dict)
+                                     else item for item in samples)
         unknown = set(values) - set(self.FIELDS)
         if unknown:
             raise TypeError('Unknown snapshot fields: %s' % ', '.join(sorted(unknown)))
         for field, value in values.items():
+            if field == 'filesystems':
+                if not all(isinstance(item, FilesystemSample) for item in value):
+                    raise TypeError('Invalid filesystem samples')
+                continue
             if field == 'manual_actions_protected':
                 if not isinstance(value, bool):
                     raise TypeError('Invalid value for snapshot field: %s' % field)
@@ -65,4 +73,14 @@ class ContainerSnapshot(object):
         raise AttributeError('ContainerSnapshot is immutable')
 
     def to_dict(self):
-        return OrderedDict((field, getattr(self, field)) for field in self.FIELDS)
+        result = OrderedDict((field, getattr(self, field)) for field in self.FIELDS)
+        result['filesystems'] = [item._asdict() for item in self.filesystems]
+        return result
+
+    def resource_value(self, resource):
+        filesystem = filesystem_resource(resource)
+        if filesystem:
+            field, group = filesystem
+            return OrderedDict((item.path, getattr(item, field)) for item in self.filesystems
+                               if item.group == group)
+        return getattr(self, resource)

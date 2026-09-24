@@ -36,7 +36,7 @@ DATATYPES_BEFORE_RUN    = ('pid',
 
 PRE_COND_RE             = (r'(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?\s*(?P<pre_value_unit>[a-zA-Z]+)?)\s+' +
                            r'(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*')
-DATATYPE_RE             = r'(?P<datatype>[a-z_]+)\s*'
+DATATYPE_RE             = r'(?P<datatype>[a-z_]+(?:\[[a-zA-Z][a-zA-Z0-9_.-]{0,64}\])?)\s*'
 OP_RE                   = r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*'
 VALUE_RE                = r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?\s*(?P<value_unit>[a-zA-Z]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\)))'
 CMD_RE                  = r'(?P<cmd>[^@].{2,})'

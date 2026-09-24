@@ -12,6 +12,8 @@ from monit_docker.core.rules import RuleEvaluator
 from monit_docker.domain.errors import MonitoringError, ResourceTypeError, RuleSyntaxError
 from monit_docker.domain.models import ContainerSnapshot
 from monit_docker.domain.rules import Rule
+from monit_docker.adapters.filesystems import directory_groups
+from monit_docker.domain.filesystems import FilesystemSample, FILESYSTEM_FIELDS
 
 
 class ConfigurationCheckError(ValueError):
@@ -89,7 +91,7 @@ class CheckedConfiguration(Configuration):
         if self._root_pending:
             self._root_pending = False
             mapping(result, self.source)
-            allowed = {'general', 'vars', 'clients', 'ctn-groups', 'conditions', 'commands'}
+            allowed = {'general', 'vars', 'clients', 'ctn-groups', 'dir-groups', 'conditions', 'commands'}
             require(not set(result) - allowed, self.source, 'unknown top-level section')
             for name, value in result.items():
                 mapping(value, '%s: %s' % (self.source, name))
@@ -119,14 +121,14 @@ class CheckedConfiguration(Configuration):
     @staticmethod
     def _entries(conf, kind):
         mapping(conf, kind)
-        required = {'client': 'config', 'ctn-group': 'match', 'condition': 'expr', 'command': 'exec'}[kind]
+        required = {'client': 'config', 'ctn-group': 'match', 'dir-group': 'paths', 'condition': 'expr', 'command': 'exec'}[kind]
         for name, value in conf.items():
             location = '%s.%s' % (kind, name)
             if name.startswith('@'):
                 require(name in ('@import_' + kind, '@import_vars'), location, 'unknown import directive')
                 continue
             require(bool(name), kind, 'entry name must not be empty')
-            if kind in ('condition', 'command'):
+            if kind in ('condition', 'command', 'dir-group'):
                 require(re.match(r'^[a-zA-Z][a-zA-Z0-9_.-]{0,64}$', name), location, 'invalid alias name')
             mapping(value, location)
             require(required in value, location, 'missing %s' % required)
@@ -166,6 +168,8 @@ def _validate_rule(parser, expression, location):
         values = dict((field, 1) for field in ContainerSnapshot.RESOURCE_FIELDS
                       if field not in ('status', 'pid'))
         values.update(cpu_percent=1.0, mem_percent=1.0)
+        values['filesystems'] = tuple(FilesystemSample(group, path, *([1.0] * len(FILESYSTEM_FIELDS)))
+                                     for group, paths in parser.dir_groups.items() for path in paths)
         snapshot = ContainerSnapshot(status='running', pid=1, **values)
         for condition in rule.conditions:
             RuleEvaluator().matches(Rule(expression, (condition,), ()), snapshot)
@@ -192,6 +196,8 @@ def check_configuration(conffile, inline=None, selectors=None, selected_groups=(
     checked('selectors', lambda: ContainerSelector(selectors=selectors, groups=config.get('ctn-groups'),
                                                    selected_groups=selected_groups))
     commands, conditions = config.get('commands', {}), config.get('conditions', {})
+    dir_groups = config.get('dir-groups', {})
+    checked('dir-groups', lambda: directory_groups(dir_groups))
     for name, entry in commands.items():
         location = 'commands.%s.exec' % name
         _validate_action_list(entry['exec'], location)
@@ -200,9 +206,9 @@ def check_configuration(conffile, inline=None, selectors=None, selected_groups=(
     for name, entry in conditions.items():
         location = 'conditions.%s.expr' % name
         string_list(entry['expr'], location)
-        parser = checked(location, lambda: RuleParser(conditions={name: entry}))
+        parser = checked(location, lambda: RuleParser(conditions={name: entry}, dir_groups=dir_groups))
         _validate_rule(parser, '@%s ? reload' % name, location)
-    parser = RuleParser(commands, conditions)
+    parser = RuleParser(commands, conditions, dir_groups)
     for index, expression in enumerate(expressions):
         _validate_rule(parser, expression, '--cmd-if[%s]' % index)
     return {'clients': len(config.get('clients', {})), 'groups': len(config.get('ctn-groups', {})),

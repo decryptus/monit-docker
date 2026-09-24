@@ -8,12 +8,15 @@ from monit_docker.adapters.syntax import (COND_MATCH, CMD_MATCH, EXPR_MATCH,
 from monit_docker.domain.errors import (MonitoringError, RuleSyntaxError,
                                         ResourceTypeError)
 from monit_docker.domain.rules import Action, Condition, Rule
+from monit_docker.domain.filesystems import filesystem_resource
+from monit_docker.adapters.filesystems import directory_groups
 
 LOG = logging.getLogger('monit-docker')
 
 
 class RuleParser(object):
-    def __init__(self, commands=None, conditions=None):
+    def __init__(self, commands=None, conditions=None, dir_groups=None):
+        self.dir_groups = directory_groups(dir_groups)
         self._COMMANDS = {}
         self._CONDITIONS = {}
         self._EXPRS = {}
@@ -113,7 +116,21 @@ class RuleParser(object):
             r = self._EXPRS[expr]
 
         for cond in r['conditions']:
-            if cond['parsed']['datatype'] not in datatypes:
+            resource = cond['parsed']['datatype']
+            filesystem = filesystem_resource(resource)
+            if filesystem:
+                if filesystem[1] not in self.dir_groups:
+                    raise MonitoringError(110, 'unknown directory group: %s' % filesystem[1])
+                if cond['parsed']['op'].strip() in ('in', 'not in'):
+                    raise RuleSyntaxError('filesystem resources require numeric comparisons')
+                for key in ('value', 'pre_value'):
+                    value = cond['parsed'].get(key)
+                    if value is not None:
+                        try:
+                            float(value)
+                        except (TypeError, ValueError):
+                            raise RuleSyntaxError('filesystem resources require numeric values')
+            elif resource not in datatypes:
                 raise ResourceTypeError("invalid specified datatype: %r" % cond['parsed']['datatype'])
 
         return r

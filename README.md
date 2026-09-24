@@ -39,6 +39,7 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 2. [Quickstart: simple or serve](#quickstart)
 3. [Simple mode guide](docs/simple.md)
    - [Wait for sustained conditions before acting](docs/trigger-delay.md)
+   - [Disk space and inodes with reusable directory groups](docs/filesystems.md)
 4. [Serve mode guide](docs/serve.md)
    - [Web interface previews](#optional-web-interface)
    - [Optional mobile-friendly interface with Nginx](docs/ui.md)

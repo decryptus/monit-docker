@@ -24,7 +24,22 @@ ctn-groups:
     match:
       - 'id:4c01db0b339c'
       - 'name:node*'
+dir-groups:
+  data:
+    paths:
+      - /data
+      - /var/log
+  temporary:
+    paths:
+      - /tmp
+      - /dev/shm
 conditions:
+  data_disk_full:
+    expr:
+      - disk_percent[data] > 90
+  data_inodes_full:
+    expr:
+      - inode_percent[data] > 95
   mem_gt_10pct_and_cpu_gt_60pct:
     expr:
       - mem_percent > 10

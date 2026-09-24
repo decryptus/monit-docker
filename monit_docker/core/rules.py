@@ -1,6 +1,7 @@
 """Evaluate normalized conditions using only transport-neutral snapshots."""
 
 from monit_docker.domain.errors import MonitoringError, RuleSyntaxError
+from monit_docker.domain.filesystems import filesystem_resource
 
 
 class RuleEvaluator(object):
@@ -25,10 +26,31 @@ class RuleEvaluator(object):
         raise RuleSyntaxError('conditional operator unknown: %r' % operator)
 
     def matches(self, rule, snapshot):
-        return all(self._matches(condition, snapshot) for condition in rule.conditions)
+        groups = {}
+        for condition in rule.conditions:
+            filesystem = filesystem_resource(condition.resource)
+            if filesystem:
+                field, group = filesystem
+                groups.setdefault(group, []).append((field, condition))
+            elif not self._matches(condition, snapshot):
+                return False
+        for group, conditions in groups.items():
+            samples = [sample for sample in snapshot.filesystems if sample.group == group]
+            if not samples:
+                raise MonitoringError(115, 'no filesystem samples for directory group: %s' % group)
+            # Missing inode accounting must never look like a healthy zero.
+            if any(getattr(sample, field) is None for sample in samples for field, _ in conditions):
+                raise MonitoringError(115, 'filesystem metric unavailable for directory group: %s' % group)
+            if not any(all(self._matches_value(condition, getattr(sample, field))
+                           for field, condition in conditions) for sample in samples):
+                return False
+        return True
 
     def _matches(self, condition, snapshot):
         actual = getattr(snapshot, condition.resource)
+        return self._matches_value(condition, actual)
+
+    def _matches_value(self, condition, actual):
         if condition.resource == 'pid':
             actual = actual or ''  # Preserve the legacy missing-PID comparison.
         operator = condition.operator.strip()

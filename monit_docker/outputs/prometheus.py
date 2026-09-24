@@ -1,5 +1,10 @@
 """Prometheus text exposition 0.0.4 from the service cache (no collection)."""
 
+_FILESYSTEM_METRICS = (
+    ('disk_usage', 'disk_usage_bytes'), ('disk_available', 'disk_available_bytes'),
+    ('disk_total', 'disk_total_bytes'), ('disk_percent', 'disk_usage_percent'),
+    ('inode_usage', 'inode_usage'), ('inode_available', 'inode_available'),
+    ('inode_total', 'inode_total'), ('inode_percent', 'inode_usage_percent'))
 
 def _label(value):
     return str(value).replace('\\', '\\\\').replace('\n', '\\n').replace('"', '\\"')
@@ -41,4 +46,8 @@ def render_metrics(data):
             ('net_tx', 'network_transmit_bytes_total', 'counter')):
         metric('container_' + name, kind, 'Docker container ' + name.replace('_', ' ') + '.',
                [(labels(c), c[field]) for c in containers if c[field] is not None])
+    for field, name in _FILESYSTEM_METRICS:
+        metric('container_' + name, 'gauge', 'Container filesystem ' + name.replace('_', ' ') + '.',
+               [(labels(c) + (('group', sample['group']), ('path', sample['path'])), sample[field])
+                for c in containers for sample in c.get('filesystems', ()) if sample[field] is not None])
     return '\n'.join(lines) + '\n'

@@ -16,6 +16,8 @@ from monit_docker.domain.errors import CommandExecutionError, MonitoringError
 from monit_docker.domain.models import ContainerSnapshot
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import DOCKER_COMMANDS
+from monit_docker.adapters.filesystems import directory_groups, collect_filesystems
+from monit_docker.domain.filesystems import filesystem_resource
 
 LOG = logging.getLogger('monit-docker')
 
@@ -45,12 +47,13 @@ def client_factory(config, name=None, from_env=False):
 
 
 class DockerCollector(object):
-    def __init__(self, connect, selector=None):
+    def __init__(self, connect, selector=None, dir_groups=None):
         self.connect = connect
         self.selector = selector or ContainerSelector()
         self.client = None
         self._containers = OrderedDict()
         self.calculator = ResourceCalculator()
+        self.dir_groups = directory_groups(dir_groups)
 
     def begin_cycle(self):
         if self.client is not None:
@@ -82,6 +85,27 @@ class DockerCollector(object):
         return ContainerSnapshot(**values)
 
     def collect(self, snapshot, resources):
+        requested = tuple(dict.fromkeys(filesystem_resource(resource)[1] for resource in resources
+                                        if filesystem_resource(resource)))
+        if any(group not in self.dir_groups for group in requested):
+            raise MonitoringError(110, 'unknown directory group')
+        if requested and snapshot.status == 'paused':
+            raise MonitoringError(115, 'filesystem checks cannot run in a paused container: %s' % snapshot.name)
+        snapshot = self._collect_stats(snapshot, tuple(resource for resource in resources
+                                                      if not filesystem_resource(resource)))
+        if requested and snapshot.status == 'running':
+            values = snapshot.to_dict()
+            values['filesystems'] = collect_filesystems(self.client.api, snapshot.id, snapshot.name,
+                                                        self.dir_groups, requested)
+            for resource in resources:
+                filesystem = filesystem_resource(resource)
+                if filesystem and any(getattr(sample, filesystem[0]) is None
+                                      for sample in values['filesystems'] if sample.group == filesystem[1]):
+                    raise MonitoringError(115, 'filesystem metric unavailable for %s: %s' % (snapshot.name, resource))
+            snapshot = ContainerSnapshot(**values)
+        return snapshot
+
+    def _collect_stats(self, snapshot, resources):
         metrics = tuple(resource for resource in resources if resource not in ('pid', 'status'))
         if snapshot.status not in ('running', 'paused') or not metrics:
             return snapshot
