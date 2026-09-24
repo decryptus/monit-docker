@@ -24,7 +24,9 @@ from docker.errors import NotFound
 from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
+from monit_docker.adapters.state import LocalState
 from monit_docker.core import MonitoringEngine
+from monit_docker.core.policy import RestartPolicy
 from monit_docker.domain.errors import ActionRejected, MonitoringError
 
 
@@ -48,11 +50,69 @@ class DockerIntegrationTests(unittest.TestCase):
             except NotFound:
                 pass
 
-    def create_container(self, labels=None):
+    def create_container(self, labels=None, healthcheck=None):
         obj = self.client.containers.run('alpine:3.20', ['sleep', '120'],
-                                          name=self.name, detach=True, labels=labels or {})
+                                          name=self.name, detach=True, labels=labels or {}, healthcheck=healthcheck)
         self.objects.append(obj)
         return obj
+
+    def test_healthcheck_transitions_and_stopped_state(self):
+        obj = self.create_container(healthcheck={'test': ['CMD', 'test', '-f', '/tmp/healthy'],
+                                                'interval': 1000000000, 'timeout': 1000000000, 'retries': 1})
+
+        def wait_health(expected):
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                obj.reload()
+                if obj.attrs['State'].get('Health', {}).get('Status') == expected:
+                    return
+                time.sleep(0.2)
+            self.fail('Docker did not reach health state %s' % expected)
+
+        wait_health('unhealthy')
+        rule = RuleParser().parse('health == unhealthy ? (true)')
+        result = self.engine.run_once(rules=(rule,), resources=('health',))
+        self.assertEqual(result.snapshots[0].health, 'unhealthy')
+        self.assertEqual(len(result.actions), 1)
+        self.assertEqual(obj.exec_run(['touch', '/tmp/healthy']).exit_code, 0)
+        wait_health('healthy')
+        result = self.engine.run_once(rules=(rule,), resources=('health',))
+        self.assertEqual(result.snapshots[0].health, 'healthy')
+        self.assertEqual(result.actions, ())
+        obj.stop(timeout=1)
+        result = self.engine.run_once(rules=(rule,), resources=('health',))
+        self.assertEqual(result.snapshots[0].health, 'unknown')
+        self.assertEqual(result.actions, ())
+
+    def test_restart_budget_survives_fresh_cycles_against_docker(self):
+        obj = self.create_container()
+        rule = RuleParser().parse('restart')
+        with tempfile.TemporaryDirectory() as directory:
+            for cycle in range(3):
+                decisions = []
+                with LocalState(os.path.join(directory, 'state.json')) as state:
+                    policy = RestartPolicy(state, (rule,), 0, max_restarts=1)
+                    result = self.engine.run_once(rules=(rule,), resources=('health',),
+                                                  action_policy=policy, on_action=decisions.append)
+                self.assertEqual(decisions[0].status, 'executed' if cycle == 0 else 'restart-limit')
+                self.assertEqual(result.snapshots[0].id, obj.id)
+                self.assertEqual(result.snapshots[0].restart_attempts, 1)
+            self.executor.execute.assert_called_once()
+
+    def test_read_only_root_bind_mount_and_writable_tmpfs_modes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            obj = self.client.containers.run('alpine:3.20', ['sleep', '120'], name=self.name,
+                detach=True, read_only=True, tmpfs={'/writable': 'rw,size=1m'},
+                volumes={directory: {'bind': '/bound', 'mode': 'ro'}})
+            self.objects.append(obj)
+            self.assertEqual(obj.exec_run(['ln', '-s', '/bound', '/writable/link']).exit_code, 0)
+            groups = {'data': {'paths': ['/etc', '/writable', '/bound', '/writable/link']}}
+            collector = DockerCollector(lambda: docker.from_env(timeout=15), self.selector, groups)
+            engine = MonitoringEngine(collector, DockerActionExecutor(collector))
+            rule = RuleParser(dir_groups=groups).parse('fs_mode[data] == ro ? (true)')
+            result = engine.run_once(rules=(rule,), resources=('fs_mode[data]',))
+            self.assertEqual([s.fs_mode for s in result.snapshots[0].filesystems], ['ro', 'rw', 'ro', 'ro'])
+            self.assertEqual(len(result.actions), 1)
 
     def test_busybox_filesystem_groups_and_missing_paths(self):
         obj = self.create_container()

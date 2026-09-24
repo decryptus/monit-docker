@@ -26,7 +26,7 @@ must be writable by the cron user, who also needs Docker access. New directories
 are created with mode 0700, and new state and lock files with mode 0600.
 
 Dry run collects real container data and evaluates the rules. It emits one JSON
-line per matching action, with status `dry-run`, `cooldown` or `pending`, and never calls
+line per matching action, with status `dry-run`, `cooldown`, `pending` or `restart-limit`, and never calls
 the action executor. It does not create or change the JSON state file; it may
 create the directory and lock file needed to obtain a consistent state snapshot.
 Reservations are simulated in memory to handle duplicate rules within the cycle.
@@ -51,7 +51,7 @@ with five minutes between attempts of the same rule on the same container:
 Adjust the executable path to your installation. Cron must have the required
 configuration and Docker environment variables; it does not inherit your
 interactive shell environment. Normal execution emits JSON action decisions
-with status `executed`, `cooldown` or `pending`. Existing diagnostic logging goes to stderr
+with status `executed`, `cooldown`, `pending` or `restart-limit`. Existing diagnostic logging goes to stderr
 and the configured log file. Cron may mail the output according to local settings.
 
 Example decision:
@@ -63,7 +63,10 @@ Example decision:
 For a delay **before** the first action, use the optional
 [`--trigger-after` and `--max-gap` options](trigger-delay.md). Without them, the
 first matching rule can execute immediately. The existing cooldown then spaces
-attempts.
+attempts. Automatic Docker restarts are also capped at three attempts per
+container ID by default, shared across the rules in this state file. Configure
+`--max-restarts` and use `restart-reset` after intervention; see
+[bounded restarts and explicit rearm](restart-limit.md).
 
 ## Locking and persistent state
 
@@ -102,7 +105,8 @@ Other rules have independent cooldowns.
 
 This is a bound on attempts, not an exactly-once guarantee: a crash between
 reservation and execution can defer a rule that never ran. After the cooldown,
-the complete rule can run again if it still matches. Time is wall-clock time so
+the complete rule can run again if it still matches and its restart budget permits
+it. Time is wall-clock time so
 it survives process restarts; moving the clock backward delays eligibility and
 moving it forward may expire cooldowns earlier in elapsed time.
 
@@ -122,7 +126,7 @@ Leave the lock file in place.
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Cycle completed, including a preview or rules skipped by cooldown or trigger delay |
+| 0 | Cycle completed, including a preview or rules skipped by cooldown, trigger delay or restart limit |
 | 2 | Invalid CLI arguments |
 | 110 | Invalid configuration or action |
 | 114 | No matching container |

@@ -40,6 +40,9 @@ conditions:
   data_inodes_full:
     expr:
       - inode_percent[data] > 95
+  data_read_only:
+    expr:
+      - fs_mode[data] == ro
   mem_gt_10pct_and_cpu_gt_60pct:
     expr:
       - mem_percent > 10

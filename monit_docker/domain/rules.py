@@ -1,6 +1,7 @@
 """Internal rule and cycle values; these are not a public wire protocol."""
 
 from collections import namedtuple
+from monit_docker.domain.models import STATE_RESOURCES
 
 
 Condition = namedtuple('Condition', 'resource operator value pre_operator pre_value source')
@@ -19,4 +20,4 @@ class Rule(namedtuple('RuleBase', 'source conditions actions')):
 
     @property
     def needs_metrics(self):
-        return any(r not in ('pid', 'status') for r in self.resources)
+        return any(r not in STATE_RESOURCES for r in self.resources)

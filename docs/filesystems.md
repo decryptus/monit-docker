@@ -1,4 +1,4 @@
-# Disk space and inode checks
+# Disk space, inode and mount mode checks
 
 Define named groups of paths in the container, then reference the group in a
 resource or condition. A group is reusable across container selections. All
@@ -21,12 +21,16 @@ conditions:
   data_inodes_full:
     expr:
       - inode_percent[data] > 95
+  data_read_only:
+    expr:
+      - fs_mode[data] == ro
 ```
 
 Use one group per path when paths need different thresholds. Group names follow
 the same naming convention as condition aliases. Relative paths and control
 characters are rejected. Spaces and shell punctuation are passed literally;
-collection never invokes a shell. Duplicate paths are sampled once per cycle
+stat collection never invokes a shell. The mount-mode probe uses a fixed shell
+script with the path as a quoted positional argument. Duplicate paths are sampled once per cycle
 and container, including across groups.
 
 Like other configuration sections, `dir-groups` supports templates, variables
@@ -55,10 +59,37 @@ mounts, volumes and tmpfs are measured as seen inside the container.
 | `inode_available` | Free inodes |
 | `inode_total` | Total inodes |
 | `inode_percent` | `used / total * 100` |
+| `fs_mode` | Effective mount mode: `ro` or `rw` |
 
 Append `[group]` to every prefix. API values use raw bytes; `stats` formats byte
 values for readability. Filesystem `monit --rsc` queries print per-path values;
 they do not collapse multiple paths into one percentage exit code.
+
+## Read-only and read-write mounts
+
+```sh
+monit-docker -c config.yml --name 'app-*' stats --rsc 'fs_mode[data]'
+monit-docker -c config.yml --name 'app-*' monit --dry-run \
+  --cmd-if 'fs_mode[data] == ro ? (true)'
+```
+
+`fs_mode` supports `==`, `!=`, `in` and `not in` with `ro`/`rw`, using the same
+group and same-path matching rules as disk and inode checks. An unavailable mode
+is an error (115), never silently `rw`. In the API, unrequested modes are null.
+
+The probe opens each directory for reading and resolves its actual mount ID
+using Linux [`fdinfo` and `mountinfo`](https://www.kernel.org/doc/html/latest/filesystems/proc.html).
+This follows symlinks and handles bind mounts without guessing from path
+prefixes. Either a read-only per-mount flag or a read-only superblock yields
+`ro`. A mode-only query needs no stat command or Docker statistics stream and
+creates no test file. Only directories are accepted by this probe.
+
+`rw` describes the mount, not the application's ability to create files. Unix
+permissions, ACLs, quotas, a full disk and security policy can still prevent
+writes. This check does not change permissions or remount anything. Read-only
+roots and configuration mounts can be intentional: select the paths expected
+to remain writable. Diagnose a filesystem unexpectedly remounted read-only
+before choosing a remediation command.
 
 ## Evaluate rules
 
@@ -94,14 +125,14 @@ This validates configuration syntax, not the existence of paths in containers.
 ```sh
 monit-docker -c config.yml --name 'app-*' serve \
   --rsc cpu_percent --rsc mem_percent \
-  --rsc 'disk_percent[data]' --rsc 'inode_percent[data]' \
+  --rsc 'disk_percent[data]' --rsc 'inode_percent[data]' --rsc 'fs_mode[data]' \
   --rsc 'disk_percent[temporary]' --rsc 'inode_percent[temporary]'
 ```
 
 Only groups requested by `--rsc` or rules are sampled. Defining a group alone
 does not enable collection or add any container exec calls to CPU/memory checks.
 `/v1/status` adds a `filesystems` list per container, with `group`, `path` and all
-eight raw values. Prometheus exports these gauges with `id`, `name`, `group`
+eight numeric values plus `fs_mode`. Uncollected values are null. Prometheus exports these gauges with `id`, `name`, `group`
 and `path` labels:
 
 * `monit_docker_container_disk_usage_bytes`
@@ -112,6 +143,7 @@ and `path` labels:
 * `monit_docker_container_inode_available`
 * `monit_docker_container_inode_total`
 * `monit_docker_container_inode_usage_percent`
+* `monit_docker_container_filesystem_read_only` (1 for `ro`, 0 for `rw`; omitted when not collected)
 
 Add Prometheus alerts to the existing Alertmanager notification pipeline, for
 example `monit_docker_container_disk_usage_percent{group="data"} > 90` and
@@ -119,17 +151,25 @@ example `monit_docker_container_disk_usage_percent{group="data"} > 90` and
 choose how long a threshold must remain exceeded before notifying. The `path`
 label identifies the affected location; thresholds can also filter by path.
 
+For mount modes, alert on `monit_docker_container_filesystem_read_only{group="data"} == 1`,
+with the same freshness checks used for other container metrics.
+
 ## Requirements and errors
 
-Collection uses Docker exec and `stat -f -c '%S %b %f %a %c %d' -- PATH` in Linux
+Capacity collection uses Docker exec and `stat -f -c '%S %b %f %a %c %d' -- PATH` in Linux
 containers, compatible with GNU stat and Alpine's BusyBox stat. The container
 must provide this command and allow access to the path. Images without stat,
 including many distroless images, cannot use this collector. No helper is
 installed and no privileged container access or host filesystem mount is needed.
 
-Output reading is limited to five seconds and 4 KiB per path. Docker API setup
+Mount-mode collection instead requires `sh`, `cat`, readable directories and
+Linux `/proc/self/fdinfo` and `/proc/self/mountinfo`. It works with Alpine BusyBox
+and standard GNU tools. Both probes run with the container's configured exec user.
+
+Output reading is limited to five seconds per probe: 4 KiB for stat and 256 KiB
+for mount information. Oversized output is an error. Docker API setup
 requests use the client's normal timeout. Closing a timed-out exec connection
-does not forcibly kill a stuck stat process inside the container.
+does not forcibly kill a stuck probe process inside the container.
 
 A missing/inaccessible path, unsupported stat, invalid output or timed-out read
 fails collection with error 115 and container/group/path context. Metric-based

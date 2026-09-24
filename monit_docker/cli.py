@@ -25,10 +25,10 @@ from monit_docker.adapters.configuration import Configuration
 from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor, client_factory
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
-from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC
+from monit_docker.adapters.syntax import RESOURCE_CHOICES, STATUS_RC, HEALTH_RC
 from monit_docker.core import MonitoringEngine
-from monit_docker.core.policy import CooldownPolicy, TriggerPolicy
-from monit_docker.domain.errors import CommandExecutionError, MonitoringError
+from monit_docker.core.policy import CooldownPolicy, RestartPolicy, DEFAULT_MAX_RESTARTS, restart_key
+from monit_docker.domain.errors import ActionRejected, CommandExecutionError, MonitoringError
 from monit_docker.outputs.formatting import format_resource
 from monit_docker.domain.filesystems import filesystem_resource
 
@@ -231,6 +231,49 @@ class MonitDockerSubCmdAuditSend(MonitDockerSubCmdAudit):
         return 0
 
 
+class MonitDockerSubCmdRestartReset(object):
+    CMD_NAME = 'restart-reset'
+    CMD_HELP = 'rearm automatic restarts for one exact container ID without connecting to Docker'
+
+    def __init__(self, options):
+        self.options = options
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help=cls.CMD_HELP)
+        parser.add_argument('--state-file', required=True)
+        parser.add_argument('--container-id', required=True, help='full 64-character Docker container ID')
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        import re
+        if not options.state_file.strip():
+            parser.error('--state-file must not be empty')
+        if not re.fullmatch('[0-9a-f]{64}', options.container_id):
+            parser.error('--container-id must be a full 64-character lowercase hexadecimal ID')
+
+    def __call__(self):
+        import uuid
+        from monit_docker.adapters.state import LocalState
+        with LocalState(self.options.state_file) as state:
+            key = restart_key(self.options.container_id)
+            if key not in state.restarts:
+                raise MonitoringError(110, 'no restart attempts recorded for this container')
+            audit = _audit_journal(self.options)
+            fields = dict(correlation_id=uuid.uuid4().hex, source='manual', actor=getpass.getuser(),
+                          container_id=self.options.container_id, action='restart-reset')
+            audit.record('action', 'started', result='pending', **fields)
+            try:
+                state.reset_restarts(key)
+            except Exception as error:
+                audit.finish('action', 'completed', result='failed', reason=type(error).__name__,
+                             error_code=getattr(error, 'code', None), **fields)
+                raise
+            audit.finish('action', 'completed', result='succeeded', **fields)
+        print(json.dumps(dict(container_id=self.options.container_id, status='rearmed')))
+        return 0
+
+
 class MonitDockerSubCmdStats(object):
     CMD_NAME = 'stats'
     CMD_HELP = 'display stats information'
@@ -372,6 +415,8 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
             resource = resources[0]
             if resource == 'status':
                 raise MonitDockerExit(self._get_status_rc(snapshot.status))
+            if resource == 'health':
+                raise MonitDockerExit(HEALTH_RC.get(snapshot.health, HEALTH_RC['unknown']))
             if resource == 'pid':
                 self._write_pidfile(snapshot.pid or '', snapshot.name)
             if resource.endswith('_percent'):
@@ -384,14 +429,18 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
         super(MonitDockerSubCmdMonit, self)._output_snapshot(snapshot)
 
 
-def _add_trigger_options(parser):
+def _add_policy_options(parser):
+    parser.add_argument('--max-restarts', type=int, default=DEFAULT_MAX_RESTARTS,
+                        help='automatic restart attempts per container until explicit rearm (default: %(default)s)')
     parser.add_argument('--trigger-after', type=float, default=0,
                         help='seconds a condition must remain observed true before acting (default: 0)')
     parser.add_argument('--max-gap', type=float,
                         help='maximum seconds between true observations; required with --trigger-after')
 
 
-def _validate_trigger_options(parser, options):
+def _validate_policy_options(parser, options):
+    if options.max_restarts < 1:
+        parser.error('--max-restarts must be a positive integer')
     if not math.isfinite(options.trigger_after) or options.trigger_after < 0:
         parser.error('--trigger-after must be finite and non-negative')
     if options.trigger_after > 0:
@@ -406,8 +455,8 @@ def _validate_trigger_options(parser, options):
 def _rule_policy(state, rules, options):
     if not rules:
         return CooldownPolicy(state, rules, options.cooldown)
-    return TriggerPolicy(state, rules, options.cooldown, options.trigger_after,
-                         options.max_gap, read_only=options.dry_run)
+    return RestartPolicy(state, rules, options.cooldown, options.trigger_after,
+                         options.max_gap, read_only=options.dry_run, max_restarts=options.max_restarts)
 
 
 class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
@@ -422,7 +471,7 @@ class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
                             help='persistent JSON state; use one file per Docker host and job')
         parser.add_argument('--cooldown', type=float, default=300,
                             help='minimum seconds between attempts of the same rule (default: 300)')
-        _add_trigger_options(parser)
+        _add_policy_options(parser)
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
@@ -433,7 +482,7 @@ class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
             parser.error('--state-file must not be empty')
         if not math.isfinite(options.cooldown) or options.cooldown < 0:
             parser.error('--cooldown must be a finite non-negative number')
-        _validate_trigger_options(parser, options)
+        _validate_policy_options(parser, options)
 
     def __call__(self):
         from monit_docker.adapters.state import LocalState
@@ -470,7 +519,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--notification-token-file', help='enable private Alertmanager audit webhook with a separate Bearer secret')
         parser.add_argument('--action-cooldown', type=float, default=30,
                             help='minimum seconds between manual attempts per container (default: 30)')
-        _add_trigger_options(parser)
+        _add_policy_options(parser)
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
@@ -520,7 +569,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--audit-read-token-file requires an explicit --audit-file')
         if options.trust_proxy_user and not options.allow_actions:
             parser.error('--trust-proxy-user requires --allow-actions')
-        _validate_trigger_options(parser, options)
+        _validate_policy_options(parser, options)
         if options.trigger_after and options.max_gap <= options.interval:
             parser.error('--max-gap must exceed --interval to allow time for collection')
         options.resource = options.resource or RESOURCE_CHOICES
@@ -580,9 +629,12 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         try:
             with LocalState(self.options.state_file) as state:
                 def claim(identifier):
+                    if command == 'restart-reset' and restart_key(identifier) not in state.restarts:
+                        raise ActionRejected('no_restart_attempts')
                     key = hashlib.sha256(('manual:' + identifier).encode('ascii')).hexdigest()
                     return state.reserve(key, time.time(), self.options.action_cooldown)
-                self.engine.run_manual_action(container_id, command, claim)
+                self.engine.run_manual_action(container_id, command, claim,
+                                             reset_restarts=lambda identifier: state.reset_restarts(restart_key(identifier)))
         except APIError as error:
             raise MonitoringError(180, str(error))
         except DockerException as error:
@@ -632,6 +684,7 @@ class MonitDockerSubCmdCheckConfig(object):
 
 _SUBCMDS['audit-export'] = MonitDockerSubCmdAudit
 _SUBCMDS['audit-send'] = MonitDockerSubCmdAuditSend
+_SUBCMDS['restart-reset'] = MonitDockerSubCmdRestartReset
 _SUBCMDS['check-config'] = MonitDockerSubCmdCheckConfig
 _SUBCMDS['serve'] = MonitDockerSubCmdServe
 _SUBCMDS['cron'] = MonitDockerSubCmdCron
@@ -643,12 +696,12 @@ def main(options):
     """
     Main function
     """
-    # Offline validation must not create log/runtime/state files.
-    if options.subcommand in ('check-config', 'audit-export', 'audit-send'):
+    # Offline commands do not require logging setup, runtime directories or Docker.
+    if options.subcommand in ('check-config', 'audit-export', 'audit-send', 'restart-reset'):
         try:
             return _SUBCMDS[options.subcommand](options)()
         except (MonitoringError, OSError, ValueError) as error:
-            print('Audit/validation operation failed (%s)' % type(error).__name__, file=sys.stderr)
+            print('%s operation failed (%s)' % (options.subcommand, type(error).__name__), file=sys.stderr)
             return getattr(error, 'code', 119)
 
     xformat     = "%(levelname)s:%(asctime)-15s: %(message)s"

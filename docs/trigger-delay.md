@@ -16,7 +16,7 @@ These mechanisms serve different purposes:
 
 The local delay is optional and defaults to **0** (immediate). It applies to all
 conditional rules in this invocation. An unconditional command such as
-`--cmd restart` still runs immediately, subject to cooldown. For different delays
+`--cmd restart` still runs immediately, subject to cooldown and restart budget. For different delays
 per rule, use separate jobs with separate state files. `monit` retains its simple
 immediate behavior.
 
@@ -80,7 +80,8 @@ Once the condition has lasted long enough, the normal cooldown decides whether
 actions may run. A continuing condition stays eligible after the cooldown expires;
 it does **not** need a fresh full delay after each attempt. A false condition
 resets its duration, but never clears its action cooldown. With cooldown zero,
-an eligible condition can cause actions in every cycle. Failed action sequences
+an eligible condition can cause actions in every cycle, subject to the persistent
+[restart limit](restart-limit.md). Failed action sequences
 retain their cooldown, as described in [cron](cron.md).
 
 Times are Unix wall-clock seconds so they survive separate processes and reboots.
@@ -104,18 +105,21 @@ counter of skipped action decisions, **not** the number of currently pending
 rules or their remaining delay. Nonmatching rules report no decision.
 
 `--dry-run` evaluates the existing stored observations, but changes no JSON file
-and performs no action. It can report `pending`, `cooldown` or `dry-run`. It does
+and performs no action. It can report `pending`, `cooldown`, `restart-limit` or `dry-run`. It does
 not accumulate a new persistent streak across previews. In particular, repeated
 serve preview cycles without prior real observations remain pending. Directory
 and lock-file creation have the same semantics as the existing cron preview.
 
-The first persisted observation upgrades the state to **schema version 2**,
+The first persisted observation upgrades version 1 state to **schema version 2**,
 which stores `observations` alongside `cooldowns`. Existing version 1 cooldowns
-are read and preserved. Jobs that never use the delay continue writing version 1.
+are read and preserved. An automatic restart reservation upgrades either format
+to **version 3**, adding persistent restart counters. Jobs using neither feature
+continue writing version 1.
 Disabling the delay clears its tracking on the next real cycle and preserves
-cooldowns; a migrated file remains version 2. Older monit-docker versions reject
-version 2 with exit **118**. Back up the state before upgrading if rollback is
-needed; restoring an old backup also restores its old cooldown reservations.
+cooldowns and restart counters; migrated files never downgrade. Older
+monit-docker versions reject unsupported schema versions with exit **118**.
+Back up the state before upgrading if rollback is needed; restoring an old backup
+also restores its old reservations and restart counts.
 
 The existing process lock, private files and atomic, synced writes are reused.
 Corrupt state or a failed state write returns **118** and prevents the affected

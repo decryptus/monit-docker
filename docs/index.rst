@@ -20,6 +20,8 @@ For installation and the command reference, see the
    cron
    trigger-delay
    filesystems
+   healthchecks
+   restart-limit
 
 .. toctree::
    :maxdepth: 2

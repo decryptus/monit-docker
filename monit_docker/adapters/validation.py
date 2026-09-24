@@ -10,10 +10,10 @@ from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.core.rules import RuleEvaluator
 from monit_docker.domain.errors import MonitoringError, ResourceTypeError, RuleSyntaxError
-from monit_docker.domain.models import ContainerSnapshot
+from monit_docker.domain.models import ContainerSnapshot, STATE_RESOURCES
 from monit_docker.domain.rules import Rule
 from monit_docker.adapters.filesystems import directory_groups
-from monit_docker.domain.filesystems import FilesystemSample, FILESYSTEM_FIELDS
+from monit_docker.domain.filesystems import FilesystemSample, FILESYSTEM_NUMERIC_FIELDS
 
 
 class ConfigurationCheckError(ValueError):
@@ -166,9 +166,9 @@ def _validate_rule(parser, expression, location):
         rule = parser.parse(expression)
         # Validate each condition separately: normal evaluation short-circuits.
         values = dict((field, 1) for field in ContainerSnapshot.RESOURCE_FIELDS
-                      if field not in ('status', 'pid'))
-        values.update(cpu_percent=1.0, mem_percent=1.0)
-        values['filesystems'] = tuple(FilesystemSample(group, path, *([1.0] * len(FILESYSTEM_FIELDS)))
+                      if field not in STATE_RESOURCES)
+        values.update(cpu_percent=1.0, mem_percent=1.0, health='healthy')
+        values['filesystems'] = tuple(FilesystemSample(group, path, *([1.0] * len(FILESYSTEM_NUMERIC_FIELDS)), fs_mode='rw')
                                      for group, paths in parser.dir_groups.items() for path in paths)
         snapshot = ContainerSnapshot(status='running', pid=1, **values)
         for condition in rule.conditions:

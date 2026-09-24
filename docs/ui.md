@@ -84,7 +84,7 @@ a certificate for your hostname. The default is loopback only. The agent's
 port **9808 is never published** by this Compose example. Nginx is the only
 component exposed to the browser.
 
-## Enable start, stop and restart
+## Enable manual actions
 
 For a new installation, prepare the additional proxy secret:
 
@@ -121,6 +121,15 @@ The UI requires confirmation before submitting a command. The server permits:
 | Start | `created`, `exited` |
 | Stop | `running`, `restarting` |
 | Restart | `running` |
+| Rearm auto restarts | `created`, `running`, `paused`, `restarting`, `exited`, `dead`; a recorded automatic restart attempt is required |
+
+**Rearm auto restarts** appears when a counter is nonzero and the agent advertises
+support. Its confirmation shows the count being cleared and explains that
+matching rules may restart the container on the next cycle. The reset itself
+executes no Docker command and preserves automatic cooldowns and trigger timers.
+It uses the same authenticated queue, full-ID selection, protection checks and
+audit journal as the other actions. After success, the next snapshot refreshes
+the counter and the button disappears. See [restart budgets](restart-limit.md).
 
 All authenticated users have the same permissions. No user database, roles,
 shell execution, removal, pause or configuration editing is provided. The
@@ -137,7 +146,7 @@ Docker call, and shutting down the agent discards queued requests.
 The agent reselects the target using its full container ID and the configured
 selectors immediately before execution. A replacement with the same name is
 not targeted. A persistent **30-second per-container manual cooldown** applies
-across all three commands and agent restarts, including failed attempts after
+across all manual commands, including rearm, and agent restarts, including failed attempts after
 reservation. `--action-cooldown` can change this (minimum one second).
 Autonomous rule cooldowns remain separate. Existing rules remain active and
 may reverse a manual stop/start on the next cycle; account for that in rules.
@@ -152,7 +161,7 @@ inspect recent requests and the actual container state before another action.
 ## Protect a container from manual actions
 
 Add this Docker label to a container that should stay visible in monitoring but
-must not accept manual Start, Stop or Restart requests:
+must not accept manual Start, Stop, Restart or Rearm requests:
 
 ```yaml
 services:

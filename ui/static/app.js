@@ -3,12 +3,17 @@
 // No external resources, HTML interpolation, credentials or Docker access.
 const $ = id => document.getElementById(id);
 const rows = new Map();
-const labels = {start: 'Start', stop: 'Stop', restart: 'Restart'};
+const labels = {start: 'Start', stop: 'Stop', restart: 'Restart', 'restart-reset': 'Rearm auto restarts'};
+const HEALTH_LABELS = {
+  healthy: 'Health: healthy', unhealthy: 'Health: unhealthy',
+  starting: 'Health: starting', none: 'No healthcheck', unknown: 'Health: unknown'
+};
 const reasons = {
   busy: 'Another action is queued or running.', not_ready: 'Fresh data is required.',
   not_selected: 'The container is no longer selected.', state_changed: 'The container state changed.',
   container_protected: 'Manual actions are blocked for this container. Automatic rules remain active.',
   cooldown: 'The manual action cooldown has not elapsed.', expired: 'The queued request expired.',
+  no_restart_attempts: 'There are no automatic restart attempts to reset.',
   execution_failed: 'Execution failed; inspect the agent logs.',
   forbidden: 'The proxy action secret was rejected.', origin_rejected: 'The browser origin was rejected.',
   invalid_request: 'The action request was invalid.', request_id_conflict: 'The request ID was already used.'
@@ -46,7 +51,12 @@ function busy() { return (actions().recent || []).some(item => ['queued', 'runni
 function canAct(container, action) {
   return connected && performance.now() - receivedAt <= 10000 && data?.ready
     && actions().enabled && !container.manual_actions_protected && !posting && !unresolved && !busy()
+    && (action !== 'restart-reset' || hasRestartBudget(container))
     && (actions().allowed_states?.[action] || []).includes(container.status);
+}
+function hasRestartBudget(container) {
+  return Number.isInteger(container.restart_limit) && container.restart_limit > 0
+    && Number.isInteger(container.restart_attempts) && container.restart_attempts > 0;
 }
 function newRow(container) {
   const article = node('article', 'container-row');
@@ -56,12 +66,14 @@ function newRow(container) {
   identity.append(name, id);
   const statusCell = node('div', 'status-cell');
   const status = node('span', 'badge');
+  const health = node('span', 'metric-detail health-state');
+  const restarts = node('span', 'metric-detail restart-budget');
   const protection = node('span', 'protection');
   const lock = node('span', 'protection-lock');
   lock.setAttribute('aria-hidden', 'true');
   protection.append(lock, node('span', '', 'Protected'));
   protection.title = reasons.container_protected;
-  statusCell.append(status, protection);
+  statusCell.append(status, protection, health, restarts);
   const cpu = node('div', 'metric');
   const cpuValue = node('span', 'metric-value');
   cpu.append(node('span', 'cell-label', 'CPU'), cpuValue, node('span', 'metric-detail', '100% = one CPU core'));
@@ -81,7 +93,7 @@ function newRow(container) {
   controls.append(readonly);
   article.append(identity, statusCell, cpu, memory, controls);
   $('containers').append(article);
-  const row = {article, name, id, status, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
+  const row = {article, name, id, status, health, restarts, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
   rows.set(container.id, row);
   return row;
 }
@@ -100,13 +112,19 @@ function renderContainers() {
     row.id.title = container.id;
     row.status.textContent = container.status;
     row.status.dataset.state = container.status;
+    row.health.textContent = HEALTH_LABELS[container.health] || HEALTH_LABELS.unknown;
+    row.health.dataset.health = Object.hasOwn(HEALTH_LABELS, container.health) ? container.health : 'unknown';
+    row.restarts.hidden = !Number.isInteger(container.restart_limit);
+    row.restarts.textContent = row.restarts.hidden ? '' :
+      `Auto restarts: ${number(container.restart_attempts)}/${number(container.restart_limit)}${container.restart_attempts >= container.restart_limit ? ' · blocked' : ''}`;
     row.protection.hidden = !container.manual_actions_protected;
     row.cpuValue.textContent = percent(container.cpu_percent);
     row.memoryValue.textContent = bytes(container.mem_usage);
     row.memoryDetail.textContent = `${percent(container.mem_percent)} · limit ${bytes(container.mem_limit)}`;
     row.readonly.hidden = actions().enabled;
     for (const [action, button] of Object.entries(row.buttons)) {
-      button.hidden = !actions().enabled || !(actions().allowed_states?.[action] || []).includes(container.status);
+      button.hidden = !actions().enabled || !(actions().allowed_states?.[action] || []).includes(container.status)
+        || (action === 'restart-reset' && !hasRestartBudget(container));
       button.disabled = !canAct(container, action);
       button.title = container.manual_actions_protected ? reasons.container_protected : '';
       button.setAttribute('aria-label', `${labels[action]} ${container.name}`);
@@ -133,7 +151,7 @@ function render() {
   $('cycles').textContent = connected ? number(data.cycles_total) : '—';
   $('errors').textContent = connected ? `${number(data.errors_total)} failed · since agent startup` : 'Agent unavailable';
   $('executed').textContent = connected ? number(data.actions?.executed) : '—';
-  $('rule-summary').textContent = connected ? `${number(data.actions?.pending)} pending · ${number(data.actions?.cooldown)} cooldown · ${number(data.actions?.['dry-run'])} dry run` : 'Counters unavailable';
+  $('rule-summary').textContent = connected ? `${number(data.actions?.pending)} pending · ${number(data.actions?.cooldown)} cooldown · ${number(data.actions?.['restart-limit'])} restart limit · ${number(data.actions?.['dry-run'])} dry run` : 'Counters unavailable';
   $('mode').textContent = actions().enabled ? 'Manual controls enabled · one request at a time · autonomous rules remain active.' : 'Read-only access. No action can be triggered from this page.';
   let notice = message;
   if (!connected) notice = 'Connection lost. Measurements and controls are unavailable. Reconnecting does not repeat an action.';
@@ -192,8 +210,12 @@ function confirmAction(id, action) {
   const container = data?.containers.find(item => item.id === id);
   if (!container || !canAct(container, action)) return;
   selected = {container, action};
-  $('confirm-title').textContent = `${labels[action]} container?`;
+  const rearm = action === 'restart-reset';
+  $('confirm-title').textContent = rearm ? 'Rearm automatic restarts?' : `${labels[action]} container?`;
   $('confirm-description').textContent = `${container.name} (${container.id.slice(0, 12)})`;
+  $('confirm-note').textContent = rearm
+    ? `Reset ${number(container.restart_attempts)} recorded attempts to zero. This does not restart the container itself; matching monitoring rules may restart it on the next cycle. Existing cooldowns remain in effect.`
+    : 'Stopping or restarting interrupts the service. Configured monitoring rules may subsequently change its state again.';
   $('confirm-action').textContent = labels[action]; $('confirm-action').disabled = false;
   $('confirm').returnValue = 'cancel'; $('confirm').showModal();
 }

@@ -35,6 +35,16 @@ def render_metrics(data):
     labels = lambda c: (('id', c['id']), ('name', c['name']))
     metric('container_info', 'gauge', 'Container identity and Docker status.',
            [(labels(c) + (('status', c['status']),), 1) for c in containers])
+    metric('container_health_status', 'gauge', 'Container health state; the current state has value 1.',
+           [(labels(c) + (('health', c.get('health') or 'unknown'),), 1) for c in containers])
+    for field, description in (
+            ('restart_attempts', 'Automatic restart attempts reserved since explicit rearm.'),
+            ('restart_limit', 'Configured automatic restart attempt limit.')):
+        metric('container_' + field, 'gauge', description,
+               [(labels(c), c[field]) for c in containers if c.get(field) is not None])
+    metric('container_restart_blocked', 'gauge', 'Automatic restart budget exhausted; explicit rearm required.',
+           [(labels(c), int(c['restart_attempts'] >= c['restart_limit'])) for c in containers
+            if c.get('restart_limit') is not None and c.get('restart_attempts') is not None])
     for field, name, kind in (
             ('mem_usage', 'memory_usage_bytes', 'gauge'),
             ('mem_limit', 'memory_limit_bytes', 'gauge'),
@@ -50,4 +60,7 @@ def render_metrics(data):
         metric('container_' + name, 'gauge', 'Container filesystem ' + name.replace('_', ' ') + '.',
                [(labels(c) + (('group', sample['group']), ('path', sample['path'])), sample[field])
                 for c in containers for sample in c.get('filesystems', ()) if sample[field] is not None])
+    metric('container_filesystem_read_only', 'gauge', 'Filesystem mount is read-only (1) or read-write (0).',
+           [(labels(c) + (('group', sample['group']), ('path', sample['path'])), int(sample['fs_mode'] == 'ro'))
+            for c in containers for sample in c.get('filesystems', ()) if sample.get('fs_mode') in ('ro', 'rw')])
     return '\n'.join(lines) + '\n'

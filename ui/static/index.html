@@ -40,8 +40,8 @@
     </section>
     <footer><span>monit-docker <span class="footer-dot">/</span> Lightweight monitoring</span><span>Live snapshots · historical charts stay in Grafana</span></footer>
   </main>
-  <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-description">
-    <form method="dialog"><p class="eyebrow">CONTAINER ACTION</p><h2 id="confirm-title">Confirm action</h2><p id="confirm-description"></p><p class="dialog-note">Stopping or restarting interrupts the service. Configured monitoring rules may subsequently change its state again.</p><div class="dialog-buttons"><button value="cancel">Cancel</button><button id="confirm-action" value="confirm" class="primary">Confirm</button></div></form>
+  <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-description confirm-note">
+    <form method="dialog"><p class="eyebrow">CONTAINER ACTION</p><h2 id="confirm-title">Confirm action</h2><p id="confirm-description"></p><p id="confirm-note" class="dialog-note"></p><div class="dialog-buttons"><button value="cancel">Cancel</button><button id="confirm-action" value="confirm" class="primary">Confirm</button></div></form>
   </dialog>
   <noscript><p class="notice">JavaScript is required to read the agent API. No external scripts are loaded.</p></noscript>
 </body>

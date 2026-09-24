@@ -17,7 +17,7 @@ start a monitoring cycle. See [serve configuration and freshness](serve.md).
 | `monit_docker_last_success_timestamp_seconds` | gauge | Unix seconds | none | Completion time of last successful cycle; absent until first success |
 | `monit_docker_action_decisions_total` | counter | actions | `outcome` | Successful executions or skipped/simulated actions since startup |
 
-`outcome` is exactly one of `executed`, `cooldown`, `pending`, or `dry-run`. A rule with
+`outcome` is exactly one of `executed`, `cooldown`, `pending`, `restart-limit`, or `dry-run`. A rule with
 multiple actions can increment multiple decisions. Failed actions do not count
 as `executed`; the failed cycle increments `cycle_errors_total`. Successful
 actions earlier in a failed cycle remain counted. A rule that does not match
@@ -42,6 +42,10 @@ or exception message is used as a metric label.
 | Metric | Type | Unit | Meaning |
 | --- | --- | --- | --- |
 | `monit_docker_container_info` | gauge | always 1 | Identity and status from the cached snapshot |
+| `monit_docker_container_health_status` | gauge | always 1 | Current normalized health state in the additional `health` label |
+| `monit_docker_container_restart_attempts` | gauge | attempts | Automatic restart reservations since explicit rearm; present with automatic rules |
+| `monit_docker_container_restart_limit` | gauge | attempts | Configured automatic restart limit; present with automatic rules |
+| `monit_docker_container_restart_blocked` | gauge | boolean | Budget exhausted (1) or available (0); present with automatic rules |
 | `monit_docker_container_memory_usage_bytes` | gauge | bytes | Docker memory usage, minus `total_cache` when that field exists |
 | `monit_docker_container_memory_limit_bytes` | gauge | bytes | Limit reported by Docker |
 | `monit_docker_container_memory_usage_percent` | gauge | percent | Memory usage / reported limit × 100 |
@@ -50,6 +54,10 @@ or exception message is used as a metric label.
 | `monit_docker_container_io_write_bytes_total` | counter | bytes | Cumulative block-I/O writes summed from Docker's Write entries |
 | `monit_docker_container_network_receive_bytes_total` | counter | bytes | Cumulative received bytes summed over Docker interfaces |
 | `monit_docker_container_network_transmit_bytes_total` | counter | bytes | Cumulative transmitted bytes summed over Docker interfaces |
+
+The `health` label is `healthy`, `unhealthy`, `starting`, `none` (no active check),
+or `unknown` (no usable current result). Only the current state is emitted;
+healthcheck command output is excluded. See [Docker healthchecks](healthchecks.md).
 
 The byte totals are Docker counters, not deltas per scrape. They can reset on a
 container/daemon restart; use Prometheus `rate()` to compute bytes per second.
@@ -81,6 +89,7 @@ selection, requirements and error handling.
 | `monit_docker_container_inode_available` | gauge | inodes | Free inodes |
 | `monit_docker_container_inode_total` | gauge | inodes | Total inodes |
 | `monit_docker_container_inode_usage_percent` | gauge | percent | Used / total inodes × 100 |
+| `monit_docker_container_filesystem_read_only` | gauge | boolean | Mount is `ro` (1) or `rw` (0); only when `fs_mode[group]` is requested |
 
 These are capacity gauges, not cumulative I/O counters: do not use `rate()` to
 measure their occupancy. Paths report their containing filesystem's capacity,

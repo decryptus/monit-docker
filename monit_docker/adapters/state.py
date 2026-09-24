@@ -10,6 +10,12 @@ import tempfile
 
 from monit_docker.domain.errors import MonitoringError
 
+_STATE_FIELDS = {
+    1: {'version', 'cooldowns'},
+    2: {'version', 'cooldowns', 'observations'},
+    3: {'version', 'cooldowns', 'observations', 'restarts'},
+}
+
 
 class LocalState(object):
     def __init__(self, path):
@@ -21,6 +27,7 @@ class LocalState(object):
         self.lock_pid = None
         self.entries = {}
         self.observations = {}
+        self.restarts = {}
         self.version = 1
 
     def __enter__(self):
@@ -72,6 +79,7 @@ class LocalState(object):
     def _load(self):
         self.entries = {}
         self.observations = {}
+        self.restarts = {}
         self.version = 1
         try:
             fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0))
@@ -84,17 +92,22 @@ class LocalState(object):
                 raise ValueError('state must be a regular file')
             data = json.load(stream)
         if (not isinstance(data, dict) or type(data.get('version')) is not int
-                or data['version'] not in (1, 2)
-                or set(data) != ({'version', 'cooldowns'} if data['version'] == 1
-                                 else {'version', 'cooldowns', 'observations'})
+                or data['version'] not in _STATE_FIELDS
+                or set(data) != _STATE_FIELDS[data['version']]
                 or not isinstance(data['cooldowns'], dict)):
             raise ValueError('unsupported state schema')
         for key, value in data['cooldowns'].items():
             if not self._valid_key(key) or not self._valid_time(value):
                 raise ValueError('invalid cooldown entry')
         self.entries = data['cooldowns']
-        if data['version'] == 2:
+        if data['version'] >= 2:
             self.observations = self._validated_observations(data['observations'])
+        if data['version'] == 3:
+            if (not isinstance(data['restarts'], dict) or any(
+                    not self._valid_key(key) or type(count) is not int or count < 1
+                    for key, count in data['restarts'].items())):
+                raise ValueError('invalid restart entry')
+            self.restarts = data['restarts']
         self.version = data['version']
 
     @staticmethod
@@ -135,7 +148,35 @@ class LocalState(object):
         if not read_only:
             self._save(self.entries, observations)
         self.observations = observations
-        self.version = 2
+        self.version = max(self.version, 2)
+
+    def reserve_restart(self, key, limit, read_only=False):
+        """Persist an attempt before Docker is called, including failed attempts."""
+        self._require_lock()
+        if not self._valid_key(key) or type(limit) is not int or limit < 1:
+            raise ValueError('invalid restart reservation')
+        if self.restarts.get(key, 0) >= limit:
+            return False
+        restarts = dict(self.restarts)
+        restarts[key] = restarts.get(key, 0) + 1
+        if not read_only:
+            self._save(self.entries, restarts=restarts)
+        self.restarts = restarts
+        self.version = 3
+        return True
+
+    def reset_restarts(self, key):
+        """Explicit rearm; preserve unrelated budgets, cooldowns and observations."""
+        self._require_lock()
+        if not self._valid_key(key):
+            raise ValueError('invalid restart key')
+        if key not in self.restarts:
+            raise MonitoringError(110, 'no restart attempts recorded for this container')
+        restarts = dict(self.restarts)
+        del restarts[key]
+        self._save(self.entries, restarts=restarts)
+        self.restarts = restarts
+        self.version = 3
 
     def reserve(self, key, now, seconds, read_only=False):
         self._require_lock()
@@ -154,13 +195,15 @@ class LocalState(object):
         self.entries = entries
         return True
 
-    def _save(self, entries, observations=None):
+    def _save(self, entries, observations=None, restarts=None):
         temporary = None
         try:
             data = {'version': self.version, 'cooldowns': entries}
-            if observations is not None or self.version == 2:
+            if observations is not None or restarts is not None or self.version >= 2:
                 data.update(version=2, observations=(self.observations if observations is None
                                                      else observations))
+            if restarts is not None or self.version == 3:
+                data.update(version=3, restarts=self.restarts if restarts is None else restarts)
             fd, temporary = tempfile.mkstemp(prefix='.monit-state-', dir=self.directory)
             with os.fdopen(fd, 'w') as stream:
                 json.dump(data, stream, sort_keys=True, allow_nan=False)

@@ -112,6 +112,12 @@ separate files do not coordinate actions. Lock contention (117), state failures
 remains alive and retries on the next cycle. The successful actions of a partial
 cycle are not rolled back, and their reservations remain on disk.
 
+Automatic Docker restarts default to three attempts per container ID across all
+rules in the state file, including failed attempts. Configure `--max-restarts`
+and explicitly rearm after intervention with `restart-reset`; see
+[restart limits](restart-limit.md). Exhausting the budget skips affected rules
+with `restart-limit` while monitoring continues. It is not a failed cycle.
+
 Dry-run reservations are simulated within each cycle and discarded afterwards.
 Action-decision counters appear in the API and metrics; individual command text
 is not served. Exec failures retain the agent error code 116 in this long-running
@@ -180,12 +186,14 @@ ignore additional fields, so later additions need not change the URL version.
 | `age_seconds` | Monotonic age of the last success, or null |
 | `last_error_code` | Agent error code for the last failed cycle, otherwise null |
 | `cycles_total` / `errors_total` | Completed / failed cycles since process start |
-| `actions` | Counters for `executed`, `cooldown`, `pending` and `dry-run` decisions |
+| `actions` | Counters for `executed`, `cooldown`, `pending`, `restart-limit` and `dry-run` decisions |
 | `containers` | Fresh complete snapshot list; empty when not ready |
 | `manual_actions` | Optional capability object: `enabled`; when enabled, `allowed_states` and up to 32 `recent` request results |
 
 Each container has `id`, `name`, `status`, `pid`, `mem_usage`, `mem_limit`,
 `mem_percent`, `cpu_percent`, `io_read`, `io_write`, `net_tx`, and `net_rx`.
+It also exposes normalized `health`, filesystem samples, and `restart_attempts`
+and `restart_limit` when an automatic restart policy is active.
 Newer agents also include `manual_actions_protected`, a boolean derived from the
 `monit-docker.protected` Docker label. It restricts only manual actions; it is not
 a metric or a rule condition. Older agents omit this field. See
@@ -221,6 +229,14 @@ the trusted proxy and an exact configured `Origin`. The token never appears in
 status or frontend files. Missing/invalid credentials or origin return 403;
 disabled writes return 405, unsupported content type 415, oversized body 413,
 invalid input 400 and rejected preconditions 409.
+
+Alongside `start`, `stop` and `restart`, `action: "restart-reset"` explicitly rearms
+the selected container's automatic restart counter. It requires a nonzero
+counter in fresh status and rechecks persistent state before resetting it. A
+missing/already-reset budget is rejected with `no_restart_attempts`. The same
+protection, queue, deduplication, cooldown and audit controls apply; no Docker
+restart is executed by this operation. Clients must use `allowed_states` to
+discover support and confirm that rules may act again on the next cycle.
 
 HTTP 202 returns the request record, including for a retained duplicate ID with
 the same payload. Reusing a retained ID for another payload returns 409. Records

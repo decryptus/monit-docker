@@ -1,4 +1,4 @@
-"""Bounded, read-only stat calls in the container's filesystem namespace."""
+"""Bounded, read-only filesystem probes in the container's mount namespace."""
 
 import re
 import socket
@@ -6,12 +6,18 @@ import struct
 import time
 
 from monit_docker.domain.errors import MonitoringError
-from monit_docker.domain.filesystems import GROUP_PATTERN, FilesystemSample
+from monit_docker.domain.filesystems import GROUP_PATTERN, FilesystemSample, FILESYSTEM_NUMERIC_FIELDS
 
 _GROUP_RE = re.compile(GROUP_PATTERN)
 _STAT_COMMAND = ('stat', '-f', '-c', '%S %b %f %a %c %d', '--')
 _EXEC_TIMEOUT = 5.0
 _MAX_OUTPUT = 4096
+_MAX_MOUNT_OUTPUT = 256 * 1024
+# The user path is always a quoted positional argument, never shell source.
+# An opened directory's mnt_id resolves bind mounts and symlinks without prefix
+# guessing. cat inherits descriptor 3 and reads its own fdinfo and mount table.
+_MODE_COMMAND = ('sh', '-c', 'test -d "$1" || exit 1\nexec 3< "$1" || exit 1\n'
+                 'exec cat /proc/self/fdinfo/3 /proc/self/mountinfo', 'monit-fs-mode')
 _FRAME_HEADER = struct.Struct('>BxxxI')
 
 
@@ -47,8 +53,36 @@ def stat_values(output):
             inodes if inodes else None, ipercent)
 
 
+def mount_mode(output):
+    """Resolve the opened directory's exact mount, including superblock RO."""
+    lines = output.decode('utf-8', errors='strict').splitlines()
+    identifiers = [line.split()[1:] for line in lines if line.startswith('mnt_id:')]
+    if len(identifiers) != 1 or len(identifiers[0]) != 1 or not identifiers[0][0].isdigit():
+        raise ValueError('missing or ambiguous directory mount ID')
+    identifier = identifiers[0][0]
+    matches = [line.split() for line in lines if line.split()[:1] == [identifier]]
+    if len(matches) != 1:
+        raise ValueError('directory mount is unavailable or ambiguous')
+    fields = matches[0]
+    separator = fields.index('-')
+    if separator < 6 or len(fields) != separator + 4:
+        raise ValueError('invalid mount information')
+    modes = [set(options.split(',')) & {'ro', 'rw'} for options in (fields[5], fields[-1])]
+    if any(len(mode) != 1 for mode in modes):
+        raise ValueError('missing or ambiguous mount mode')
+    return 'ro' if any('ro' in mode for mode in modes) else 'rw'
+
+
 def _exec_stat(api, identifier, path):
-    created = api.exec_create(identifier, list(_STAT_COMMAND) + [path],
+    return stat_values(_exec_output(api, identifier, list(_STAT_COMMAND) + [path]))
+
+
+def _exec_mode(api, identifier, path):
+    return mount_mode(_exec_output(api, identifier, list(_MODE_COMMAND) + [path], _MAX_MOUNT_OUTPUT))
+
+
+def _exec_output(api, identifier, command, max_output=_MAX_OUTPUT):
+    created = api.exec_create(identifier, command,
                               stdout=True, stderr=True, stdin=False, tty=False)
     connection = api.exec_start(created['Id'], socket=True, tty=False)
     transport = getattr(connection, '_sock', connection)
@@ -78,26 +112,34 @@ def _exec_stat(api, identifier, path):
                 break
             channel, size = _FRAME_HEADER.unpack(header)
             received += size
-            if channel not in (1, 2) or received > _MAX_OUTPUT:
-                raise ValueError('invalid or oversized stat output')
+            if channel not in (1, 2) or received > max_output:
+                raise ValueError('invalid or oversized filesystem probe output')
             content = read_exact(size)
             if channel == 1:
                 output.extend(content)
         status = api.exec_inspect(created['Id'])
         if status.get('Running') or status.get('ExitCode') != 0:
-            raise ValueError('stat failed; check the path, permissions and stat availability')
-        return stat_values(bytes(output))
+            raise ValueError('filesystem probe failed; check the path, permissions and required utilities')
+        return bytes(output)
     finally:
         connection.close()
 
 
 def collect_filesystems(api, identifier, container_name, groups, requested):
     samples, cache = [], {}
+    path_fields = {}
+    for group, fields in requested.items():
+        for path in groups[group]:
+            path_fields.setdefault(path, set()).update(fields)
     for group in requested:
         for path in groups[group]:
             if path not in cache:
                 try:
-                    cache[path] = _exec_stat(api, identifier, path)
+                    fields = path_fields[path]
+                    counters = (_exec_stat(api, identifier, path) if fields.intersection(FILESYSTEM_NUMERIC_FIELDS)
+                                else (None,) * len(FILESYSTEM_NUMERIC_FIELDS))
+                    mode = _exec_mode(api, identifier, path) if 'fs_mode' in fields else None
+                    cache[path] = counters + (mode,)
                 except Exception as error:
                     raise MonitoringError(115, 'filesystem check failed for %s, group %s, path %s (%s)' %
                                           (container_name, group, path, type(error).__name__)) from error
