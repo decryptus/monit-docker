@@ -35,6 +35,9 @@ failure or rejection red, skipped actions yellow, queued work and notification
 acceptance blue, work in progress purple (since 0.0.72), and simulations neutral. Every color has a visible text label.
 Notification acceptance does not imply delivery to a person.
 
+Since 0.0.72, small metadata alerts also distinguish manual actions (blue) from
+automatic actions (amber), with neutral light-gray actor and host labels.
+
 The presentation uses the existing CSS and JavaScript, without Bootstrap or
 another runtime dependency. Raw fields remain in Event details and exports.
 
