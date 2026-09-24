@@ -102,8 +102,7 @@ monit-docker run web-guard
 
 See [examples/scenarios.yml](examples/scenarios.yml) for `stats`, `cron` and `serve`
 definitions. Install the configuration at the default path or select it with `-c`.
-Scenario support requires a build containing this change; it is not included in
-the published 0.0.69 packages.
+Named scenarios are available in version 0.0.70 and newer.
 
 ### Simple mode: run a command and exit
 

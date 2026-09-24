@@ -1,3 +1,13 @@
+monit-docker (0.0.70) unstable; urgency=medium
+
+  * Add named YAML scenarios for reusable stats, cron and serve jobs.
+  * Provide short run commands, offline scenario listing and inspection.
+  * Preserve maintenance, cooldowns, restart budgets and audit attribution.
+  * Validate scenarios, aliases, selectors and access identities offline.
+  * Document scenario configuration, scheduling and state migration.
+
+ -- Codex <codex@openai.com>  Thu, 24 Sep 2026 21:35:00 +0000
+
 monit-docker (0.0.66) unstable; urgency=medium
 
   * Add an optional authenticated Journal page with filters and event details.
