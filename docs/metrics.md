@@ -99,6 +99,25 @@ are exposed for each requested group. Missing inode accounting is omitted,
 not reported as zero; explicitly requesting an unavailable field fails collection.
 As with other container metrics, a failed or stale cycle withholds all samples.
 
+## Optional runtime checks
+
+Enable these [runtime resources](runtime-checks.md) explicitly. Samples keep the
+usual `id` and `name` labels; event counts add `window_seconds`.
+
+| Metric | Type | Meaning |
+| --- | --- | --- |
+| `monit_docker_container_oom_events` | gauge | Retained OOM events in the configured window |
+| `monit_docker_container_starts_recent` | gauge | Starts in the window, including the initial start |
+| `monit_docker_container_event_history_complete` | gauge | 0 when daemon-buffer truncation prevents counting; 1 otherwise |
+| `monit_docker_container_event_window_end` | gauge | Unix timestamp of the sampled event cutoff |
+| `monit_docker_container_pids_current` | gauge | Cgroup process/thread count |
+| `monit_docker_container_pids_limit` | gauge | Configured finite PID limit |
+| `monit_docker_container_pids_percent` | gauge | Percentage of that PID limit |
+
+Unknown values are omitted, not reported as zero. Window counts are not counters
+and must not be passed to `rate()`. History is not durable across Docker daemon
+restarts, even when no truncation is detected. See the runtime guide for limits.
+
 ## Prometheus configuration
 
 For Prometheus running on the same host/network namespace as the default listener:

@@ -58,6 +58,17 @@ function hasRestartBudget(container) {
   return Number.isInteger(container.restart_limit) && container.restart_limit > 0
     && Number.isInteger(container.restart_attempts) && container.restart_attempts > 0;
 }
+function runtimeSummary(container) {
+  const parts = [];
+  if (Number.isFinite(container.pids_current)) {
+    parts.push(`PIDs: ${number(container.pids_current)}${Number.isFinite(container.pids_limit) ? '/' + number(container.pids_limit) + ' · ' + percent(container.pids_percent) : ' · no configured limit'}`);
+  }
+  if (Number.isFinite(container.event_window_seconds)) {
+    parts.push(container.event_history_complete === 0 ? 'Event history incomplete' :
+      `Last ${number(container.event_window_seconds)}s: ${number(container.oom_events)} OOM · ${number(container.starts_recent)} starts`);
+  }
+  return parts.join(' | ');
+}
 function newRow(container) {
   const article = node('article', 'container-row');
   const identity = node('div', 'identity');
@@ -68,12 +79,13 @@ function newRow(container) {
   const status = node('span', 'badge');
   const health = node('span', 'metric-detail health-state');
   const restarts = node('span', 'metric-detail restart-budget');
+  const runtime = node('span', 'metric-detail runtime-checks');
   const protection = node('span', 'protection');
   const lock = node('span', 'protection-lock');
   lock.setAttribute('aria-hidden', 'true');
   protection.append(lock, node('span', '', 'Protected'));
   protection.title = reasons.container_protected;
-  statusCell.append(status, protection, health, restarts);
+  statusCell.append(status, protection, health, restarts, runtime);
   const cpu = node('div', 'metric');
   const cpuValue = node('span', 'metric-value');
   cpu.append(node('span', 'cell-label', 'CPU'), cpuValue, node('span', 'metric-detail', '100% = one CPU core'));
@@ -93,7 +105,7 @@ function newRow(container) {
   controls.append(readonly);
   article.append(identity, statusCell, cpu, memory, controls);
   $('containers').append(article);
-  const row = {article, name, id, status, health, restarts, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
+  const row = {article, name, id, status, health, restarts, runtime, protection, cpuValue, memoryValue, memoryDetail, buttons, readonly};
   rows.set(container.id, row);
   return row;
 }
@@ -117,6 +129,9 @@ function renderContainers() {
     row.restarts.hidden = !Number.isInteger(container.restart_limit);
     row.restarts.textContent = row.restarts.hidden ? '' :
       `Auto restarts: ${number(container.restart_attempts)}/${number(container.restart_limit)}${container.restart_attempts >= container.restart_limit ? ' · blocked' : ''}`;
+    row.runtime.textContent = runtimeSummary(container);
+    row.runtime.hidden = !row.runtime.textContent;
+    row.runtime.title = 'PIDs include threads. Starts include the initial start, manual actions and Docker restart policies. Event history is limited to the current Docker daemon buffer.';
     row.protection.hidden = !container.manual_actions_protected;
     row.cpuValue.textContent = percent(container.cpu_percent);
     row.memoryValue.textContent = bytes(container.mem_usage);

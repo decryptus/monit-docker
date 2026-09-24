@@ -35,6 +35,9 @@ async function main() {
         status: i === 4 ? 'exited' : 'running', health: ['healthy', 'unhealthy', 'starting', 'none', 'unknown'][i],
         cpu_percent: [4.2, 23.6, 1.8, .4, null][i],
         restart_attempts: i === 1 ? 3 : 0, restart_limit: i === 4 ? null : 3,
+        pids_current: i === 0 ? 8 : null, pids_limit: i === 0 ? 10 : null, pids_percent: i === 0 ? 80 : null,
+        event_window_seconds: i < 2 ? 300 : null, event_history_complete: i === 0 ? 1 : 0,
+        oom_events: i === 0 ? 1 : null, starts_recent: i === 0 ? 3 : null,
         mem_usage: [84, 246, 512, 12, null][i] === null ? null : [84, 246, 512, 12][i] * 1048576,
         mem_limit: 1073741824, mem_percent: [8.2, 24, 50, 1.2, null][i]})),
       manual_actions: {enabled: true, allowed_states: {start: ['created', 'exited'],
@@ -64,6 +67,9 @@ async function main() {
     assert.equal(await page.locator('.restart-budget:visible').count(), 4);
     assert.equal(await page.locator('.restart-budget').nth(1).textContent(), 'Auto restarts: 3/3 · blocked');
     assert.match(await page.locator('#rule-summary').textContent(), /2 restart limit/);
+    assert.match(await page.locator('.runtime-checks').nth(0).textContent(), /PIDs: 8\/10.*80.0%.*1 OOM.*3 starts/);
+    assert.equal(await page.locator('.runtime-checks').nth(1).textContent(), 'Event history incomplete');
+    assert.equal(await page.locator('.runtime-checks:visible').count(), 2);
     assert.equal(await page.locator('.container-row button:visible').count(), 10);
     // Protected containers stay visible, with disabled controls for every state.
     state.containers[2].manual_actions_protected = true;

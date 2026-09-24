@@ -29,6 +29,21 @@ holds. A brief recovery resets the pending timer. Detection includes scrape and
 evaluation delay; the durations above start when Prometheus observes the condition,
 not at the exact instant a problem begins.
 
+## Optional runtime alerts
+
+After enabling the [OOM/start/PID checks](runtime-checks.md) on an agent built from
+the source tree after 0.0.67, mount `examples/monitoring/alerts.runtime.yml` beside
+the existing rules and add its path to Prometheus `rule_files`. Keep the existing
+availability rules. The published 0.0.67 images do not yet provide these metrics.
+
+This optional file adds OOM detection, three or more starts in a 300-second window,
+PID usage above 90% for one minute, and an incomplete-history alert. The frequent
+starts rule deliberately selects `window_seconds="300"`; adjust it together with
+the agent's `--event-window`. Missing PID limits or disabled checks produce no
+corresponding threshold alert. Failed collection is covered by the existing
+collection-not-ready alert. Existing notification receivers can deliver these
+alerts without a new integration.
+
 ## View alerts
 
 Open [Prometheus alerts](http://127.0.0.1:9090/alerts), adjusting the port if you

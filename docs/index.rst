@@ -21,6 +21,7 @@ For installation and the command reference, see the
    trigger-delay
    filesystems
    healthchecks
+   runtime-checks
    restart-limit
 
 .. toctree::

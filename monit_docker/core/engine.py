@@ -17,7 +17,7 @@ from threading import Lock
 from monit_docker.core.rules import RuleEvaluator
 from monit_docker.core.manual import ALLOWED_STATES
 from monit_docker.domain.errors import ActionRejected, MonitoringError
-from monit_docker.domain.models import ContainerSnapshot
+from monit_docker.domain.models import ContainerSnapshot, DEFAULT_RESOURCES
 from monit_docker.domain.filesystems import filesystem_resource
 from monit_docker.domain.rules import Action, ActionDecision, ActionResult, CycleResult
 
@@ -99,7 +99,7 @@ class MonitoringEngine(object):
         try:
             rules = tuple(rules)
             if resources is None:
-                resources = () if rules else ContainerSnapshot.RESOURCE_FIELDS
+                resources = () if rules else DEFAULT_RESOURCES
             resources = tuple(resources)
             invalid = {resource for resource in resources
                        if resource not in ContainerSnapshot.RESOURCE_FIELDS and not filesystem_resource(resource)}
@@ -113,6 +113,9 @@ class MonitoringEngine(object):
     def _run_cycle(self, rules, resources, on_snapshot, dry_run, action_policy, on_action):
         snapshots, actions = [], []
         try:
+            prepare = getattr(self.collector, 'prepare_resources', None)
+            if prepare:
+                prepare(tuple(dict.fromkeys(resources + tuple(r for rule in rules for r in rule.resources))))
             self.collector.begin_cycle()
             containers = self.collector.select()
             if not containers:

@@ -2,6 +2,7 @@
 
 from monit_docker.domain.errors import MonitoringError, RuleSyntaxError
 from monit_docker.domain.filesystems import filesystem_resource
+from monit_docker.domain.runtime import RUNTIME_RESOURCES
 
 
 class RuleEvaluator(object):
@@ -51,6 +52,8 @@ class RuleEvaluator(object):
         return self._matches_value(condition, actual)
 
     def _matches_value(self, condition, actual):
+        if condition.resource in RUNTIME_RESOURCES and actual is None:
+            raise MonitoringError(115, 'runtime metric unavailable: %s' % condition.resource)
         if condition.resource == 'pid':
             actual = actual or ''  # Preserve the legacy missing-PID comparison.
         operator = condition.operator.strip()

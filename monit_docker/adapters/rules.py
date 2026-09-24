@@ -2,6 +2,7 @@
 
 import copy
 import logging
+import math
 import bitmath
 from monit_docker.adapters.syntax import (COND_MATCH, CMD_MATCH, EXPR_MATCH,
                                           DOCKER_COMMANDS, DATATYPES)
@@ -11,9 +12,12 @@ from monit_docker.domain.rules import Action, Condition, Rule
 from monit_docker.domain.filesystems import filesystem_resource, FILESYSTEM_MODES
 from monit_docker.adapters.filesystems import directory_groups
 from monit_docker.domain.models import HEALTH_STATES
+from monit_docker.domain.runtime import RUNTIME_RESOURCES
 
 LOG = logging.getLogger('monit-docker')
 _STATE_OPERATORS = ('==', '!=', 'in', 'not in')
+_NUMERIC_OPERATORS = ('==', '!=', '<', '<=', '>', '>=')
+_NUMERIC_CONDITION_PARTS = (('value', 'value_unit'), ('pre_value', 'pre_value_unit'))
 
 
 class RuleParser(object):
@@ -120,6 +124,22 @@ class RuleParser(object):
         for cond in r['conditions']:
             resource = cond['parsed']['datatype']
             filesystem = filesystem_resource(resource)
+            if resource in RUNTIME_RESOURCES:
+                parsed = cond['parsed']
+                if parsed['op'].strip() not in _NUMERIC_OPERATORS:
+                    raise RuleSyntaxError('runtime checks require numeric comparisons')
+                for key, unit in _NUMERIC_CONDITION_PARTS:
+                    value = parsed.get(key)
+                    if value is None:
+                        continue
+                    try:
+                        number = float(value)
+                        valid = (not parsed.get(unit) and math.isfinite(number) and number >= 0
+                                 and (resource == 'pids_percent' or str(value).strip().isdigit()))
+                    except (ValueError, TypeError, OverflowError):
+                        valid = False
+                    if not valid:
+                        raise RuleSyntaxError('runtime checks require non-negative numbers without units')
             if resource == 'health' or (filesystem and filesystem[0] == 'fs_mode'):
                 choices = HEALTH_STATES if resource == 'health' else FILESYSTEM_MODES
                 parsed = cond['parsed']
