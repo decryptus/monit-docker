@@ -22,6 +22,7 @@ main{max-width:1288px;margin:auto;padding:46px 24px 0}.intro{display:flex;justif
 .log-event[data-tone="danger"] {--event-bg:#f8d7da; --event-border:#eab5ba; --event-ink:#721c24}
 .log-event[data-tone="warning"] {--event-bg:#fff3cd; --event-border:#e8d391; --event-ink:#705300}
 .log-event[data-tone="info"] {--event-bg:#d1ecf1; --event-border:#a9d6df; --event-ink:#0c5460}
+.log-event[data-tone="progress"] {--event-bg:#eee3fa; --event-border:#d2b8eb; --event-ink:#593080}
 .log-event-heading {display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:.8rem}
 .log-event .badge {background:#ffffff80; color:inherit; border:1px solid var(--event-border); font-size:.75rem; font-weight:700; flex-shrink:0}
 .log-event h3 {margin:.65rem 0 .4rem; font-size:1rem; line-height:1.5}

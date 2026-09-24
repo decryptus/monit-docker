@@ -22,7 +22,7 @@ function eventPresentation(record) {
     accepted: ['info', 'Accepted', 'accepted'], received: ['info', 'Received', 'received']
   };
   const pending = {
-    queued: ['info', 'Queued', 'queued'], started: ['info', 'In progress', 'started']
+    queued: ['info', 'Queued', 'queued'], started: ['progress', 'In progress', 'started']
   };
   const state = (Object.hasOwn(states, outcome) && states[outcome]) || ((outcome === 'pending' || !record.result) && Object.hasOwn(pending, record.event) && pending[record.event])
     || ['secondary', outcome || 'Recorded', record.event || 'recorded'];
