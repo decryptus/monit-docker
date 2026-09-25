@@ -39,6 +39,7 @@ For installation and the command reference, see the
    alerts
    notifications
    audit
+   journal-compatibility
    redis-notifications
    dwho-http-notifications
    grafana
