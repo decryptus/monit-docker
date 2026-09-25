@@ -153,6 +153,16 @@ class JournalTests(unittest.TestCase):
         self.assertNotEqual(control['actor'], literal['actor'])
         self.assertEqual(prepare_record(prepare_record(literal)), literal)
 
+    def test_mixed_escape_runs_preserve_unicode_and_literal_backslashes(self):
+        raw = '  ＝café 雪 🐳\n\t\\u202e\u202e\U000e0001 end'
+        expected = '  \\uff1dcafé 雪 🐳' + r'\u000a\u0009\\u202e\u202e\U000e0001 end'
+        record = event_record('action', 'completed', actor=raw)
+        self.assertEqual(record['actor'], expected)
+        self.assertEqual(prepare_record(record), record)
+        for suffix in ('\\', r'\q', r'\u123', r'\u00AF', r'\U0000000', r'\U00110000'):
+            with self.subTest(suffix=suffix), self.assertRaises(AuditError):
+                prepare_record(dict(record, actor=expected + suffix))
+
     def test_legacy_records_are_protected_without_rewriting_archives(self):
         legacy = dict(event_record('action', 'completed'), schema_version=1, actor='=CMD()\n\u202e')
         expected = dict(legacy, schema_version=2, actor=r'\u003dCMD()\u000a\u202e')

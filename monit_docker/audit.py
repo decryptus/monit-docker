@@ -25,7 +25,12 @@ MAX_RECORD_BYTES = 65536
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 _SCHEMA_VERSION = 2
 _FORMULA_PREFIXES = ('=', '+', '-', '@', '\uff1d', '\uff0b', '\uff0d', '\uff20')
-_TEXT_ESCAPE = re.compile(r'\\(?:\\|u[0-9a-f]{4}|U[0-9a-f]{8})')
+_TEXT_ESCAPE = re.compile(r'\\(?:\\|u[0-9a-f]{4}|U[0-9a-f]{8})?')
+_FORMULA_START = re.compile(r'\A( *)([%s])' % re.escape(''.join(_FORMULA_PREFIXES)))
+_ASCII_TO_ESCAPE = re.compile(r'[\\\x00-\x1f\x7f]+')
+_NON_ASCII = re.compile(r'[^\x00-\x7f]+')
+_ASCII_ESCAPES = {code: '\\u%04x' % code for code in (*range(32), 127)}
+_ASCII_ESCAPES[ord('\\')] = '\\\\'
 FIELDS = ('schema_version', 'event_id', 'timestamp', 'host', 'category', 'event',
           'correlation_id', 'source', 'actor', 'container_id', 'container_name',
           'action', 'command_id', 'rule_id', 'result', 'reason', 'error_code',
@@ -42,42 +47,42 @@ def fingerprint(value):
     return hashlib.sha256(str(value).encode('utf-8')).hexdigest()
 
 
+def _escape_unicode_match(match):
+    value = match.group()
+    if value.isprintable():
+        return value
+    return ''.join(character if character.isprintable() else
+                   ('\\u%04x' if ord(character) <= 0xffff else '\\U%08x') % ord(character)
+                   for character in value)
+
+
 def _escape_text(value):
     """Canonical, reversible display text shared by storage and every output."""
     if '\\' not in value and value.isprintable() and not value.lstrip(' ').startswith(_FORMULA_PREFIXES):
         return value
-    first = len(value) - len(value.lstrip(' '))
-    parts = []
-    for position, character in enumerate(value):
-        if character == '\\':
-            parts.append('\\\\')
-        elif not character.isprintable() or (position == first and character in _FORMULA_PREFIXES):
-            code = ord(character)
-            parts.append(('\\u%04x' if code <= 0xffff else '\\U%08x') % code)
-        else:
-            parts.append(character)
-    return ''.join(parts)
+    value = _ASCII_TO_ESCAPE.sub(lambda match: match.group().translate(_ASCII_ESCAPES), value)
+    # Only unusual Unicode needs per-character checks; preserve printable runs.
+    if not value.isprintable():
+        value = _NON_ASCII.sub(_escape_unicode_match, value)
+    return _FORMULA_START.sub(lambda match: match.group(1) + '\\u%04x' % ord(match.group(2)), value)
+
+
+def _unescape_match(match):
+    token = match.group()
+    if token == '\\':
+        raise AuditError('Invalid audit text escape')
+    if token == '\\\\':
+        return '\\'
+    try:
+        return chr(int(token[2:], 16))
+    except ValueError as error:
+        raise AuditError('Invalid audit text code point') from error
 
 
 def _unescape_text(value):
     if '\\' not in value:
         return value
-    parts, position = [], 0
-    while position < len(value):
-        if value[position] != '\\':
-            parts.append(value[position])
-            position += 1
-            continue
-        match = _TEXT_ESCAPE.match(value, position)
-        if match is None:
-            raise AuditError('Invalid audit text escape')
-        token = match.group()
-        try:
-            parts.append('\\' if token == '\\\\' else chr(int(token[2:], 16)))
-        except ValueError as error:
-            raise AuditError('Invalid audit text code point') from error
-        position = match.end()
-    return ''.join(parts)
+    return _TEXT_ESCAPE.sub(_unescape_match, value)
 
 
 def prepare_record(record):

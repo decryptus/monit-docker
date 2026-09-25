@@ -3,6 +3,7 @@ monit-docker (0.0.76) unstable; urgency=medium
   * Show already loaded action events immediately while fetching retained history.
   * Label previews explicitly and replace them with the authoritative snapshot.
   * Accelerate ordinary audit text validation without changing escaping rules.
+  * Use compiled regular expressions for escape sequences and control runs.
 
  -- Codex <codex@openai.com>  Fri, 25 Sep 2026 01:35:50 -0000
 

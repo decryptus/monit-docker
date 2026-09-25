@@ -314,3 +314,6 @@ new snapshot is empty. A failed request labels the retained preview as possibly
 incomplete or outdated. No extra background requests or persistent browser
 storage are used. Ordinary audit text validation also avoids unnecessary
 character-by-character work while preserving the canonical escaping rules.
+Compiled regular expressions process escape sequences and ASCII control runs;
+printable Unicode is preserved, with detailed checks limited to unusual Unicode
+runs. Malformed and noncanonical escape sequences are still rejected.
