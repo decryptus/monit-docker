@@ -40,6 +40,7 @@ For installation and the command reference, see the
    notifications
    audit
    journal-compatibility
+   audit-migration
    redis-notifications
    dwho-http-notifications
    grafana
@@ -50,6 +51,7 @@ For installation and the command reference, see the
 
    check-config
    config-cli-contract
+   supported-environments
    troubleshooting
    architecture
    roadmap

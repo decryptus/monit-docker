@@ -1,6 +1,6 @@
 # Journal schema compatibility
 
-This baseline describes the **0.0.77** reader and writer. It defines review rules
+This baseline describes the **0.0.78** reader and writer. It defines review rules
 for future journal changes; it does not announce a new schema or certify complete
 application upgrades. See the [roadmap](roadmap.md) for the remaining installation,
 upgrade and 1.0 approval milestones.
@@ -19,7 +19,9 @@ the HTTP `api_version`. Booleans and `1.0` are not valid version values.
 **Published 0.0.65 already writes schema 2 and reads schemas 1 and 2**; schema 1 is
 the earlier historical format, not the format of that published release.
 
-No migration script is needed for these two schemas. Reading does not rewrite,
+No migration script is required for these two schemas. Since 0.0.78, the optional
+[`audit-migrate` command](audit-migration.md) can create verified schema 2 copies
+with original-byte backups; simulation is the default. Reading does not rewrite,
 rename or repair data files. The reader may create the companion lock file.
 Ordinary writes and size-based retention can still rotate or remove old events;
 read compatibility does not extend retention.
@@ -135,7 +137,8 @@ identifying the damaged range and any resulting history gap explicitly.
   conversion becomes necessary, provide a separate explicit tool with a dry run,
   preserved source backup, separate output, count/identity checks and documented
   interruption recovery before enabling the new writer. No such conversion is
-  required or implemented for the current schemas.
+  required for the current schemas; `audit-migrate` provides an optional, explicit
+  schema 1/2-to-2 conversion without replacing the live journal.
 
 `tests/test_journal_compatibility.py` covers mixed retained schemas across rotation
 and page boundaries, CLI and page exports, JSONL round trips, CSV projection and

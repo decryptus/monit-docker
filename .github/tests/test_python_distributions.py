@@ -25,11 +25,11 @@ class DistributionTests(unittest.TestCase):
         (self.root / 'monit_docker/__init__.py').write_text("__version__ = '1.2.3'\n")
         self.write_archives()
 
-    def write_archives(self, wheel_version='1.2.3', source_version='1.2.3', name='monit_docker'):
+    def write_archives(self, wheel_version='1.2.3', source_version='1.2.3', name='monit_docker', requires_python='>=3.10'):
         with zipfile.ZipFile(self.root / 'dist/monit_docker-1.2.3-py3-none-any.whl', 'w') as wheel:
             wheel.writestr('monit_docker-1.2.3.dist-info/METADATA',
-                          'Metadata-Version: 2.1\nName: %s\nVersion: %s\n' % (name, wheel_version))
-        data = ('Metadata-Version: 2.1\nName: %s\nVersion: %s\n' % (name, source_version)).encode()
+                          'Metadata-Version: 2.1\nName: %s\nVersion: %s\nRequires-Python: %s\n' % (name, wheel_version, requires_python))
+        data = ('Metadata-Version: 2.1\nName: %s\nVersion: %s\nRequires-Python: %s\n' % (name, source_version, requires_python)).encode()
         with tarfile.open(self.root / 'dist/monit_docker-1.2.3.tar.gz', 'w:gz') as source:
             info = tarfile.TarInfo('monit_docker-1.2.3/PKG-INFO')
             info.size = len(data)
@@ -52,6 +52,13 @@ class DistributionTests(unittest.TestCase):
         (self.root / 'VERSION').write_text('1.2.3rc1')
         with self.assertRaisesRegex(ValueError, 'VERSION must be X.Y.Z'):
             distributions.check_distributions(self.root)
+
+    def test_rejects_obsolete_or_missing_python_requirement(self):
+        for requirement in ('>=2.7', '>=3.7', ''):
+            with self.subTest(requirement=requirement):
+                self.write_archives(requires_python=requirement)
+                with self.assertRaisesRegex(ValueError, 'Requires-Python'):
+                    distributions.check_distributions(self.root)
 
     def test_rejects_mismatched_archive_versions(self):
         for kwargs in ({'wheel_version': '1.2.2'}, {'source_version': '1.2.2'}):

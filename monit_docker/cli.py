@@ -237,6 +237,44 @@ class MonitDockerSubCmdAuditSend(MonitDockerSubCmdAudit):
         return 0
 
 
+class MonitDockerSubCmdAuditMigrate:
+    CMD_NAME = 'audit-migrate'
+    CMD_HELP = 'validate or copy retained journals to schema 2 with an original-byte backup'
+
+    def __init__(self, options):
+        self.options = options
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help=cls.CMD_HELP)
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument('--dry-run', action='store_true', help='validate and report without writing output (default)')
+        mode.add_argument('--apply', action='store_true', help='create a verified migration bundle; never replace source files')
+        parser.add_argument('--output-dir', help='new directory for backup, converted journals and manifest')
+        return parser
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        if not options.audit_file:
+            parser.error('--audit-file is required for audit commands')
+        if options.apply and not options.output_dir:
+            parser.error('--apply requires --output-dir')
+        if options.output_dir is not None and not options.output_dir.strip():
+            parser.error('--output-dir must not be empty')
+
+    def __call__(self):
+        from monit_docker.audit import AuditError
+        from monit_docker.audit_migrate import migrate_journal
+        try:
+            report = migrate_journal(_audit_journal(self.options, explicit=True),
+                                     self.options.output_dir, self.options.apply)
+        except AuditError as error:
+            print('audit-migrate: %s' % error, file=sys.stderr)
+            return error.code
+        print(json.dumps(report, ensure_ascii=True, sort_keys=True))
+        return 0
+
+
 class MonitDockerSubCmdRestartReset(object):
     CMD_NAME = 'restart-reset'
     CMD_HELP = 'rearm automatic restarts for one exact container ID without connecting to Docker'
@@ -805,6 +843,7 @@ _SUBCMDS['run'] = MonitDockerSubCmdRun
 _SUBCMDS['scenario'] = MonitDockerSubCmdScenario
 _SUBCMDS['audit-export'] = MonitDockerSubCmdAudit
 _SUBCMDS['audit-send'] = MonitDockerSubCmdAuditSend
+_SUBCMDS['audit-migrate'] = MonitDockerSubCmdAuditMigrate
 _SUBCMDS['maintenance'] = MonitDockerSubCmdMaintenance
 _SUBCMDS['restart-reset'] = MonitDockerSubCmdRestartReset
 _SUBCMDS['check-config'] = MonitDockerSubCmdCheckConfig
@@ -819,7 +858,7 @@ def main(options):
     Main function
     """
     # Resolve named jobs before setup; offline commands need no logging or Docker.
-    if options.subcommand in ('check-config', 'audit-export', 'audit-send', 'restart-reset', 'maintenance', 'run', 'scenario'):
+    if options.subcommand in ('check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
         try:
             return _SUBCMDS[options.subcommand](options)()
         except (MonitoringError, OSError, ValueError) as error:

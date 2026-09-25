@@ -214,6 +214,10 @@ jobs:
         env:
           MONIT_DOCKER_INTEGRATION: '1'
         run: |
+          python --version
+          docker version
+          docker compose version
+          docker info --format 'OS={{.OSType}} Architecture={{.Architecture}} CgroupVersion={{.CgroupVersion}}'
           docker pull alpine:3.20
           python -m unittest discover -s tests -p test_access_docker.py -v
           python -m unittest discover -s tests -p test_runtime_docker.py -v

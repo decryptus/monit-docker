@@ -28,7 +28,7 @@ validation. Local function benchmarks are not measurements of whole-page latency
 - [ ] Resolve the open compatibility decisions and approve the 1.0 contract.
 - [x] Document HTTP API fields and metric names as compatibility baselines with regression coverage.
 - [x] Define journal schema evolution and compatibility with retained events.
-- [ ] State supported Python/Docker environments and optional check prerequisites.
+- [x] State supported Python/Docker environments and optional check prerequisites.
 - [ ] Publish deprecation and migration rules for future incompatible changes.
 
 Completion: each supported public interface has a documented contract and
@@ -45,6 +45,11 @@ behaviors. Content-type and method-status differences remain explicit decisions
 to resolve before approving the 1.0 contract.
 
 ### 2. Validate installation and upgrades — planned
+
+The [environment baseline](supported-environments.md) distinguishes CI-tested
+Python/Linux combinations, Docker coverage and target-container prerequisites.
+The optional [migration command](audit-migration.md) now validates retained
+journals and creates verified schema 2 copies with original-byte backups.
 
 The [journal compatibility baseline](journal-compatibility.md) defines supported
 schemas, read-time adaptation, mixed-history regression coverage, export limits

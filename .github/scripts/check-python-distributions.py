@@ -7,6 +7,7 @@ import re
 import tarfile
 import zipfile
 
+_REQUIRES_PYTHON = '>=3.10'
 
 def check_distributions(root):
     root = Path(root)
@@ -57,6 +58,8 @@ def _check_metadata(data, version):
     name = re.sub(r'[-_.]+', '-', metadata.get('Name', '')).lower()
     if name != 'monit-docker' or metadata.get('Version') != version:
         raise ValueError('distribution name/version must match monit-docker %s' % version)
+    if metadata.get('Requires-Python', '').replace(' ', '') != _REQUIRES_PYTHON:
+        raise ValueError('distribution Requires-Python must match the supported >=3.10 baseline')
 
 
 if __name__ == '__main__':
