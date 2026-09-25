@@ -173,6 +173,7 @@ when converting long commands into scenarios.
 | `restart-reset` | `--state-file` and exact lowercase 64-hex `--container-id` required; JSON `{container_id, status: "rearmed"}`; requires recorded attempts |
 | `audit-export` | `--format jsonl` (default) or `csv`; optional `--category action\|notification` and `--since` with timezone |
 | `audit-send` | Export filters plus required `--url` HTTPS receiver and optional `--token-file`; forwards JSON events and reports acknowledgements on stderr |
+| `audit-migrate` (0.0.78+) | Simulation by default or `--dry-run`; `--apply --output-dir NEW_DIRECTORY` creates original-byte backups, converted journals and a verified manifest without connecting to Docker |
 
 `stats --output json` emits one JSON object per container, not a single array.
 Each maps the container name to requested resource values. Memory, disk and I/O

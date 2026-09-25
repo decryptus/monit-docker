@@ -22,6 +22,8 @@ with the open decisions to resolve before 1.0.
 
 The [journal compatibility baseline](docs/journal-compatibility.md) covers retained
 schemas, exports and upgrade/rollback limits without rewriting archives.
+Since **0.0.78**, the optional [audit-migrate command](docs/audit-migration.md)
+provides a dry run and explicit conversion to a new directory with verified backups.
 
 The [HTTP API and metrics baseline](docs/http-api-contract.md) documents response
 fields, authentication, errors, freshness, journal pagination and metric
@@ -81,7 +83,9 @@ server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 
 ## <a name="installation"></a>Installation
 
-The examples below use Python 3 (CI tests Python 3.10 and 3.12). You need a Docker
+The agent requires Python **3.10+** (CI tests 3.10 and 3.12) on Linux. See the
+[supported environments and check prerequisites](docs/supported-environments.md).
+You need a Docker
 daemon accessible to the account running monit-docker. For a local installation:
 
 ```sh

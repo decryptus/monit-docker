@@ -1,3 +1,11 @@
+monit-docker (0.0.78) unstable; urgency=medium
+
+  * Add offline audit-migrate with simulation, original-byte backups and verified schema 2 output.
+  * Document supported environments and optional check prerequisites.
+  * Correct Python package metadata to require Python 3.10 or later.
+
+ -- Codex <codex@openai.com>  Fri, 25 Sep 2026 21:45:00 -0000
+
 monit-docker (0.0.77) unstable; urgency=medium
 
   * Document configuration and CLI behavior with pre-1.0 compatibility decisions.
