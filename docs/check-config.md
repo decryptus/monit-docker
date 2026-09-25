@@ -37,7 +37,8 @@ An empty mapping (`{}`) is valid; an empty file, `null` or a list is not.
 ## What gets checked
 
 - Top-level sections and entry shapes: `general`, `vars`, `clients`, `ctn-groups`,
-  `conditions` and `commands`; missing fields and unknown sections/entry fields.
+  `dir-groups`, `conditions`, `commands` and `scenarios`; missing fields and unknown
+  sections/entry fields.
 - Existing import directives, relative file paths and Mako rendering. The same
   import scope and override behavior as the runtime is used.
 - Client configuration mappings and basic TLS shape; explicit client names.
@@ -45,6 +46,9 @@ An empty mapping (`{}`) is valid; an empty file, `null` or a list is not.
 - Every group match and regular expression, CLI selectors and selected group names.
 - Every command/condition alias, supported Docker action, action argument shape,
   rule syntax, resource name, unit conversion and condition value conversion.
+- Every named scenario, including its mode-specific options, resources, rules
+  and references. Since 0.0.77, access resources also require an explicit directory
+  access identity during offline validation, before a runner can start.
 
 Validation stops at the first error. Locations identify the source/import file,
 entry or supplied rule; YAML syntax errors also include line and column numbers.
@@ -53,7 +57,10 @@ Fix the reported error and rerun to reveal any later errors.
 
 Checks are deliberately stricter than the legacy loader, which can ignore some
 unused sections or fields. The behavior and exit codes of the existing commands
-are unchanged.
+are unchanged, except for the scenario validation correction noted above.
+
+See the [configuration and CLI contract](config-cli-contract.md) for precedence,
+selection semantics and the remaining compatibility decisions before 1.0.
 
 ## Output and exit codes
 

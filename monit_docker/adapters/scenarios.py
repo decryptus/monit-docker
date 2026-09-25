@@ -9,7 +9,7 @@ import sys
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.filesystems import directory_groups
-from monit_docker.domain.filesystems import filesystem_resource
+from monit_docker.domain.filesystems import filesystem_resource, FILESYSTEM_ACCESS_FIELDS
 
 SCENARIO_NAME = re.compile(r'^[a-z0-9][a-z0-9-]{0,63}$')
 _SELECT_OPTIONS = {
@@ -146,6 +146,9 @@ def validate_scenario(config, name):
     for resource in options.resource:
         filesystem = filesystem_resource(resource)
         require(not filesystem or filesystem[1] in groups, location + '.resources', 'unknown directory group')
+        if filesystem and filesystem[0] in FILESYSTEM_ACCESS_FIELDS:
+            require(groups[filesystem[1]].get('access') is not None, location + '.resources',
+                    'access identity is required for filesystem access resources')
     parser = checked(location + '.rules', lambda: RuleParser(config.get('commands'), config.get('conditions'), groups))
     for index, expression in enumerate(getattr(options, 'cmd', ())):
         _validate_rule(parser, expression, '%s.rules[%s]' % (location, index))
