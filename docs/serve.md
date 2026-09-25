@@ -161,6 +161,10 @@ and Sonicprobe 0.3.53 or later; the Docker image includes their libmagic runtime
 
 ## HTTP contract
 
+The [HTTP API and metrics baseline](http-api-contract.md) documents exact field
+types, capability discovery, request authentication, errors, journal cursors and
+tested `curl` examples for the private agent. The summary below covers common use.
+
 | Endpoint | Success / failure | Purpose |
 | --- | --- | --- |
 | `/healthz` | 200 while HTTP is responsive | `{"alive": true}`; does not claim Docker is healthy |
@@ -186,9 +190,10 @@ ignore additional fields, so later additions need not change the URL version.
 | `age_seconds` | Monotonic age of the last success, or null |
 | `last_error_code` | Agent error code for the last failed cycle, otherwise null |
 | `cycles_total` / `errors_total` | Completed / failed cycles since process start |
-| `actions` | Counters for `executed`, `cooldown`, `pending`, `restart-limit` and `dry-run` decisions |
+| `actions` | Counters for `executed`, `cooldown`, `pending`, `restart-limit`, `maintenance` and `dry-run` decisions |
 | `containers` | Fresh complete snapshot list; empty when not ready |
-| `manual_actions` | Optional capability object: `enabled`; when enabled, `allowed_states` and up to 32 `recent` request results |
+| `manual_actions` | Capability object, always present: `enabled`; when enabled, `allowed_states` and up to 32 `recent` request results |
+| `audit_enabled` | Whether the authenticated journal reader is enabled |
 
 Each container has `id`, `name`, `status`, `pid`, `mem_usage`, `mem_limit`,
 `mem_percent`, `cpu_percent`, `io_read`, `io_write`, `net_tx`, and `net_rx`.
@@ -239,8 +244,8 @@ restart is executed by this operation. Clients must use `allowed_states` to
 discover support and confirm that rules may act again on the next cycle.
 
 HTTP 202 returns the request record, including for a retained duplicate ID with
-the same payload. Reusing a retained ID for another payload returns 409. Records
-contain `request_id`, `container_id`, `action`, `status`, `submitted_at`,
+the same payload and actor. Reusing a retained ID for another payload or actor returns 409. Records
+contain `request_id`, `container_id`, `action`, `actor`, `container_name`, `status`, `submitted_at`,
 `finished_at`, `error` and `error_code`; timestamps are Unix seconds. Status is
 `queued`, `running`, `succeeded` or `failed`. Poll `/v1/status` for the result.
 Errors expose a short reason and optional numeric agent code, never raw exception

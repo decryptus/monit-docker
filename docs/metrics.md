@@ -6,6 +6,21 @@ The response is UTF-8 with content type
 `text/plain; version=0.0.4; charset=utf-8`. Scrapes read the memory cache and never
 start a monitoring cycle. See [serve configuration and freshness](serve.md).
 
+## Compatibility baseline
+
+This catalogue records the metric names, types, units and label keys exposed by
+0.0.77. Together with the [HTTP API contract](http-api-contract.md), it is the
+current 0.0.x compatibility baseline; final 1.0 approval remains on the roadmap.
+Contract tests exercise every listed family with representative values, known
+zeroes, unavailable values and stale snapshots over the real HTTP listener.
+
+New metric families may be added. Sample/label ordering and HELP wording are not
+fixed interfaces. Empty container families still expose HELP/TYPE declarations;
+absence of a sample is distinct from a zero value. The last-success family is
+absent until the first success. HTTP 200 means a scrape worked, not that the
+monitoring cycle succeeded. Changing a name, type, unit or existing label set
+requires compatibility review.
+
 ## Agent metrics
 
 | Metric | Type | Unit / values | Labels | Meaning |

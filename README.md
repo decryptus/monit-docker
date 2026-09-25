@@ -20,6 +20,10 @@ The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
 records current option precedence, selectors, scenario fields and exit codes,
 with the open decisions to resolve before 1.0.
 
+The [HTTP API and metrics baseline](docs/http-api-contract.md) documents response
+fields, authentication, errors, freshness, journal pagination and metric
+compatibility, with private-agent `curl` examples and wire-level regression tests.
+
 For persistent action and notification history, available since **0.0.65**, see
 the [audit journal guide](docs/audit.md). Since **0.0.66**, it also includes an optional
 authenticated journal page with filters, bounded reads and page exports.
