@@ -1,0 +1,4 @@
+# Development-only vector tracing tools; Python 3.12 or newer.
+-r requirements.txt
+numpy==2.5.3
+potracer==0.0.4
