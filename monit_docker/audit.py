@@ -44,6 +44,8 @@ def fingerprint(value):
 
 def _escape_text(value):
     """Canonical, reversible display text shared by storage and every output."""
+    if '\\' not in value and value.isprintable() and not value.lstrip(' ').startswith(_FORMULA_PREFIXES):
+        return value
     first = len(value) - len(value.lstrip(' '))
     parts = []
     for position, character in enumerate(value):
@@ -58,6 +60,8 @@ def _escape_text(value):
 
 
 def _unescape_text(value):
+    if '\\' not in value:
+        return value
     parts, position = [], 0
     while position < len(value):
         if value[position] != '\\':

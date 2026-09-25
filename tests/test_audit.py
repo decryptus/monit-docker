@@ -95,6 +95,20 @@ class JournalTests(unittest.TestCase):
         self.assertEqual(row['actor'], r"\u003dCMD()")
         self.assertEqual(row['container_name'], record['container_name'])
 
+    def test_plain_text_fast_path_preserves_canonical_validation(self):
+        for raw in ('', '   ', 'public-demo', 'café 雪', 'emoji 🐳', 'trailing ', 'ordinary = text'):
+            with self.subTest(raw=raw):
+                record = event_record('action', 'completed', actor=raw)
+                self.assertEqual(record['actor'], raw)
+                self.assertEqual(prepare_record(record), record)
+        for raw in ('=SUM(1,2)', '  +X', '-1', '@name', '＝X', ' ＋X', '－X', '＠X', '\n', '\t', '\u202e', '\\u0041'):
+            with self.subTest(raw=raw):
+                record = event_record('action', 'completed', actor=raw)
+                self.assertNotEqual(record['actor'], raw)
+                self.assertEqual(prepare_record(record), record)
+                with self.assertRaises(AuditError):
+                    prepare_record(dict(record, actor=raw))
+
     def test_text_is_protected_before_storage_stderr_and_every_export(self):
         raw = '  =SUM(1,2)\n\r\t\x1b[31m\x7f\x85\u202e\u2066\u200b\u2028\U000e0001'
         expected = r'  \u003dSUM(1,2)\u000a\u000d\u0009\u001b[31m\u007f\u0085\u202e\u2066\u200b\u2028\U000e0001'

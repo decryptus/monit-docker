@@ -91,3 +91,12 @@ UI image or agent defaults.
 ![Public demo on desktop](screenshots/demo-desktop.png)
 
 [Public demo on mobile](screenshots/demo-mobile.png)
+
+Since 0.0.76, opening action history immediately previews matching events from
+the current journal page while the agent checks retained history. Refreshing also
+keeps the previously displayed events visible. The loading message identifies
+this provisional view; a successful response replaces it, including when the
+new snapshot is empty. A failed request labels the retained preview as possibly
+incomplete or outdated. No extra background requests or persistent browser
+storage are used. Ordinary audit text validation also avoids unnecessary
+character-by-character work while preserving the canonical escaping rules.

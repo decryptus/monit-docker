@@ -19,6 +19,7 @@ async function main() {
     const page = await browser.newPage({viewport:{width:1440,height:1050}, acceptDownloads:true});
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     let requests = 0, mode = 200, lastParams, exportParams, actionMode = 'paged';
+    let releaseAction, actionHeld;
     const event = {schema_version:2,event_id:'1234',timestamp:'2026-09-23T18:30:00Z',host:'docker-host',category:'action',event:'completed',source:'manual',actor:'alice',container_name:'api-service',action:'restart',result:'succeeded',duration_ms:180,correlation_id:'request-1234',reason:null};
     const examples = [
       event,
@@ -41,6 +42,7 @@ async function main() {
         assert.equal(params.has('result'), false, 'action history must include stages hidden by journal filters');
         assert.equal(params.has('source'), false);
         assert.equal(params.has('container'), false);
+        if (actionMode === 'held') await new Promise(resolve => { releaseAction = resolve; actionHeld(); });
         if (actionMode === 'expired') return route.fulfill({status:410,json:{error:'cursor_expired'}});
         if (actionMode === 'slow') await new Promise(resolve => setTimeout(resolve, 350));
         const stages = [
@@ -99,7 +101,16 @@ async function main() {
     assert.equal(await cards.nth(6).locator('.log-view-action').count(), 0, 'notifications are not action histories');
     await cards.nth(3).locator('.badge').click();
     await loaded();
+    actionMode = 'held';
+    const held = new Promise(resolve => { actionHeld = resolve; });
     await page.locator('#log-events .log-view-action').first().click();
+    await held;
+    assert.equal(await page.locator('#action-events .log-event').count(), 1, 'show matching journal events before the server responds');
+    assert.equal(await page.locator('#action-events .badge').textContent(), 'Failed');
+    assert.match(await page.locator('#action-notice').textContent(), /Showing previously loaded events/);
+    assert.equal(await page.locator('#older-action').isDisabled(), true);
+    actionMode = 'paged';
+    releaseAction();
     await actionLoaded();
     assert.equal(lastParams.get('correlation_id'), 'request-1234');
     assert.deepEqual(await page.locator('#action-events .badge').allTextContents(), ['In progress', 'Failed']);
@@ -137,6 +148,8 @@ async function main() {
         assert.equal(await page.locator('#action-events .log-event').count(), 1);
       } else if (scenario === 'expired') {
         assert.match(await page.locator('#action-notice').textContent(), /expired.*Refresh action/);
+        assert.match(await page.locator('#action-notice').textContent(), /incomplete or outdated/);
+        assert.equal(await page.locator('#action-events .log-event').count(), 1, 'failed refresh retains a clearly labeled preview');
         actionMode = 'paged';
         await page.locator('#refresh-action').click();
         await actionLoaded();
