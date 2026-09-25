@@ -12,7 +12,8 @@
 [Website](https://www.monit-docker.com/) ·
 [Documentation (FR)](https://www.monit-docker.com/docs/fr/) ·
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
-[Live demo](https://demo.monit-docker.com/)
+[Live demo](https://demo.monit-docker.com/) ·
+[Roadmap to 1.0](docs/roadmap.md)
 
 For persistent action and notification history, available since **0.0.65**, see
 the [audit journal guide](docs/audit.md). Since **0.0.66**, it also includes an optional
