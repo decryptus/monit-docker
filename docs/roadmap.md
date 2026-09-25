@@ -27,7 +27,7 @@ validation. Local function benchmarks are not measurements of whole-page latency
 - [x] Inventory CLI behavior and exit codes with regression coverage.
 - [ ] Resolve the open compatibility decisions and approve the 1.0 contract.
 - [x] Document HTTP API fields and metric names as compatibility baselines with regression coverage.
-- [ ] Define journal schema evolution and compatibility with retained events.
+- [x] Define journal schema evolution and compatibility with retained events.
 - [ ] State supported Python/Docker environments and optional check prerequisites.
 - [ ] Publish deprecation and migration rules for future incompatible changes.
 
@@ -45,6 +45,11 @@ behaviors. Content-type and method-status differences remain explicit decisions
 to resolve before approving the 1.0 contract.
 
 ### 2. Validate installation and upgrades — planned
+
+The [journal compatibility baseline](journal-compatibility.md) defines supported
+schemas, read-time adaptation, mixed-history regression coverage, export limits
+and future conversion requirements. Its backup/rollback procedure still needs
+the versioned deployment rehearsals below; the full upgrade milestone remains open.
 
 - [ ] Rehearse fresh installations from both PyPI and the published Docker images.
 - [ ] Exercise upgrades from documented supported 0.0.x versions while preserving

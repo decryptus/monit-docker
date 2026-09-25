@@ -68,6 +68,9 @@ escaping required by a destination.
 
 ## Storage and recovery
 
+See [journal schema compatibility](journal-compatibility.md) for mixed historical
+events, export limits, upgrade/rollback steps and rules for future schema changes.
+
 The agent enables its journal when configured with rules, manual actions or the
 notification webhook. Use a persistent mount and an explicit path:
 

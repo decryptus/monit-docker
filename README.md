@@ -20,6 +20,9 @@ The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
 records current option precedence, selectors, scenario fields and exit codes,
 with the open decisions to resolve before 1.0.
 
+The [journal compatibility baseline](docs/journal-compatibility.md) covers retained
+schemas, exports and upgrade/rollback limits without rewriting archives.
+
 The [HTTP API and metrics baseline](docs/http-api-contract.md) documents response
 fields, authentication, errors, freshness, journal pagination and metric
 compatibility, with private-agent `curl` examples and wire-level regression tests.
