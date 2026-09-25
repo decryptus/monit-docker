@@ -49,5 +49,6 @@ For installation and the command reference, see the
    check-config
    troubleshooting
    architecture
+   roadmap
    dockerhub
    pypi
