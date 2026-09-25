@@ -27,5 +27,13 @@
     </section>
     <footer><span>monit-docker <span class="footer-dot">/</span> Lightweight monitoring</span><a href="/">Back to overview</a></footer>
   </main>
+  <dialog id="action-dialog" aria-labelledby="action-title" aria-describedby="action-help">
+    <div class="action-heading"><h2 id="action-title">Action history</h2><button id="close-action" type="button" autofocus>Close</button></div>
+    <p id="action-help">Events sharing this correlation ID, in recorded order, oldest first. Only retained events are shown; missing stages do not establish the current action state.</p>
+    <p class="action-identifier">Correlation ID: <code id="action-correlation"></code></p>
+    <div class="filter-buttons"><button id="refresh-action" type="button">Refresh action</button><button id="older-action" type="button" disabled>Load older events</button></div>
+    <p id="action-notice" class="notice" role="status" aria-live="polite"></p>
+    <ol id="action-events" class="log-events"></ol>
+  </dialog>
   <noscript><p class="notice">JavaScript is required to browse the journal.</p></noscript>
 </body></html>

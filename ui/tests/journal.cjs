@@ -18,7 +18,7 @@ async function main() {
   try {
     const page = await browser.newPage({viewport:{width:1440,height:1050}, acceptDownloads:true});
     const errors = []; page.on('pageerror', e => errors.push(e.message));
-    let requests = 0, mode = 200, lastParams, exportParams;
+    let requests = 0, mode = 200, lastParams, exportParams, actionMode = 'paged';
     const event = {schema_version:2,event_id:'1234',timestamp:'2026-09-23T18:30:00Z',host:'docker-host',category:'action',event:'completed',source:'manual',actor:'alice',container_name:'api-service',action:'restart',result:'succeeded',duration_ms:180,correlation_id:'request-1234',reason:null};
     const examples = [
       event,
@@ -26,7 +26,7 @@ async function main() {
       {...event, event_id:'started', event:'started', result:'pending'},
       {...event, event_id:'failed', result:'failed', reason:'execution_failed'},
       {...event, event_id:'skipped', event:'skipped', result:'skipped', source:'automatic', actor:'cron', reason:'maintenance'},
-      {...event, event_id:'simulation', event:'skipped', result:'simulated', reason:'dry-run'},
+      {...event, event_id:'simulation', event:'skipped', result:'simulated', reason:'dry-run', correlation_id:null},
       {...event, event_id:'accepted', category:'notification', event:'accepted', result:'accepted', source:'redis', action:null}
     ];
     event.container_id = 'a'.repeat(64);
@@ -36,6 +36,25 @@ async function main() {
       if (mode !== 200) return route.fulfill({status:mode,json:{error:'denied'}});
       const params = new URL(route.request().url()).searchParams;
       lastParams = params;
+      if (params.has('correlation_id')) {
+        assert.equal(params.get('category'), 'action');
+        assert.equal(params.has('result'), false, 'action history must include stages hidden by journal filters');
+        assert.equal(params.has('source'), false);
+        assert.equal(params.has('container'), false);
+        if (actionMode === 'expired') return route.fulfill({status:410,json:{error:'cursor_expired'}});
+        if (actionMode === 'slow') await new Promise(resolve => setTimeout(resolve, 350));
+        const stages = [
+          {...event, event_id:'action-queued', event:'queued', result:'pending', duration_ms:null},
+          {...event, event_id:'action-started', event:'started', result:'pending', duration_ms:null},
+          {...event, event_id:'action-completed', event:'completed', result:'failed', reason:'<img src=x onerror=alert(1)>'}
+        ];
+        const cursor = params.get('cursor');
+        const records = actionMode === 'empty' || (actionMode === 'sparse' && !cursor) ? []
+          : actionMode.startsWith('many') ? Array.from({length:actionMode === 'many-tail' && cursor === '4' ? 50 : 100}, (_, i) => ({...event,event_id:`${cursor || 'first'}-${i}`}))
+          : cursor ? stages.slice(0,1) : stages.slice(1).reverse();
+        const next = actionMode === 'empty' || (actionMode === 'many-tail' && cursor === '5') ? null : actionMode.startsWith('many') ? String(Number(cursor || 0) + 1) : cursor ? null : 'action-older';
+        return route.fulfill({json:{records,next_cursor:next,page_cursor:cursor || 'action-first'}}).catch(() => {});
+      }
       const older = params.get('cursor') === 'older';
       if (params.get('container') === 'slow') {
         await new Promise(resolve => setTimeout(resolve, 250));
@@ -53,7 +72,7 @@ async function main() {
     await page.waitForSelector('.log-event');
     const cards = page.locator('.log-event');
     assert.match(await cards.nth(0).textContent(), /Restart completed/);
-    assert.deepEqual(await cards.nth(0).locator('.log-tag').allTextContents(), ['Host: docker-host', 'Container: api-service', 'Manual action', 'Actor: alice']);
+    assert.deepEqual(await cards.nth(0).locator('.log-tag').allTextContents(), ['Host: docker-host', 'Container: api-service', 'Manual action', 'Actor: alice', 'View action']);
     assert.equal(await cards.nth(0).getAttribute('data-tone'), 'success');
     assert.equal(await cards.nth(1).locator('.badge').textContent(), 'Queued');
     assert.equal(await cards.nth(2).locator('.badge').textContent(), 'In progress');
@@ -75,6 +94,79 @@ async function main() {
       if (width===390) await page.screenshot({path:path.join(output,'journal-mobile.png'),fullPage:true});
     }
     const loaded = () => page.waitForFunction(() => !document.getElementById('log-notice').textContent.startsWith('Loading'));
+    const actionLoaded = () => page.waitForFunction(() => !document.getElementById('action-notice').textContent.startsWith('Loading'));
+    assert.equal(await cards.nth(5).locator('.log-view-action').count(), 0, 'legacy records without an ID cannot be grouped');
+    assert.equal(await cards.nth(6).locator('.log-view-action').count(), 0, 'notifications are not action histories');
+    await cards.nth(3).locator('.badge').click();
+    await loaded();
+    await page.locator('#log-events .log-view-action').first().click();
+    await actionLoaded();
+    assert.equal(lastParams.get('correlation_id'), 'request-1234');
+    assert.deepEqual(await page.locator('#action-events .badge').allTextContents(), ['In progress', 'Failed']);
+    assert.equal(await page.locator('#action-events img').count(), 0);
+    assert.match(await page.locator('#action-events').textContent(), /Duration: 180 ms/);
+    assert.match(await page.locator('#action-help').textContent(), /missing stages/);
+    assert.equal(await page.locator('#action-events button').count(), 0);
+    const actionRequests = requests;
+    await page.waitForTimeout(300);
+    assert.equal(requests, actionRequests, 'action history must not scan or poll automatically');
+    await page.locator('#older-action').click();
+    await actionLoaded();
+    assert.deepEqual(await page.locator('#action-events .badge').allTextContents(), ['Queued', 'In progress', 'Failed']);
+    assert.equal(await page.locator('#older-action').isDisabled(), true);
+    await page.setViewportSize({width:1440,height:1050});
+    await page.screenshot({path:path.join(output,'action-history-desktop.png'),fullPage:true});
+    for (const width of [360,390,720]) {
+      await page.setViewportSize({width,height:844});
+      assert.equal(await page.locator('#action-dialog').evaluate(el => el.scrollWidth <= el.clientWidth),true,`action overflow at ${width}`);
+      if (width===390) await page.screenshot({path:path.join(output,'action-history-mobile.png'),fullPage:true});
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('#action-dialog', {state:'hidden'});
+    assert.equal(await page.locator('#log-events .log-view-action').first().evaluate(el => el === document.activeElement), true);
+    assert.equal(await page.locator('[name=result]').inputValue(), 'failed');
+    for (const scenario of ['sparse', 'expired', 'empty', 'many', 'many-tail']) {
+      actionMode = scenario;
+      await page.locator('#log-events .log-view-action').first().click();
+      await actionLoaded();
+      if (scenario === 'sparse') {
+        assert.equal(await page.locator('#action-events .log-event').count(), 0);
+        assert.equal(await page.locator('#older-action').isEnabled(), true);
+        await page.locator('#older-action').click();
+        await actionLoaded();
+        assert.equal(await page.locator('#action-events .log-event').count(), 1);
+      } else if (scenario === 'expired') {
+        assert.match(await page.locator('#action-notice').textContent(), /expired.*Refresh action/);
+        actionMode = 'paged';
+        await page.locator('#refresh-action').click();
+        await actionLoaded();
+        assert.equal(lastParams.has('cursor'), false);
+        assert.equal(await page.locator('#action-events .log-event').count(), 2);
+      } else if (scenario === 'empty') {
+        assert.match(await page.locator('#action-notice').textContent(), /No matching action events/);
+      } else {
+        for (let i=0;i<(scenario === 'many-tail' ? 5 : 4);i++) { await page.locator('#older-action').click(); await actionLoaded(); }
+        assert.equal(await page.locator('#action-events .log-event').count(), 500);
+        assert.equal(await page.locator('#older-action').isDisabled(), true);
+        assert.match(await page.locator('#action-notice').textContent(), /Display limit/);
+      }
+      await page.locator('#close-action').click();
+      await page.waitForSelector('#action-dialog', {state:'hidden'});
+    }
+    actionMode = 'slow';
+    await page.locator('#log-events .log-view-action').first().click();
+    await page.waitForTimeout(25);
+    await page.locator('#close-action').click();
+    await page.waitForSelector('#action-dialog', {state:'hidden'});
+    actionMode = 'empty';
+    await page.locator('#log-events .log-view-action').first().click();
+    await actionLoaded();
+    await page.waitForTimeout(400);
+    assert.equal(await page.locator('#action-events .log-event').count(), 0, 'closed history responses must not replace a reopened view');
+    await page.locator('#close-action').click();
+    await page.waitForSelector('#action-dialog', {state:'hidden'});
+    await page.locator('#reset-logs').click();
+    await loaded();
     assert.equal(await cards.nth(6).locator('[data-kind="neutral"]').evaluate(el => el.tagName), 'SPAN', 'unsupported sources must not offer an invalid filter');
     await cards.nth(0).locator('.log-target').focus();
     await page.keyboard.press('Enter');

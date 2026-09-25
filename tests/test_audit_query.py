@@ -87,6 +87,30 @@ class QueryTests(unittest.TestCase):
         self.assertLessEqual(sum(len(encoded(row)) for row in page['records']), PAGE_BYTES)
         self.assertGreater(len(page['records']), 0)
 
+    def test_correlation_filter_is_exact_and_bound_to_cursor_and_exports(self):
+        wanted = self.populate(105, correlation_id='request-A', container_name='web')
+        self.populate(1, correlation_id='request-A-extra')
+        self.populate(1, correlation_id='request-a')
+        self.populate(1)
+        query = dict(correlation_id='request-A', category='action', container='web',
+                     source='manual', result='succeeded', since='2020-01-01T00:00:00Z',
+                     until='2100-01-01T00:00:00Z')
+        first, _ = self.reader.page(urlencode(query), 'alice')
+        self.assertEqual(first['records'], wanted[::-1][:100])
+        second, _ = self.reader.page(urlencode(dict(query, cursor=first['next_cursor'])), 'alice')
+        self.assertEqual(second['records'], wanted[::-1][100:])
+        exported, format = self.reader.page(urlencode(dict(query, cursor=first['page_cursor'], format='csv')), 'alice')
+        self.assertEqual(format, 'csv')
+        self.assertEqual(exported['records'], first['records'])
+        for changed in ('request-a', 'request-A-extra'):
+            with self.assertRaises(QueryError) as error:
+                self.reader.page(urlencode(dict(query, cursor=first['next_cursor'], correlation_id=changed)), 'alice')
+            self.assertEqual(error.exception.code, 400)
+        for query in ('correlation_id=a&correlation_id=b', 'correlation_id=%0A', 'correlation_id=' + 'x' * 257):
+            with self.assertRaises(QueryError) as error:
+                self.reader.page(query, 'alice')
+            self.assertEqual(error.exception.code, 400)
+
     def test_scan_does_not_hold_writer_lock_and_busy_writer_is_not_waited_on(self):
         self.populate(2)
         lock = os.open(str(self.path) + '.lock', os.O_RDWR)
@@ -183,3 +207,12 @@ class AuditReadHttpTests(unittest.TestCase):
         self.assertEqual(self.request(method='POST')[0], 405)
         self.assertEqual(self.request('/v1/audit?source=invalid')[0], 400)
         self.assertNotIn(TOKEN, json.dumps(self.monitor.status()))
+
+    def test_http_correlation_query_returns_all_action_stages(self):
+        records = [self.journal.record('action', event, correlation_id='request-123', result=result)
+                   for event, result in (('queued', 'pending'), ('started', 'pending'), ('completed', 'failed'))]
+        self.journal.record('action', 'completed', correlation_id='request-123-other')
+        self.journal.record('notification', 'received', correlation_id='request-123')
+        code, body, _ = self.request('/v1/audit?category=action&correlation_id=request-123')
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)['records'], records[::-1])

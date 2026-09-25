@@ -52,3 +52,12 @@ main{max-width:1288px;margin:auto;padding:46px 24px 0}.intro{display:flex;justif
 .topbar .view-nav a {color:#c9ddf8}.topbar .view-nav a[aria-current], .topbar .view-nav a:hover {color:#fff}
 .log-paging button {padding:8px 10px;font-size:12px}
 #log-notice:not([data-error="true"]) {background:#eaf2ff;border-color:#c9dafa;color:#245ca5}
+
+.log-event .log-view-action {min-height:28px; font-size:inherit; line-height:1.5; text-decoration:underline}
+#action-dialog {max-width:920px; max-height:calc(100dvh - 32px); padding:20px; overflow-y:auto}
+.action-heading {display:flex; justify-content:space-between; align-items:center; gap:1rem}
+.action-heading h2 {margin:0; font-size:1.2rem}
+#action-help,.action-identifier {font-size:.8rem; line-height:1.5; overflow-wrap:anywhere}
+#action-events {padding:0}
+#action-notice:not([data-error="true"]) {background:#eaf2ff; border-color:#c9dafa; color:#245ca5}
+@media(max-width:420px) {#action-dialog {padding:14px}}

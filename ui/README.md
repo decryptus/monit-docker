@@ -50,6 +50,20 @@ retains its existing case-insensitive substring matching. Queued and In progress
 both select Pending. Exports follow the applied filters and current page.
 Quick filters use the applied view and replace unsubmitted form edits.
 
+Since 0.0.75, **View action** opens a separate **Action history** dialog for
+action events with a correlation ID. It shows matching action events in recorded
+order, oldest first, without applying the main journal filters. Each stage keeps
+its source, actor, host, target and reason; a recorded duration is shown in
+milliseconds when available. Closing the dialog preserves the journal page and
+filters. Notification events and legacy events without an ID have no action link.
+
+The dialog reads one bounded page at a time. **Load older events** explicitly
+continues the search, including after an empty page; there is no background scan
+or polling. **Refresh action** starts a new snapshot and recovers from expired
+cursors. The display is limited to 500 events. Only retained events are shown:
+missing stages do not prove an action is still running or that it never completed.
+An ID groups recorded events; it does not invent missing lifecycle stages.
+
 The presentation uses the existing CSS and JavaScript, without Bootstrap or
 another runtime dependency. Raw fields remain in Event details and exports.
 

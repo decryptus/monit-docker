@@ -24,7 +24,7 @@ _IDENTITY_BYTES   = 256
 _CURSOR_TTL       = 900
 _MAX_QUERY        = 32768
 _MAX_CURSOR       = 24000
-_FILTER_KEYS      = ('since', 'until', 'container', 'source', 'category', 'result')
+_FILTER_KEYS      = ('since', 'until', 'container', 'source', 'category', 'result', 'correlation_id')
 _QUERY_KEYS       = frozenset(_FILTER_KEYS + ('cursor', 'format'))
 _SOURCE_VALUES    = ('manual', 'automatic')
 _CATEGORY_VALUES  = ('action', 'notification')
@@ -54,7 +54,7 @@ def parse_query(query):
     if len(query) > _MAX_QUERY:
         raise QueryError(400, 'invalid_filters')
     try:
-        values = parse_qs(query, keep_blank_values=True, strict_parsing=True, max_num_fields=8) if query else {}
+        values = parse_qs(query, keep_blank_values=True, strict_parsing=True, max_num_fields=len(_QUERY_KEYS)) if query else {}
     except ValueError:
         raise QueryError(400, 'invalid_filters')
     if set(values) - _QUERY_KEYS or any(len(value) != 1 for value in values.values()):

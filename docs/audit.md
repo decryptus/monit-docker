@@ -257,6 +257,20 @@ serve options. Reuse the token and proxy-include mounts from
 should use the authenticated username. Compose replaces `command` lists: do not
 stack the journal and actions overlays without combining their command options.
 
+Since 0.0.75, **View action** opens a separate **Action history** dialog for
+action events with a correlation ID. It shows matching action events in recorded
+order, oldest first, without applying the main journal filters. Each stage keeps
+its source, actor, host, target and reason; a recorded duration is shown in
+milliseconds when available. Closing the dialog preserves the journal page and
+filters. Notification events and legacy events without an ID have no action link.
+
+The dialog reads one bounded page at a time. **Load older events** explicitly
+continues the search, including after an empty page; there is no background scan
+or polling. **Refresh action** starts a new snapshot and recovers from expired
+cursors. The display is limited to 500 events. Only retained events are shown:
+missing stages do not prove an action is still running or that it never completed.
+An ID groups recorded events; it does not invent missing lifecycle stages.
+
 ### Bounded reads and downloads
 
 `GET /v1/audit` returns up to 100 events, newest first, with a signed continuation
@@ -266,6 +280,12 @@ two journal reads run concurrently; other readers receive 503 and may retry.
 Opening files briefly takes a nonblocking shared journal lock. File content reads
 and serialization run after releasing it, outside the action/monitoring locks.
 If a writer holds the journal lock, browsing returns 503 rather than waiting.
+
+Since 0.0.75, the `correlation_id` query parameter matches the complete, case-sensitive
+ID. Combine it with `category=action` to read action stages without result/source
+filters: `/v1/audit?category=action&correlation_id=REQUEST_ID`. It accepts at most
+256 printable characters and uses the same authentication, scan limits and
+filter-bound cursors as other filters. `/v1/audit/export` accepts it too.
 
 A sparse filter can produce an empty page with an **Older events** continuation.
 No automatic loop scans the remaining files. Cursors are bound to the filters and

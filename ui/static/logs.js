@@ -15,6 +15,7 @@ const ACTION_LABELS = {
 };
 const FILTER_LABELS = {since: 'From', until: 'To', container: 'Container', source: 'Source', category: 'Category', result: 'Result'};
 const RESULT_LABELS = {pending: 'Pending (queued or in progress)', succeeded: 'Succeeded', failed: 'Failed', rejected: 'Rejected', skipped: 'Skipped', simulated: 'Simulation', accepted: 'Accepted', received: 'Received'};
+const ACTION_ERRORS = {...ERRORS, 400: 'Invalid action filter or cursor. Try Refresh action.', 410: 'This action view expired. Choose Refresh action.'};
 function eventPresentation(record) {
   const outcome = record.result || record.event;
   const states = {
@@ -49,6 +50,10 @@ let controller = null;
 let generation = 0;
 let loading = false;
 let exporting = false;
+const ACTION_EVENT_LIMIT = 500;
+let actionView = null;
+let actionController = null;
+let actionGeneration = 0;
 
 function node(tag, className, text) {
   const element = document.createElement(tag);
@@ -106,49 +111,59 @@ function controls() {
   $('older-logs').disabled = loading || exporting || !current?.next_cursor;
   for (const id of ['export-jsonl', 'export-csv']) $(id).disabled = loading || exporting || !current?.records.length;
 }
+function eventRow(record, interactive = true) {
+  const presentation = eventPresentation(record);
+  const row = node('li', 'log-event');
+  row.dataset.tone = presentation.tone;
+  const heading = node('div', 'log-event-heading');
+  const stamp = node('time', '', new Date(record.timestamp).toLocaleString());
+  stamp.dateTime = record.timestamp;
+  const result = interactive ? filterTag('badge', presentation.status, 'result', record.result) : node('span', 'badge', presentation.status);
+  result.dataset.result = record.result || '';
+  const title = node('h3', '', presentation.title);
+  heading.append(title);
+  if (presentation.host) {
+    const host = node('span', 'log-heading-part');
+    host.append(node('span', 'log-separator', '·'), node('span', 'log-tag log-host', presentation.host));
+    heading.append(host);
+  }
+  const date = node('span', 'log-heading-part log-date');
+  date.append(node('span', 'log-separator', '·'), stamp);
+  heading.append(date);
+  const summary = node('p', 'log-meta');
+  const source = interactive ? filterTag('log-tag', presentation.source, 'source', record.source) : node('span', 'log-tag', presentation.source);
+  source.dataset.kind = presentation.sourceTone;
+  if (presentation.target) summary.append(interactive ? filterTag('log-tag log-target', presentation.target, 'container', record.container_id || record.container_name) : node('span', 'log-tag log-target', presentation.target));
+  summary.append(source, node('span', 'log-tag', presentation.actor), result);
+  const details = node('details');
+  details.append(node('summary', '', 'Event details'));
+  const values = node('dl');
+  for (const key of DETAIL_FIELDS) {
+    if (record[key] === null || record[key] === undefined) continue;
+    values.append(node('dt', '', key.replaceAll('_', ' ')), node('dd', '', String(record[key])));
+  }
+  details.append(values);
+  row.append(heading, summary);
+  if (record.reason !== null && record.reason !== undefined && record.reason !== '') {
+    const reason = node('p', 'log-reason');
+    reason.append(node('strong', '', 'Reason: '), node('code', '', String(record.reason)));
+    row.append(reason);
+  }
+  if (interactive && record.category === 'action' && typeof record.correlation_id === 'string' && record.correlation_id.length > 0 && record.correlation_id.length <= 256) {
+    const view = node('button', 'log-tag log-view-action', 'View action');
+    view.type = 'button';
+    view.addEventListener('click', () => openAction(record.correlation_id));
+    summary.append(view);
+  }
+  if (!interactive && Number.isFinite(record.duration_ms) && record.duration_ms >= 0) {
+    row.append(node('p', 'log-reason', `Duration: ${record.duration_ms} ms`));
+  }
+  row.append(details);
+  return row;
+}
 function render() {
   const fragment = document.createDocumentFragment();
-  for (const record of current.records) {
-    const presentation = eventPresentation(record);
-    const row = node('li', 'log-event');
-    row.dataset.tone = presentation.tone;
-    const heading = node('div', 'log-event-heading');
-    const stamp = node('time', '', new Date(record.timestamp).toLocaleString());
-    stamp.dateTime = record.timestamp;
-    const result = filterTag('badge', presentation.status, 'result', record.result);
-    result.dataset.result = record.result || '';
-    const title = node('h3', '', presentation.title);
-    heading.append(title);
-    if (presentation.host) {
-      const host = node('span', 'log-heading-part');
-      host.append(node('span', 'log-separator', '·'), node('span', 'log-tag log-host', presentation.host));
-      heading.append(host);
-    }
-    const date = node('span', 'log-heading-part log-date');
-    date.append(node('span', 'log-separator', '·'), stamp);
-    heading.append(date);
-    const summary = node('p', 'log-meta');
-    const source = filterTag('log-tag', presentation.source, 'source', record.source);
-    source.dataset.kind = presentation.sourceTone;
-    if (presentation.target) summary.append(filterTag('log-tag log-target', presentation.target, 'container', record.container_id || record.container_name));
-    summary.append(source, node('span', 'log-tag', presentation.actor), result);
-    const details = node('details');
-    details.append(node('summary', '', 'Event details'));
-    const values = node('dl');
-    for (const key of DETAIL_FIELDS) {
-      if (record[key] === null || record[key] === undefined) continue;
-      values.append(node('dt', '', key.replaceAll('_', ' ')), node('dd', '', String(record[key])));
-    }
-    details.append(values);
-    row.append(heading, summary);
-    if (record.reason !== null && record.reason !== undefined && record.reason !== '') {
-      const reason = node('p', 'log-reason');
-      reason.append(node('strong', '', 'Reason: '), node('code', '', String(record.reason)));
-      row.append(reason);
-    }
-    row.append(details);
-    fragment.append(row);
-  }
+  for (const record of current.records) fragment.append(eventRow(record));
   $('log-events').replaceChildren(fragment);
   $('log-count').textContent = String(current.records.length);
   $('log-empty').hidden = current.records.length !== 0;
@@ -196,6 +211,64 @@ function applyFilters() {
   }
   setFilters(next);
 }
+function openAction(id) {
+  actionView = {id, records: [], next: null, loading: false};
+  $('action-correlation').textContent = id;
+  $('action-dialog').showModal();
+  loadAction(true);
+}
+function actionControls() {
+  $('refresh-action').disabled = !actionView || actionView.loading;
+  $('older-action').disabled = !actionView || actionView.loading || !actionView.next || actionView.records.length >= ACTION_EVENT_LIMIT;
+}
+async function loadAction(reset = false) {
+  if (!actionView || (actionView.loading && !reset)) return;
+  actionController?.abort();
+  actionController = new AbortController();
+  const pending = actionController;
+  const mine = ++actionGeneration;
+  const view = actionView;
+  if (reset) { view.records = []; view.next = null; $('action-events').replaceChildren(); }
+  view.loading = true;
+  actionControls();
+  $('action-notice').dataset.error = 'false';
+  $('action-notice').textContent = 'Loading action events…';
+  const params = new URLSearchParams({category: 'action', correlation_id: view.id});
+  if (!reset && view.next) params.set('cursor', view.next);
+  const timeout = setTimeout(() => pending.abort(), 10000);
+  try {
+    const response = await fetch('/v1/audit?' + params, {cache: 'no-store', credentials: 'same-origin', signal: pending.signal});
+    if (!response.ok) throw new Error(ACTION_ERRORS[response.status] || 'Unable to load action events. Try Refresh action.');
+    const result = await response.json();
+    if (mine !== actionGeneration) return;
+    const remaining = ACTION_EVENT_LIMIT - view.records.length;
+    const truncated = result.records.length > remaining;
+    view.records.push(...result.records.slice(0, remaining));
+    view.next = result.next_cursor;
+    $('action-events').replaceChildren(...view.records.slice().reverse().map(record => eventRow(record, false)));
+    $('action-notice').textContent = view.next || truncated
+      ? view.records.length >= ACTION_EVENT_LIMIT ? 'Display limit reached (500 events). Earlier events may exist.' : `${view.records.length} action events loaded. Choose Load older events to search earlier history.`
+      : view.records.length ? `${view.records.length} action events loaded. End of retained history for this snapshot.` : 'No matching action events remain in retained history.';
+  } catch (error) {
+    if (mine === actionGeneration) {
+      $('action-notice').dataset.error = 'true';
+      $('action-notice').textContent = error.name === 'AbortError' ? 'The request timed out. Try Refresh action.' : error.message;
+    }
+  } finally {
+    clearTimeout(timeout);
+    if (mine === actionGeneration) { view.loading = false; actionControls(); }
+  }
+}
+$('close-action').addEventListener('click', () => $('action-dialog').close());
+$('action-dialog').addEventListener('close', () => {
+  if ($('action-dialog').open) return;
+  ++actionGeneration;
+  actionController?.abort();
+  actionView = null;
+  $('action-events').replaceChildren();
+});
+$('refresh-action').addEventListener('click', () => loadAction(true));
+$('older-action').addEventListener('click', () => loadAction());
 async function download(format) {
   if (!current || loading || exporting) return;
   const params = new URLSearchParams(filters);

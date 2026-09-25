@@ -1,3 +1,12 @@
+monit-docker (0.0.75) unstable; urgency=medium
+
+  * Group retained action stages in a lightweight Action history dialog.
+  * Add exact correlation ID filtering to bounded audit reads and exports.
+  * Preserve journal filters while browsing action stages, reasons and durations.
+  * Handle partial history, expired cursors and cancelled requests explicitly.
+
+ -- Codex <codex@openai.com>  Fri, 25 Sep 2026 00:40:52 -0000
+
 monit-docker (0.0.74) unstable; urgency=medium
 
   * Filter journal events directly from container, source and result labels.
