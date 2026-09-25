@@ -215,24 +215,29 @@ function openAction(id) {
   actionView = {id, records: [], next: null, loading: false};
   $('action-correlation').textContent = id;
   $('action-dialog').showModal();
-  loadAction(true);
+  loadAction(true, current.records.filter(record => record.category === 'action' && record.correlation_id === id));
 }
 function actionControls() {
   $('refresh-action').disabled = !actionView || actionView.loading;
   $('older-action').disabled = !actionView || actionView.loading || !actionView.next || actionView.records.length >= ACTION_EVENT_LIMIT;
 }
-async function loadAction(reset = false) {
+async function loadAction(reset = false, preview = []) {
   if (!actionView || (actionView.loading && !reset)) return;
   actionController?.abort();
   actionController = new AbortController();
   const pending = actionController;
   const mine = ++actionGeneration;
   const view = actionView;
-  if (reset) { view.records = []; view.next = null; $('action-events').replaceChildren(); }
+  if (reset) {
+    view.records = preview.slice(0, ACTION_EVENT_LIMIT);
+    view.next = null;
+    $('action-events').replaceChildren(...view.records.slice().reverse().map(record => eventRow(record, false)));
+  }
   view.loading = true;
   actionControls();
   $('action-notice').dataset.error = 'false';
-  $('action-notice').textContent = 'Loading action events…';
+  $('action-notice').textContent = reset && view.records.length
+    ? 'Loading action events… Showing previously loaded events while checking retained history.' : 'Loading action events…';
   const params = new URLSearchParams({category: 'action', correlation_id: view.id});
   if (!reset && view.next) params.set('cursor', view.next);
   const timeout = setTimeout(() => pending.abort(), 10000);
@@ -241,6 +246,7 @@ async function loadAction(reset = false) {
     if (!response.ok) throw new Error(ACTION_ERRORS[response.status] || 'Unable to load action events. Try Refresh action.');
     const result = await response.json();
     if (mine !== actionGeneration) return;
+    if (reset) view.records = [];
     const remaining = ACTION_EVENT_LIMIT - view.records.length;
     const truncated = result.records.length > remaining;
     view.records.push(...result.records.slice(0, remaining));
@@ -253,6 +259,7 @@ async function loadAction(reset = false) {
     if (mine === actionGeneration) {
       $('action-notice').dataset.error = 'true';
       $('action-notice').textContent = error.name === 'AbortError' ? 'The request timed out. Try Refresh action.' : error.message;
+      if (reset && view.records.length) $('action-notice').textContent += ' Displayed events are previously loaded and may be incomplete or outdated.';
     }
   } finally {
     clearTimeout(timeout);
@@ -267,7 +274,7 @@ $('action-dialog').addEventListener('close', () => {
   actionView = null;
   $('action-events').replaceChildren();
 });
-$('refresh-action').addEventListener('click', () => loadAction(true));
+$('refresh-action').addEventListener('click', () => loadAction(true, actionView?.records || []));
 $('older-action').addEventListener('click', () => loadAction());
 async function download(format) {
   if (!current || loading || exporting) return;

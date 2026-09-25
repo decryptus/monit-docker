@@ -305,3 +305,15 @@ proxy identity replacement, writer progress during reads and browser error state
 Run `.github/scripts/benchmark-audit.py` with the project environment to measure a
 50 MiB disposable journal, first-page memory and latency, full sparse-search cost
 and a concurrent write. Measurements depend on the host and are not latency SLAs.
+
+Since 0.0.76, opening action history immediately previews matching events from
+the current journal page while the agent checks retained history. Refreshing also
+keeps the previously displayed events visible. The loading message identifies
+this provisional view; a successful response replaces it, including when the
+new snapshot is empty. A failed request labels the retained preview as possibly
+incomplete or outdated. No extra background requests or persistent browser
+storage are used. Ordinary audit text validation also avoids unnecessary
+character-by-character work while preserving the canonical escaping rules.
+Compiled regular expressions process escape sequences and ASCII control runs;
+printable Unicode is preserved, with detailed checks limited to unusual Unicode
+runs. Malformed and noncanonical escape sequences are still rejected.
