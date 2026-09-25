@@ -32,6 +32,7 @@ For installation and the command reference, see the
    :caption: Serve mode
 
    serve
+   http-api-contract
    ui
    compose
    metrics

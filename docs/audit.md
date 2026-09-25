@@ -273,6 +273,10 @@ An ID groups recorded events; it does not invent missing lifecycle stages.
 
 ### Bounded reads and downloads
 
+See the [HTTP API contract](http-api-contract.md#journal-pages-and-exports) for
+page fields, filter syntax, authentication, cursor error codes and a complete
+`curl` example exporting the displayed page.
+
 `GET /v1/audit` returns up to 100 events, newest first, with a signed continuation
 cursor. Each request reads at most 1 MiB of journal bytes and retains at most
 512 KiB of serialized event data, plus bounded parsing/response overhead. At most
