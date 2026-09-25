@@ -1,0 +1,2 @@
+# Development-only dependency for build.py; not an application dependency.
+Pillow==12.3.0

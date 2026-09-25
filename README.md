@@ -13,7 +13,8 @@
 [Documentation (FR)](https://www.monit-docker.com/docs/fr/) ·
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/) ·
-[Roadmap to 1.0](docs/roadmap.md)
+[Roadmap to 1.0](docs/roadmap.md) ·
+[Logos and icons](ui/branding/README.md)
 
 The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
 records current option precedence, selectors, scenario fields and exit codes,
