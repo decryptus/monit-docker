@@ -47,6 +47,7 @@ For installation and the command reference, see the
    :caption: Help and development
 
    check-config
+   config-cli-contract
    troubleshooting
    architecture
    roadmap

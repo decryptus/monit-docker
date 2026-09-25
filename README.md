@@ -15,6 +15,10 @@
 [Live demo](https://demo.monit-docker.com/) ·
 [Roadmap to 1.0](docs/roadmap.md)
 
+The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
+records current option precedence, selectors, scenario fields and exit codes,
+with the open decisions to resolve before 1.0.
+
 For persistent action and notification history, available since **0.0.65**, see
 the [audit journal guide](docs/audit.md). Since **0.0.66**, it also includes an optional
 authenticated journal page with filters, bounded reads and page exports.

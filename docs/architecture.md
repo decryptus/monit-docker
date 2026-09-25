@@ -228,7 +228,9 @@ Still pending: a cycle-wide deadline and an embedded UI. A client timeout can be
 client settings; it is not an overall cycle deadline. Configuration is fixed for
 each constructed CLI command; automatic reload is not added.
 Legacy Python versions advertised by the package are not exercised by the CI
-matrix, which currently runs Python 3.10 and 3.12.
+matrix, which currently runs Python 3.10 and 3.12. Some advertised interpreters
+cannot run the current code; the supported minimum remains to be reconciled with
+the metadata. See the [configuration and CLI compatibility baseline](config-cli-contract.md).
 
 
 ## Optional UI and manual operations
@@ -243,15 +245,17 @@ network directly. See [UI setup](ui.md).
 HTTP adapter verifies a proxy secret, exact origin, method, content type and
 body length before admission. `MonitorService` executes one pending operation
 between cycles, using the same operation mutex as collection. The engine's
-manual method reselects an exact container ID and checks an explicit three-verb
-vocabulary. CLI composition supplies the state-backed reservation function;
+manual method reselects an exact container ID and checks the supported action
+vocabulary, including optional maintenance and restart-budget rearm. CLI
+composition supplies the state-backed reservation function;
 core/domain code has no HTTP, authentication, UI or storage imports.
 
-Manual cooldowns use a distinct per-container key across all three verbs; they
-do not replace rule cooldowns or provide durable audit. An operation reserves
+Manual cooldowns use a distinct per-container key across the manual commands;
+they do not replace rule cooldowns. The separate persistent audit journal records
+action attribution and outcomes. An operation reserves
 before execution and invalidates cached measurements. The subsequent collection
 refreshes the cache. Autonomous rules remain enabled and can reverse a manual
-operation; this first version does not introduce maintenance overrides. The
+operation unless automatic actions are suspended by temporary maintenance. The
 queue does not promise exactly-once execution across process restarts.
 
 The component is Community-only single-host software. A future commercial

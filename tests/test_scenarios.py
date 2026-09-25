@@ -250,6 +250,34 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(self.invoke('run', 'access')[0], 110)
         self.connection.assert_not_called()
 
+    def test_access_resources_without_identity_fail_all_offline_entry_points(self):
+        self.document['dir-groups'] = {'app': {'paths': ['/data']}}
+        for mode in ('stats', 'serve'):
+            for resource in ('fs_readable[app]', 'fs_writable[app]', 'fs_executable[app]'):
+                self.document['scenarios']['access'] = dict(mode=mode, all=True, resources=[resource])
+                self.write()
+                for args in (('check-config', '--output', 'json'), ('scenario', 'list'),
+                             ('scenario', 'show', 'access'), ('run', 'access')):
+                    with self.subTest(mode=mode, resource=resource, args=args), \
+                            patch('monit_docker.adapters.http.run_server') as server:
+                        code, out, err = self.invoke(*args)
+                        self.assertEqual(code, 110, out + err)
+                        self.assertIn('scenarios.access.resources', out + err)
+                        self.assertIn('access identity', out + err)
+                        server.assert_not_called()
+        self.connection.assert_not_called()
+        self.assertFalse(self.state.exists())
+        self.assertFalse(self.audit.exists())
+
+    def test_non_access_filesystem_resources_need_no_identity(self):
+        self.document['dir-groups'] = {'app': {'paths': ['/data']}}
+        self.document['scenarios']['disk'] = dict(mode='stats', all=True,
+                                                resources=['disk_percent[app]', 'inode_percent[app]', 'fs_mode[app]'])
+        self.write()
+        self.assertEqual(self.invoke('check-config', '--output', 'json')[0], 0)
+        self.assertEqual(self.invoke('scenario', 'show', 'disk')[0], 0)
+        self.connection.assert_not_called()
+
     def test_inline_configuration_and_existing_default_path_work(self):
         self.config.unlink()
         with patch.object(cli, 'MONIT_DOCKER_CONFIG', yaml.safe_dump(self.document)):

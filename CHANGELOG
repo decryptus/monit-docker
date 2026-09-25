@@ -1,3 +1,11 @@
+monit-docker (0.0.77) unstable; urgency=medium
+
+  * Document configuration and CLI behavior with pre-1.0 compatibility decisions.
+  * Reject scenario access resources without an identity during offline validation.
+  * Cover selection, import and client precedence with contract regression tests.
+
+ -- Codex <codex@openai.com>  Fri, 25 Sep 2026 03:45:00 -0000
+
 monit-docker (0.0.76) unstable; urgency=medium
 
   * Show already loaded action events immediately while fetching retained history.

@@ -104,6 +104,12 @@ Names match `[a-z0-9][a-z0-9-]{0,63}` and are selected by exact name. Existing
 condition/action aliases and directory resources work in scenario rules/resources.
 Permission probes still require Python 3 in the container and an explicit access
 identity in the directory group.
+Since 0.0.77, this identity is also required during offline validation of
+`resources` in stats/serve scenarios; it was previously checked only when those
+resources were collected. Disk, inode and mount-mode resources need no identity.
+
+The [configuration and CLI contract](config-cli-contract.md) lists exact defaults,
+option precedence, selector semantics and exit codes, including legacy limits.
 
 Scenarios support existing Mako variables and section imports:
 

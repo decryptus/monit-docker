@@ -21,16 +21,22 @@ validation. Local function benchmarks are not measurements of whole-page latency
 
 ## Before 1.0
 
-### 1. Define the compatibility contract — planned
+### 1. Define the compatibility contract — in progress
 
-- [ ] Document the supported YAML configuration, scenario and selector syntax.
-- [ ] Document CLI behavior and exit codes, HTTP API fields, and metric names.
+- [x] Inventory current YAML configuration, scenario and selector syntax.
+- [x] Inventory CLI behavior and exit codes with regression coverage.
+- [ ] Resolve the open compatibility decisions and approve the 1.0 contract.
+- [ ] Document HTTP API fields and metric names as compatibility contracts.
 - [ ] Define journal schema evolution and compatibility with retained events.
 - [ ] State supported Python/Docker environments and optional check prerequisites.
 - [ ] Publish deprecation and migration rules for future incompatible changes.
 
 Completion: each supported public interface has a documented contract and
 regression coverage for its important behavior.
+
+The [configuration and CLI baseline](config-cli-contract.md) records the first
+review, including the corrected offline access-resource validation and remaining
+legacy decisions. This inventory does not yet freeze a 1.0 interface.
 
 ### 2. Validate installation and upgrades — planned
 
