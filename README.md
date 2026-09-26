@@ -18,7 +18,9 @@
 
 The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
 records current option precedence, selectors, scenario fields and exit codes,
-with the open decisions to resolve before 1.0.
+with the open decisions to resolve before 1.0. The
+[deprecation and migration policy](docs/deprecation-policy.md) defines advance
+notices, replacements, migration evidence and rollback limits for future changes.
 
 The [journal compatibility baseline](docs/journal-compatibility.md) covers retained
 schemas, exports and upgrade/rollback limits without rewriting archives.

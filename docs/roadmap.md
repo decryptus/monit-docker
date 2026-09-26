@@ -29,7 +29,7 @@ validation. Local function benchmarks are not measurements of whole-page latency
 - [x] Document HTTP API fields and metric names as compatibility baselines with regression coverage.
 - [x] Define journal schema evolution and compatibility with retained events.
 - [x] State supported Python/Docker environments and optional check prerequisites.
-- [ ] Publish deprecation and migration rules for future incompatible changes.
+- [x] Publish deprecation and migration rules for future incompatible changes.
 
 Completion: each supported public interface has a documented contract and
 regression coverage for its important behavior.
@@ -43,6 +43,10 @@ now cover field types, authentication, errors, freshness, action results, journa
 pages and metric names/types/units/labels. Targeted wire-level tests protect these
 behaviors. Content-type and method-status differences remain explicit decisions
 to resolve before approving the 1.0 contract.
+
+The [deprecation and migration policy](deprecation-policy.md) now defines advance
+release notices, replacements, urgent exceptions and migration/rollback evidence.
+It does not remove a feature or approve the remaining 1.0 decisions.
 
 ### 2. Validate installation and upgrades — planned
 
