@@ -351,9 +351,11 @@ proxy using browser/session authentication. See [UI setup](ui.md) for proxy rule
 - Define support for any additional HTTP verbs, parser edge cases or path aliases;
   do not rely on accidental acceptance as a stable interface.
 - Approve which field/value changes require an API version change, and define
-  deprecation/migration rules before removing or changing existing semantics.
-- Define journal schema evolution separately from the page envelope and the
-  package version; bounded cursors and in-memory request IDs are not durable APIs.
+  each change's transition using the [deprecation policy](deprecation-policy.md).
+
+The [journal baseline](journal-compatibility.md) defines schema evolution
+separately from the page envelope and package version. Bounded cursors and
+in-memory request IDs are not durable APIs.
 
 This documentation deliberately records current differences instead of changing
 behavior while inventorying the interfaces.

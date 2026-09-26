@@ -125,6 +125,9 @@ identifying the damaged range and any resulting history gap explicitly.
 
 ## Rules for future changes
 
+The [deprecation policy](deprecation-policy.md) adds the release notice sequence
+and required evidence; the schema-specific requirements below also apply.
+
 - Keep event identity, correlation, field meaning and text encoding unchanged
   within a supported schema. Test compatible additive scalar fields against older
   readers; account for fixed CSV columns and consumers with stricter assumptions.

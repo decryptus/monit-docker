@@ -308,10 +308,12 @@ it can overlap every other status family. Check command mode and diagnostics.
   `10 < cpu_percent < 90` currently compares the measurement against both bounds
   using `<`. Prefer an AND condition alias with `cpu_percent > 10` and
   `cpu_percent < 90`; do not reinterpret existing expressions without migration.
-- Resolve Python support metadata: CI currently covers Python 3.10/3.12, while
-  package metadata still advertises older interpreters that this code cannot run on.
-- Define the supported Docker/platform matrix, deprecation process and migration
-  policy; separately review HTTP fields, metrics and journal schema compatibility.
+
+The Python metadata discrepancy was resolved in 0.0.78 (`Requires-Python >=3.10`).
+The [environment baseline](supported-environments.md) now records tested platforms
+and uncertified combinations. The [deprecation policy](deprecation-policy.md)
+defines the process for future incompatible changes; it does not resolve the
+behavioral decisions above or approve the complete 1.0 contract.
 
 No internal Python class, diagnostic wording, implicit argparse abbreviation,
 Docker enumeration order or undocumented YAML behavior is declared a stable API
