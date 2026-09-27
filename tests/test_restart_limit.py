@@ -178,7 +178,7 @@ class RestartCliTests(unittest.TestCase):
                                '--state-file', str(self.path), '--rsc', 'health',
                                '--cmd-if', 'health == unhealthy ? restart']):
             command = cli.MonitDockerSubCmdServe(cli.argv_parse_check())
-        actions = ManualActions(command.application.manual_action, 'https://monitor.example', 'b' * 64, audit=command.audit)
+        actions = ManualActions(command.application.manual_action, audit=command.audit)
         monitor = MonitorService(command.application.cycle, manual_actions=actions)
         monitor.run_cycle()
         request = dict(request_id='c' * 32, container_id=obj.id, action='restart-reset')

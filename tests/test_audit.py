@@ -1,4 +1,6 @@
 """Durability, outcome truthfulness, attribution and notification boundaries."""
+
+from dataclasses import replace
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stderr, redirect_stdout
 import csv
@@ -221,7 +223,7 @@ class JournalTests(unittest.TestCase):
 
 
 def make_monitor(journal, execute=None):
-    actions = ManualActions(execute or Mock(), ORIGIN, TOKEN, audit=journal)
+    actions = ManualActions(execute or Mock(), audit=journal)
     monitor = MonitorService(Mock(return_value=snapshot()), manual_actions=actions)
     monitor.run_cycle()
     return actions, monitor
@@ -295,14 +297,15 @@ class AuditHttpTests(unittest.TestCase):
         JournalTests.setUp(self)
         manual_tests.ManualHttpTests.setUp(self)
         self.actions.audit = self.journal
-        self.monitor.notification_audit = NotificationAudit(self.journal, 'c' * 64)
+        self.monitor.notification_audit = NotificationAudit(self.journal)
+        self.server.security = replace(self.server.security, notification_token="c" * 64)
 
     def test_untrusted_actor_is_ignored_and_opt_in_requires_proxy_identity(self):
         self.assertEqual(self.request(headers={'X-Monit-Actor': 'forged'})[0], 202)
         self.assertEqual(self.journal.read()[0]['actor'], 'anonymous')
         self.monitor.run_pending_action()
         self.monitor.run_cycle()
-        self.actions.trust_actor = True
+        self.server.security = replace(self.server.security, trust_actor=True)
         self.assertEqual(self.request(body=json.dumps(payload(2)))[0], 403)
         self.assertEqual(self.request(body=json.dumps(payload(2)), headers={'X-Monit-Actor': 'alice'})[0], 202)
         self.assertEqual(self.journal.read()[-1]['actor'], 'alice')
@@ -388,3 +391,4 @@ class AuditCliTests(unittest.TestCase):
         self.client.containers.list.assert_not_called()
         with self.assertRaises(SystemExit):
             self.invoke('--audit-file', str(path), 'audit-export', '--since', '2020-01-01')
+

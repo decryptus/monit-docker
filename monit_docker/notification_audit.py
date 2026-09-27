@@ -3,8 +3,8 @@ from monit_docker.audit import fingerprint
 
 
 class NotificationAudit:
-    def __init__(self, journal, token):
-        self.journal, self.token = journal, token
+    def __init__(self, journal):
+        self.journal = journal
 
     def receive(self, payload):
         if (not isinstance(payload, dict) or payload.get('version') != '4'
@@ -37,3 +37,4 @@ class NotificationAudit:
         for fields in events:
             self.journal.record('notification', 'received', **fields)
         return len(events)
+

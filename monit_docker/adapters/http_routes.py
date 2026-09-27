@@ -9,6 +9,7 @@ from httpdis import httpdis
 from monit_docker.domain.errors import ActionRejected
 from monit_docker.audit import AuditError, export_events
 from monit_docker.audit_query import QueryError
+from monit_docker.adapters.audit_http import read_page, query_error_status
 from monit_docker.outputs.prometheus import render_metrics
 
 
@@ -80,7 +81,7 @@ def notification(request):
 
 def audit_page(request):
     try:
-        page, format = request.server.monitor.audit_reader.page(urlsplit(request.path).query, request.audit_actor)
+        page, format = read_page(request.server.monitor.audit_reader, urlsplit(request.path).query, request.audit_actor)
         if request._path == '/v1/audit/export':
             output = io.StringIO()
             export_events(page['records'], output, format)
@@ -90,7 +91,7 @@ def audit_page(request):
             return httpdis.HttpResponse(200, output.getvalue(), headers)
         return json_response(page)
     except QueryError as error:
-        return json_response(dict(error=error.reason), error.code)
+        return json_response(dict(error=error.reason), query_error_status(error))
 
 
 _ROUTES = ({'name': 'v1/audit', 'op': _READ_METHODS, 'handler': audit_page, 'to_auth': True},
@@ -114,3 +115,4 @@ def allowed_methods(path):
 def register_routes():
     for route in _ROUTES:
         httpdis.register(to_log = False, **route)
+

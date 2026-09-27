@@ -1,4 +1,6 @@
 """Bounded browsing, rotation consistency and private HTTP access."""
+
+from monit_docker.adapters.http_security import HttpSecurity
 from contextlib import redirect_stderr
 import csv
 import fcntl
@@ -14,6 +16,7 @@ from unittest.mock import Mock, patch
 from urllib.parse import urlencode
 
 from monit_docker.audit import AuditJournal, encoded, event_record
+from monit_docker.adapters.audit_http import read_page, query_error_status
 from monit_docker.audit_query import AuditReader, QueryError, SCAN_BYTES, PAGE_BYTES
 from monit_docker.adapters.http import StatusServer
 from monit_docker.service import MonitorService
@@ -28,7 +31,7 @@ class QueryTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / 'events.jsonl'
         self.journal = AuditJournal(self.path, max_bytes=65536, files=3, emit=False)
-        self.reader = AuditReader(self.journal, TOKEN)
+        self.reader = AuditReader(self.journal)
 
     def populate(self, count, **fields):
         return [self.journal.record('action', 'completed', reason=str(i), source='manual', result='succeeded', **fields)
@@ -36,54 +39,54 @@ class QueryTests(unittest.TestCase):
 
     def test_reverse_pages_do_not_skip_duplicate_or_include_new_appends(self):
         records = self.populate(150)
-        first, _ = self.reader.page('', 'alice')
+        first, _ = read_page(self.reader, '', 'alice')
         self.assertEqual([r['event_id'] for r in first['records']], [r['event_id'] for r in records[::-1][:100]])
         self.populate(5)
-        second, _ = self.reader.page(urlencode({'cursor': first['next_cursor']}), 'alice')
+        second, _ = read_page(self.reader, urlencode({'cursor': first['next_cursor']}), 'alice')
         self.assertEqual([r['event_id'] for r in second['records']], [r['event_id'] for r in records[::-1][100:]])
         self.assertIsNone(second['next_cursor'])
-        repeat, _ = self.reader.page(urlencode({'cursor': first['page_cursor'], 'format': 'csv'}), 'alice')
+        repeat, _ = read_page(self.reader, urlencode({'cursor': first['page_cursor'], 'format': 'csv'}), 'alice')
         self.assertEqual(repeat['records'], first['records'])
 
     def test_rotation_expires_only_when_unread_snapshot_data_is_lost(self):
         self.populate(120)
-        first, _ = self.reader.page('', 'alice')
+        first, _ = read_page(self.reader, '', 'alice')
         self.populate(40)  # rotation preserves the original inode
-        page, _ = self.reader.page(urlencode({'cursor': first['next_cursor']}), 'alice')
+        page, _ = read_page(self.reader, urlencode({'cursor': first['next_cursor']}), 'alice')
         self.assertTrue(page['records'])
         self.populate(500)
         with self.assertRaises(QueryError) as error:
-            self.reader.page(urlencode({'cursor': first['next_cursor']}), 'alice')
-        self.assertEqual(error.exception.code, 410)
+            read_page(self.reader, urlencode({'cursor': first['next_cursor']}), 'alice')
+        self.assertEqual(query_error_status(error.exception), 410)
 
     def test_filters_scope_and_cursor_integrity(self):
         self.populate(120, container_name='web', actor='=CMD()\n')
         query = dict(container='WEB', source='manual', category='action', result='succeeded', since='2020-01-01T00:00:00Z')
-        first, _ = self.reader.page(urlencode(query), 'alice')
+        first, _ = read_page(self.reader, urlencode(query), 'alice')
         self.assertEqual(len(first['records']), 100)
         self.assertEqual(first['records'][0]['actor'], r'\u003dCMD()\u000a')
         query['cursor'] = first['next_cursor']
-        self.assertTrue(self.reader.page(urlencode(query), 'alice')[0]['records'])
+        self.assertTrue(read_page(self.reader, urlencode(query), 'alice')[0]['records'])
         for actor, params in [('bob', query), ('alice', dict(query, result='failed')), ('alice', dict(query, cursor=query['cursor']+'x'))]:
             with self.assertRaises(QueryError) as error:
-                self.reader.page(urlencode(params), actor)
-            self.assertEqual(error.exception.code, 400)
+                read_page(self.reader, urlencode(params), actor)
+            self.assertEqual(query_error_status(error.exception), 400)
         with patch('monit_docker.audit_query.time.time', return_value=10**12), self.assertRaises(QueryError) as error:
-            self.reader.page(urlencode(query), 'alice')
-        self.assertEqual(error.exception.code, 410)
+            read_page(self.reader, urlencode(query), 'alice')
+        self.assertEqual(query_error_status(error.exception), 410)
 
     def test_sparse_search_and_large_records_have_bounded_progress(self):
         record = event_record('action', 'completed', reason='x' * 30000)
         self.path.write_bytes(encoded(record) * 100)
         query = {'result': 'failed'}
-        first, _ = self.reader.page(urlencode(query), 'alice')
+        first, _ = read_page(self.reader, urlencode(query), 'alice')
         self.assertFalse(first['records'])
         self.assertTrue(first['next_cursor'])
         self.assertLessEqual(first['scanned_bytes'], SCAN_BYTES)
         query['cursor'] = first['next_cursor']
-        second, _ = self.reader.page(urlencode(query), 'alice')
+        second, _ = read_page(self.reader, urlencode(query), 'alice')
         self.assertNotEqual(first['next_cursor'], second['next_cursor'])
-        page, _ = self.reader.page('', 'alice')
+        page, _ = read_page(self.reader, '', 'alice')
         self.assertLessEqual(sum(len(encoded(row)) for row in page['records']), PAGE_BYTES)
         self.assertGreater(len(page['records']), 0)
 
@@ -95,21 +98,21 @@ class QueryTests(unittest.TestCase):
         query = dict(correlation_id='request-A', category='action', container='web',
                      source='manual', result='succeeded', since='2020-01-01T00:00:00Z',
                      until='2100-01-01T00:00:00Z')
-        first, _ = self.reader.page(urlencode(query), 'alice')
+        first, _ = read_page(self.reader, urlencode(query), 'alice')
         self.assertEqual(first['records'], wanted[::-1][:100])
-        second, _ = self.reader.page(urlencode(dict(query, cursor=first['next_cursor'])), 'alice')
+        second, _ = read_page(self.reader, urlencode(dict(query, cursor=first['next_cursor'])), 'alice')
         self.assertEqual(second['records'], wanted[::-1][100:])
-        exported, format = self.reader.page(urlencode(dict(query, cursor=first['page_cursor'], format='csv')), 'alice')
+        exported, format = read_page(self.reader, urlencode(dict(query, cursor=first['page_cursor'], format='csv')), 'alice')
         self.assertEqual(format, 'csv')
         self.assertEqual(exported['records'], first['records'])
         for changed in ('request-a', 'request-A-extra'):
             with self.assertRaises(QueryError) as error:
-                self.reader.page(urlencode(dict(query, cursor=first['next_cursor'], correlation_id=changed)), 'alice')
-            self.assertEqual(error.exception.code, 400)
+                read_page(self.reader, urlencode(dict(query, cursor=first['next_cursor'], correlation_id=changed)), 'alice')
+            self.assertEqual(query_error_status(error.exception), 400)
         for query in ('correlation_id=a&correlation_id=b', 'correlation_id=%0A', 'correlation_id=' + 'x' * 257):
             with self.assertRaises(QueryError) as error:
-                self.reader.page(query, 'alice')
-            self.assertEqual(error.exception.code, 400)
+                read_page(self.reader, query, 'alice')
+            self.assertEqual(query_error_status(error.exception), 400)
 
     def test_scan_does_not_hold_writer_lock_and_busy_writer_is_not_waited_on(self):
         self.populate(2)
@@ -117,7 +120,7 @@ class QueryTests(unittest.TestCase):
         self.addCleanup(os.close, lock)
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         with self.assertRaises(QueryError) as error:
-            self.reader.page('', 'alice')
+            read_page(self.reader, '', 'alice')
         self.assertEqual(error.exception.reason, 'audit_busy')
         fcntl.flock(lock, fcntl.LOCK_UN)
         original = os.pread
@@ -126,33 +129,33 @@ class QueryTests(unittest.TestCase):
             fcntl.flock(lock, fcntl.LOCK_UN)
             return original(*args)
         with patch('monit_docker.audit_query.os.pread', side_effect=read):
-            self.assertTrue(self.reader.page('', 'alice')[0]['records'])
+            self.assertTrue(read_page(self.reader, '', 'alice')[0]['records'])
         self.reader._slots.acquire(); self.reader._slots.acquire()
         try:
             with self.assertRaises(QueryError) as error:
-                self.reader.page('', 'alice')
+                read_page(self.reader, '', 'alice')
             self.assertEqual(error.exception.reason, 'audit_busy')
         finally:
             self.reader._slots.release(); self.reader._slots.release()
 
     def test_malformed_queries_files_and_missing_history(self):
-        self.assertEqual(self.reader.page('', 'alice')[0]['records'], [])
+        self.assertEqual(read_page(self.reader, '', 'alice')[0]['records'], [])
         for query in ('x=1', 'source=a', 'format=html', 'since=2026-01-01', 'source=manual&source=automatic',
                       'since=2026-01-02T00:00:00Z&until=2026-01-01T00:00:00Z', 'container=%0A', 'cursor=x'):
             with self.subTest(query=query), self.assertRaises(QueryError) as error:
-                self.reader.page(query, 'alice')
-            self.assertEqual(error.exception.code, 400)
+                read_page(self.reader, query, 'alice')
+            self.assertEqual(query_error_status(error.exception), 400)
         for value in (b'{bad}\n', b'{incomplete', b'x'*150000+b'\n'):
             self.path.write_bytes(value)
             with self.assertRaises(QueryError) as error:
-                self.reader.page('', 'alice')
-            self.assertEqual(error.exception.code, 503)
+                read_page(self.reader, '', 'alice')
+            self.assertEqual(query_error_status(error.exception), 503)
         self.path.unlink()
         outside = Path(self.temp.name) / 'outside'
         outside.write_text('preserve')
         self.path.symlink_to(outside)
         with self.assertRaises(QueryError):
-            self.reader.page('', 'alice')
+            read_page(self.reader, '', 'alice')
         self.assertEqual(outside.read_text(), 'preserve')
 
 
@@ -160,7 +163,7 @@ class AuditReadHttpTests(unittest.TestCase):
     def setUp(self):
         QueryTests.setUp(self)
         self.monitor = MonitorService(Mock(), audit_reader=self.reader)
-        self.server = StatusServer(('127.0.0.1', 0), self.monitor)
+        self.server = StatusServer(('127.0.0.1', 0), self.monitor, HttpSecurity(audit_token=TOKEN))
         self.thread = Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.addCleanup(self.close)
@@ -216,3 +219,4 @@ class AuditReadHttpTests(unittest.TestCase):
         code, body, _ = self.request('/v1/audit?category=action&correlation_id=request-123')
         self.assertEqual(code, 200)
         self.assertEqual(json.loads(body)['records'], records[::-1])
+

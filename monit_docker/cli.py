@@ -159,18 +159,6 @@ class MonitDockerExit(SystemExit):
     pass
 
 
-def _read_audit_token(path):
-    import re
-    try:
-        with open(path) as stream:
-            token = stream.read(67)
-        if not re.fullmatch('[0-9a-f]{64}\n?', token):
-            raise ValueError('Invalid token')
-        return token.strip()
-    except (OSError, ValueError, UnicodeError) as error:
-        raise MonitoringError(110, 'Audit token file must contain a 64-character hex secret') from error
-
-
 class MonitDockerSubCmdAudit:
     CMD_NAME = 'audit-export'
     CMD_HELP = 'export retained actions and notifications without connecting to Docker'
@@ -604,35 +592,23 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
     def __call__(self):
         from monit_docker.service import MonitorService
         from monit_docker.adapters.http import run_server
-        actions = None
-        if self.options.allow_actions:
-            import re
-            from monit_docker.manual_actions import ManualActions
-            try:
-                with open(self.options.action_token_file) as stream:
-                    raw_token = stream.read(67)
-                if not re.fullmatch('[0-9a-f]{64}\n?', raw_token):
-                    raise ValueError('invalid secret')
-                token = raw_token.rstrip('\n')
-            except (OSError, UnicodeError, ValueError):
-                raise MonitoringError(110, 'action token file must contain a 64-character hex secret')
-            actions = ManualActions(self.application.manual_action, self.options.action_origin, token,
-                                    audit=self.audit, trust_actor=self.options.trust_proxy_user,
-                                    allow_maintenance=self.options.allow_maintenance)
-        notifications = None
-        if self.options.notification_token_file:
-            from monit_docker.notification_audit import NotificationAudit
-            notifications = NotificationAudit(self.audit, _read_audit_token(self.options.notification_token_file))
-        reader = None
-        if self.options.audit_read_token_file:
-            from monit_docker.audit_query import AuditReader
-            read_token = _read_audit_token(self.options.audit_read_token_file)
-            if (actions and read_token == actions.token) or (notifications and read_token == notifications.token):
-                raise MonitoringError(110, 'audit read secret must differ from action and notification secrets')
-            reader = AuditReader(self.audit, read_token)
+        from monit_docker.adapters.http_security import load_security
+        from monit_docker.manual_actions import ManualActions
+        from monit_docker.notification_audit import NotificationAudit
+        from monit_docker.audit_query import AuditReader
+        security = load_security(
+            action_token_file=self.options.action_token_file if self.options.allow_actions else None,
+            action_origin=self.options.action_origin, trust_actor=self.options.trust_proxy_user,
+            notification_token_file=self.options.notification_token_file,
+            audit_read_token_file=self.options.audit_read_token_file)
+        actions = (ManualActions(self.application.manual_action, audit=self.audit,
+                                 allow_maintenance=self.options.allow_maintenance)
+                   if self.options.allow_actions else None)
+        notifications = NotificationAudit(self.audit) if security.notification_token else None
+        reader = AuditReader(self.audit) if security.audit_token else None
         monitor = MonitorService(self.application.cycle, self.options.interval, self.options.stale_after,
                                  manual_actions=actions, notification_audit=notifications, audit_reader=reader)
-        run_server(monitor, self.options.bind, self.options.port)
+        run_server(monitor, self.options.bind, self.options.port, security=security)
 
 
 class MonitDockerSubCmdCheckConfig(object):

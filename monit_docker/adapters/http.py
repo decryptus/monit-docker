@@ -7,6 +7,8 @@ import signal
 from threading import Event, Lock, Thread, current_thread, main_thread
 from urllib.parse import urlsplit
 
+from monit_docker.adapters.http_security import HttpSecurity
+
 from httpdis import httpdis
 from sonicprobe.libs.threading_tcp_server import KillableThreadingHTTPServer
 
@@ -69,14 +71,15 @@ class StatusHandler(httpdis.HttpReqHandler):
 
     def authenticate(self, auth_users = None):
         path = self._path
+        security = self.server.security
         if path in _AUDIT_READ_PATHS:
             reader = self.server.monitor.audit_reader
             if reader is None:
                 raise self.req_error(404)
             tokens = self.headers.get_all('X-Monit-Audit-Token')
             actors = self.headers.get_all('X-Monit-Actor')
-            if (not tokens or len(tokens) != 1
-                    or not hmac.compare_digest(tokens[0].encode('utf-8'), reader.token.encode('ascii'))
+            if (not security.audit_token or not tokens or len(tokens) != 1
+                    or not hmac.compare_digest(tokens[0].encode('utf-8'), security.audit_token.encode('ascii'))
                     or not actors or len(actors) != 1 or not actors[0].strip() or len(actors[0]) > 128
                     or any(ord(c) < 32 or ord(c) == 127 for c in actors[0])):
                 raise self.req_error(403, 'forbidden')
@@ -87,7 +90,7 @@ class StatusHandler(httpdis.HttpReqHandler):
             if receiver is None:
                 raise self.req_error(405)
             tokens = self.headers.get_all('Authorization')
-            if not tokens or len(tokens) != 1 or not hmac.compare_digest(tokens[0].encode('utf-8'), ('Bearer ' + receiver.token).encode('ascii')):
+            if not security.notification_token or not tokens or len(tokens) != 1 or not hmac.compare_digest(tokens[0].encode('utf-8'), ('Bearer ' + security.notification_token).encode('ascii')):
                 raise self.req_error(403, 'forbidden')
             return
         actions = self.server.monitor.manual_actions
@@ -95,13 +98,13 @@ class StatusHandler(httpdis.HttpReqHandler):
             raise self.req_error(405)
         tokens  = self.headers.get_all('X-Monit-Action-Token')
         origins = self.headers.get_all('Origin')
-        if (not tokens or len(tokens) != 1
-                or not hmac.compare_digest(tokens[0].encode('utf-8'), actions.token.encode('ascii'))):
+        if (not security.action_token or not tokens or len(tokens) != 1
+                or not hmac.compare_digest(tokens[0].encode('utf-8'), security.action_token.encode('ascii'))):
             raise self.req_error(403, 'forbidden')
-        if not origins or len(origins) != 1 or origins[0] != actions.origin:
+        if not origins or len(origins) != 1 or origins[0] != security.action_origin:
             raise self.req_error(403, 'origin_rejected')
         self.audit_actor = 'anonymous'
-        if actions.trust_actor:
+        if security.trust_actor:
             actors = self.headers.get_all('X-Monit-Actor')
             if (not actors or len(actors) != 1 or not actors[0].strip() or len(actors[0]) > 128
                     or any(ord(c) < 32 or ord(c) == 127 for c in actors[0])):
@@ -165,9 +168,10 @@ class StatusHandler(httpdis.HttpReqHandler):
 
 
 class StatusServer(KillableThreadingHTTPServer):
-    def __init__(self, address, monitor):
+    def __init__(self, address, monitor, security=None):
         _initialize_httpdis()
         self.monitor = monitor
+        self.security = security or HttpSecurity()
         super(StatusServer, self).__init__(_SERVER_OPTIONS.copy(), address,
                                            StatusHandler, name = 'monit-docker-http')
 
@@ -184,9 +188,9 @@ class StatusServer(KillableThreadingHTTPServer):
         super(StatusServer, self).server_close()
 
 
-def run_server(monitor, bind, port, stop = None):
+def run_server(monitor, bind, port, stop = None, security=None):
     stop     = stop or Event()
-    server   = StatusServer((bind, port), monitor)
+    server   = StatusServer((bind, port), monitor, security)
     thread   = Thread(target = server.serve_forever, name = 'monit-docker-http')
     previous = {}
     thread.daemon = True
@@ -205,3 +209,4 @@ def run_server(monitor, bind, port, stop = None):
         server.server_close()
         for number, handler in previous.items():
             signal.signal(number, handler)
+
