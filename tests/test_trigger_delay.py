@@ -283,7 +283,7 @@ class TriggerCliTests(unittest.TestCase):
     def test_serve_and_cron_share_observations_and_expose_pending_counter(self):
         self.cycle(100)
         path = Path(self.temp.name) / 'job.json'
-        def run(monitor, *args):
+        def run(monitor, *args, **kwargs):
             with patch('monit_docker.core.policy.time.time', return_value=160):
                 monitor.run_cycle()
             self.assertEqual(monitor.status()['actions']['pending'], 1)
@@ -303,7 +303,7 @@ class TriggerCliTests(unittest.TestCase):
         self.cycle(100)
         path = Path(self.temp.name) / 'job.json'
         before = path.read_bytes(), path.stat().st_mtime_ns
-        with patch('monit_docker.adapters.http.run_server', side_effect=lambda monitor, *args: monitor.run_cycle()):
+        with patch('monit_docker.adapters.http.run_server', side_effect=lambda monitor, *args, **kwargs: monitor.run_cycle()):
             self.assertEqual(self.invoke('serve', '--rsc', 'status', '--state-file', str(path)), 0)
         self.assertEqual((path.read_bytes(), path.stat().st_mtime_ns), before)
 
@@ -324,3 +324,4 @@ class TriggerCliTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

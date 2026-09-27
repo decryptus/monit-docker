@@ -193,7 +193,10 @@ class ServeCliTests(unittest.TestCase):
     invoke = legacy.RegressionTests.invoke
 
     def test_defaults_are_loopback_read_only_and_collect_all_resources(self):
-        def run(monitor, bind, port):
+        def run(monitor, bind, port, *, security):
+            self.assertIsNone(security.action_token)
+            self.assertIsNone(security.audit_token)
+            self.assertIsNone(security.notification_token)
             self.assertEqual((bind, port), ('127.0.0.1', 9808))
             monitor.run_cycle()
             self.assertTrue(monitor.status()['ready'])
@@ -206,7 +209,7 @@ class ServeCliTests(unittest.TestCase):
         from pathlib import Path
         path = Path(self.temp.name) / 'serve.json'
         obj = self.client.containers.list.return_value[0]
-        def run(monitor, *args):
+        def run(monitor, *args, **kwargs):
             monitor.run_cycle()
             monitor.run_cycle()
             self.assertTrue(monitor.status()['ready'])
@@ -215,7 +218,7 @@ class ServeCliTests(unittest.TestCase):
         with patch('monit_docker.adapters.http.run_server', side_effect=run):
             self.assertEqual(self.invoke('serve', '--rsc', 'status', '--state-file', str(path), '--cmd', 'restart'), 0)
         obj.restart.assert_called_once_with()
-        def preview(monitor, *args):
+        def preview(monitor, *args, **kwargs):
             monitor.run_cycle()
             monitor.run_cycle()
             self.assertEqual(monitor.status()['actions']['dry-run'], 2)
@@ -239,3 +242,4 @@ class ServeCliTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

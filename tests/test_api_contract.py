@@ -1,5 +1,7 @@
 """Public wire contracts: names, units, capability discovery and failure meaning."""
 
+from monit_docker.adapters.http_security import HttpSecurity
+
 import csv
 import http.client
 import io
@@ -80,7 +82,7 @@ class ApiContractTests(unittest.TestCase):
         self.cycle = Mock(return_value=self.snapshot())
         self.monitor = MonitorService(self.cycle, stale_after=3,
                                       clock=self.clock, monotonic=self.ticks)
-        self.server = StatusServer(('127.0.0.1', 0), self.monitor)
+        self.server = StatusServer(('127.0.0.1', 0), self.monitor, HttpSecurity(action_token=_TOKEN, action_origin=_ORIGIN, trust_actor=True, audit_token=_TOKEN, notification_token=_TOKEN))
         self.thread = Thread(target=self.server.serve_forever)
         self.thread.start()
         self.addCleanup(self.close)
@@ -119,8 +121,8 @@ class ApiContractTests(unittest.TestCase):
 
     def enable_actions(self):
         self.execute = Mock()
-        actions = ManualActions(self.execute, _ORIGIN, _TOKEN, clock=self.clock,
-                                monotonic=self.ticks, trust_actor=True)
+        actions = ManualActions(self.execute, clock=self.clock,
+                                monotonic=self.ticks)
         self.monitor.manual_actions = actions
         return actions
 
@@ -128,7 +130,7 @@ class ApiContractTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         journal = AuditJournal(Path(temporary.name) / 'events.jsonl', emit=False)
-        self.monitor.audit_reader = AuditReader(journal, _TOKEN)
+        self.monitor.audit_reader = AuditReader(journal)
         return journal
 
     @staticmethod
@@ -331,7 +333,7 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(self.json_request('/v1/actions', 'POST', self.payload(), headers),
                          (415, {'error': 'json_required'}))
         journal = self.enable_audit()
-        self.monitor.notification_audit = NotificationAudit(journal, _TOKEN)
+        self.monitor.notification_audit = NotificationAudit(journal)
         self.monitor.manual_actions = None
         payload = dict(version='4', receiver='test', groupKey='group', status='firing',
                        alerts=[dict(status='firing', labels={'alertname': 'Down'})])
@@ -365,7 +367,7 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(rows[0]['event_id'], page['records'][0]['event_id'])
         with patch('monit_docker.audit_query.time.time', return_value=1901):
             self.assertEqual(self.json_request(path, headers=_AUDIT_HEADERS), (410, {'error': 'cursor_expired'}))
-        self.monitor.audit_reader = AuditReader(journal, _TOKEN)
+        self.monitor.audit_reader = AuditReader(journal)
         self.assertEqual(self.json_request(path, headers=_AUDIT_HEADERS), (400, {'error': 'invalid_cursor'}))
 
     def test_audit_unavailable_and_invalid_filters_are_not_empty_successes(self):
@@ -379,3 +381,4 @@ class ApiContractTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

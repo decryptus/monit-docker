@@ -72,10 +72,19 @@ YAML scenarios produce the same neutral job values without argparse or CLI calls
 with injected state and clock; `StateOperations` owns offline maintenance and
 restart rearming. HTTP scheduler callbacks are bound to the application instance.
 
-The transport-secret/query coupling in manual action, notification and journal
-services remains tracked as M3 in the dated review; dynamic selector bounds and
-shared validation cleanup remain M4/M5. This extraction does not claim those
-separate findings are resolved.
+HTTP credentials, browser origin and trusted-header mode are owned by a per-server
+`HttpSecurity` value. `ManualActions`, `NotificationAudit` and `AuditReader` take
+no transport credentials. Private HTTP operations reject requests if their server
+has no corresponding secret, even when the underlying service is available.
+
+`AuditReader.page(AuditQuery(filters, cursor), actor)` validates application filters
+and returns a page dictionary; its `QueryError` exposes a domain reason. The
+`adapters/audit_http.py` adapter alone decodes URL queries, chooses an export format
+and maps reasons to HTTP status codes. Cursor scope still binds filters and caller
+identity. Existing HTTP routes, response envelopes and error codes are unchanged.
+
+Dynamic selector bounds and shared validation cleanup remain M4/M5 in the dated
+review. They are separate from the interface extraction.
 
 - `core/engine.py` coordinates a cycle and preserves the two-phase rule order.
 - `core/rules.py` evaluates conditions against snapshots, without Docker or CLI imports.

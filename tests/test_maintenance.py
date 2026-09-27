@@ -102,7 +102,7 @@ class MaintenanceTests(unittest.TestCase):
         with patch('sys.argv', ['monit-docker', '-c', str(self.conf), 'serve',
                                '--state-file', str(self.path), '--rsc', 'health', '--cmd', 'restart']):
             command = cli.MonitDockerSubCmdServe(cli.argv_parse_check())
-        actions = ManualActions(command.application.manual_action, 'https://monitor.test', 'b' * 64, audit=command.audit)
+        actions = ManualActions(command.application.manual_action, audit=command.audit)
         monitor = MonitorService(command.application.cycle, manual_actions=actions)
         monitor.run_cycle()
         data = monitor.status()
@@ -119,11 +119,11 @@ class MaintenanceTests(unittest.TestCase):
     def test_controls_require_opt_in_and_keep_protection(self):
         data = dict(ready=True, containers=[dict(id=ID, name='web', status='running')])
         payload = dict(request_id='c' * 32, container_id=ID, action='maintenance-15m')
-        actions = ManualActions(None, 'https://monitor.test', 'b' * 64)
+        actions = ManualActions(None)
         self.assertNotIn('maintenance-15m', actions.status()['allowed_states'])
         with self.assertRaises(ActionRejected):
             actions.submit(payload, data)
-        actions = ManualActions(None, 'https://monitor.test', 'b' * 64, allow_maintenance=True)
+        actions = ManualActions(None, allow_maintenance=True)
         data['containers'][0]['manual_actions_protected'] = True
         with self.assertRaisesRegex(ActionRejected, 'container_protected'):
             actions.submit(payload, data)

@@ -1,5 +1,7 @@
 """Authenticated HTTP requests, queue races and actual engine/state contracts."""
 
+from monit_docker.adapters.http_security import HttpSecurity
+
 import http.client
 import json
 from pathlib import Path
@@ -33,7 +35,7 @@ class ManualTests(unittest.TestCase):
     def setUp(self):
         self.execute = Mock()
         self.tick = Mock(return_value=1)
-        self.actions = ManualActions(self.execute, ORIGIN, TOKEN, monotonic=self.tick)
+        self.actions = ManualActions(self.execute, monotonic=self.tick)
         self.monitor = MonitorService(Mock(return_value=snapshot()), manual_actions=self.actions)
         self.monitor.run_cycle()
 
@@ -213,8 +215,7 @@ class ManualEngineTests(unittest.TestCase):
         obj.id = ID
         engine, _, _ = self.make_engine(obj)
         claim = Mock(return_value=True)
-        actions = ManualActions(lambda identifier, action: engine.run_manual_action(identifier, action, claim),
-                                ORIGIN, TOKEN)
+        actions = ManualActions(lambda identifier, action: engine.run_manual_action(identifier, action, claim))
         monitor = MonitorService(lambda _: engine.run_once(resources=('status',)), manual_actions=actions)
         monitor.run_cycle()
         actions.submit(payload(), monitor.status())
@@ -287,10 +288,10 @@ class ManualEngineTests(unittest.TestCase):
 
 class ManualHttpTests(unittest.TestCase):
     def setUp(self):
-        self.actions = ManualActions(Mock(), ORIGIN, TOKEN)
+        self.actions = ManualActions(Mock())
         self.monitor = MonitorService(Mock(return_value=snapshot()), manual_actions=self.actions)
         self.monitor.run_cycle()
-        self.server = StatusServer(('127.0.0.1', 0), self.monitor)
+        self.server = StatusServer(('127.0.0.1', 0), self.monitor, HttpSecurity(action_token=TOKEN, action_origin=ORIGIN))
         self.thread = Thread(target=self.server.serve_forever, kwargs={'poll_interval': 0.01})
         self.thread.start()
         self.addCleanup(self.close_server)
@@ -394,7 +395,7 @@ class ManualCliTests(unittest.TestCase):
         obj = self.client.containers.list.return_value[0]
         obj.id = ID
         statuses = []
-        def run(monitor, *args):
+        def run(monitor, *args, **kwargs):
             monitor.run_cycle()
             monitor.manual_actions.submit(payload(len(statuses) + 1, action='stop'), monitor.status())
             monitor.run_pending_action()
@@ -405,3 +406,4 @@ class ManualCliTests(unittest.TestCase):
         self.assertEqual([row['status'] for row in statuses], ['succeeded', 'failed'])
         self.assertEqual(statuses[1]['error'], 'cooldown')
         obj.stop.assert_called_once_with()
+

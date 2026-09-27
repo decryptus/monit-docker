@@ -21,6 +21,7 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from monit_docker.adapters.http import StatusServer
+from monit_docker.adapters.http_security import HttpSecurity
 from monit_docker.domain.models import ContainerSnapshot
 from monit_docker.domain.rules import CycleResult
 from monit_docker.manual_actions import ManualActions
@@ -38,10 +39,12 @@ def main():
     token = secrets.token_hex(32)
     audit_token = secrets.token_hex(32)
     calls = []
-    actions = ManualActions(lambda *args: calls.append(args), 'https://localhost:18443', token, trust_actor=True)
+    actions = ManualActions(lambda *args: calls.append(args))
     monitor = MonitorService(lambda _: CycleResult((ContainerSnapshot(
         id=identifier, name='fixture', status='running'),), ()), interval=.1, manual_actions=actions)
-    server = StatusServer(('0.0.0.0', 19808), monitor)
+    security = HttpSecurity(action_token=token, action_origin='https://localhost:18443',
+                            trust_actor=True, audit_token=audit_token)
+    server = StatusServer(('0.0.0.0', 19808), monitor, security)
     stop = Event()
     serving = Thread(target=server.serve_forever, kwargs={'poll_interval': .05})
     polling = Thread(target=monitor.run, args=(stop,))
@@ -69,7 +72,7 @@ def main():
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             actions.audit = AuditJournal(root / 'events.jsonl', emit=False)
-            monitor.audit_reader = AuditReader(actions.audit, audit_token)
+            monitor.audit_reader = AuditReader(actions.audit)
             (root / 'proxy-audit.conf').write_text('proxy_set_header X-Monit-Audit-Token "' + audit_token + '";\n')
             hashed = subprocess.run(['openssl', 'passwd', '-6', '-stdin'], input='local-test-password\n',
                                     text=True, stdout=subprocess.PIPE, check=True).stdout
@@ -111,7 +114,7 @@ def main():
             assert request('/v1/actions', body=body)[0] == 403
             assert request('/v1/actions', body=body, extra={'Origin': 'https://evil.example'})[0] == 403
             # A client-provided token must be overwritten by Nginx.
-            extra = {'Origin': actions.origin, 'X-Monit-Action-Token': 'untrusted-client-value', 'X-Monit-Actor': 'forged-user'}
+            extra = {'Origin': security.action_origin, 'X-Monit-Action-Token': 'untrusted-client-value', 'X-Monit-Actor': 'forged-user'}
             assert request('/v1/actions', body=body, extra=extra)[0] == 202
             assert request('/v1/actions', body=body, extra=extra)[0] == 202
             for _ in range(30):
@@ -134,7 +137,7 @@ def main():
             assert request('/v1/audit')[0] == 404
             # The private API does not trust an Origin or forwarded username alone.
             req = urllib.request.Request('http://127.0.0.1:19808/v1/actions', json.dumps(body).encode(),
-                                         {'Origin': actions.origin, 'Content-Type': 'application/json',
+                                         {'Origin': security.action_origin, 'Content-Type': 'application/json',
                                           'X-Forwarded-User': 'test'})
             try:
                 urllib.request.urlopen(req, timeout=3)
@@ -157,3 +160,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

@@ -14,6 +14,7 @@ import unittest
 from urllib.parse import urlencode
 
 from monit_docker.audit import AuditError, AuditJournal, export_events
+from monit_docker.adapters.audit_http import read_page, query_error_status
 from monit_docker.audit_query import AuditReader, QueryError
 from monit_docker.cli import main
 
@@ -25,7 +26,7 @@ class JournalCompatibilityTests(unittest.TestCase):
         self.path = Path(temporary.name) / 'events.jsonl'
         self.archive = Path(str(self.path) + '.1')
         self.journal = AuditJournal(self.path, files=2, emit=False)
-        self.reader = AuditReader(self.journal, 'd' * 64)
+        self.reader = AuditReader(self.journal)
 
     @staticmethod
     def fixture(number, version):
@@ -53,14 +54,14 @@ class JournalCompatibilityTests(unittest.TestCase):
         before = self.populate()
         expected = [self.fixture(n, 2) for n in range(105)]
         self.assertEqual(self.journal.read(), expected)
-        first, _ = self.reader.page('correlation_id=request-one', 'operator')
+        first, _ = read_page(self.reader, 'correlation_id=request-one', 'operator')
         self.assertEqual(first['records'], expected[::-1][:100])
-        second, _ = self.reader.page(urlencode(dict(correlation_id='request-one',
+        second, _ = read_page(self.reader, urlencode(dict(correlation_id='request-one',
                                                    cursor=first['next_cursor'])), 'operator')
         self.assertEqual(second['records'], expected[::-1][100:])
         self.assertIsNone(second['next_cursor'])
         for format in ('jsonl', 'csv'):
-            page, actual_format = self.reader.page(urlencode(dict(correlation_id='request-one',
+            page, actual_format = read_page(self.reader, urlencode(dict(correlation_id='request-one',
                 cursor=first['page_cursor'], format=format)), 'operator')
             self.assertEqual(actual_format, format)
             output = io.StringIO()
@@ -117,8 +118,8 @@ class JournalCompatibilityTests(unittest.TestCase):
                 with self.assertRaises(AuditError):
                     self.journal.read()
                 with self.assertRaises(QueryError) as error:
-                    self.reader.page('category=notification', 'operator')
-                self.assertEqual((error.exception.code, error.exception.reason), (503, 'audit_unavailable'))
+                    read_page(self.reader, 'category=notification', 'operator')
+                self.assertEqual((query_error_status(error.exception), error.exception.reason), (503, 'audit_unavailable'))
                 for format in ('jsonl', 'csv'):
                     options = SimpleNamespace(subcommand='audit-export', audit_file=str(self.path),
                         audit_files=2, category='notification', since=None, format=format)
@@ -131,9 +132,10 @@ class JournalCompatibilityTests(unittest.TestCase):
     def test_a_successful_recent_page_does_not_certify_unscanned_archives(self):
         self.write_records(self.archive, [dict(self.fixture(0, 2), schema_version=3)])
         self.write_records(self.path, [self.fixture(n, 2) for n in range(1, 102)])
-        first, _ = self.reader.page('', 'operator')
+        first, _ = read_page(self.reader, '', 'operator')
         self.assertEqual(len(first['records']), 100)
         self.assertIsNotNone(first['next_cursor'])
         with self.assertRaises(QueryError) as error:
-            self.reader.page(urlencode(dict(cursor=first['next_cursor'])), 'operator')
-        self.assertEqual(error.exception.code, 503)
+            read_page(self.reader, urlencode(dict(cursor=first['next_cursor'])), 'operator')
+        self.assertEqual(query_error_status(error.exception), 503)
+

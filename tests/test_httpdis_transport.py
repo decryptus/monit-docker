@@ -1,5 +1,7 @@
 """Wire-level regressions for HTTPdis routing and Sonicprobe worker lifecycle."""
 
+from monit_docker.adapters.http_security import HttpSecurity
+
 import http.client
 import json
 import socket
@@ -22,13 +24,13 @@ _HEADERS = {'Content-Type': 'application/json',
 
 class TransportTests(unittest.TestCase):
     def setUp(self):
-        self.actions = ManualActions(Mock(), ORIGIN, TOKEN)
+        self.actions = ManualActions(Mock())
         self.monitor = MonitorService(Mock(return_value=snapshot()), manual_actions=self.actions)
         self.monitor.run_cycle()
         self.server = self.start_server(self.monitor)
 
     def start_server(self, monitor):
-        server = StatusServer(_ADDRESS, monitor)
+        server = StatusServer(_ADDRESS, monitor, HttpSecurity(action_token=TOKEN, action_origin=ORIGIN))
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
         self.addCleanup(self.close_server, server, thread)
@@ -159,3 +161,4 @@ class TransportTests(unittest.TestCase):
                 release.set()
                 for connection in sockets:
                     connection.close()
+

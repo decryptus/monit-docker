@@ -12,7 +12,7 @@ import secrets
 import stat
 from threading import BoundedSemaphore
 import time
-from urllib.parse import parse_qs
+from dataclasses import dataclass, field
 
 from monit_docker.audit import AuditError, MAX_RECORD_BYTES, encoded, prepare_record
 
@@ -22,21 +22,19 @@ PAGE_BYTES        = 512 * 1024
 _BLOCK_BYTES      = 128 * 1024
 _IDENTITY_BYTES   = 256
 _CURSOR_TTL       = 900
-_MAX_QUERY        = 32768
 _MAX_CURSOR       = 24000
-_FILTER_KEYS      = ('since', 'until', 'container', 'source', 'category', 'result', 'correlation_id')
-_QUERY_KEYS       = frozenset(_FILTER_KEYS + ('cursor', 'format'))
+FILTER_KEYS       = ('since', 'until', 'container', 'source', 'category', 'result', 'correlation_id')
+_FILTER_KEY_SET   = frozenset(FILTER_KEYS)
 _SOURCE_VALUES    = ('manual', 'automatic')
 _CATEGORY_VALUES  = ('action', 'notification')
 _RESULT_VALUES    = ('pending', 'succeeded', 'failed', 'rejected', 'skipped', 'simulated', 'accepted', 'received')
-_EXPORT_FORMATS   = ('jsonl', 'csv')
 _DATE_FILTERS     = ('since', 'until')
 _FILTER_CHOICES   = {'source': _SOURCE_VALUES, 'category': _CATEGORY_VALUES, 'result': _RESULT_VALUES}
 
 
 class QueryError(Exception):
-    def __init__(self, code, reason):
-        self.code, self.reason = code, reason
+    def __init__(self, reason):
+        self.reason = reason
         super().__init__(reason)
 
 
@@ -47,33 +45,32 @@ def _date(value):
             raise ValueError()
         return result.astimezone(timezone.utc)
     except (ValueError, OverflowError):
-        raise QueryError(400, 'invalid_filters')
+        raise QueryError('invalid_filters')
 
 
-def parse_query(query):
-    if len(query) > _MAX_QUERY:
-        raise QueryError(400, 'invalid_filters')
-    try:
-        values = parse_qs(query, keep_blank_values=True, strict_parsing=True, max_num_fields=len(_QUERY_KEYS)) if query else {}
-    except ValueError:
-        raise QueryError(400, 'invalid_filters')
-    if set(values) - _QUERY_KEYS or any(len(value) != 1 for value in values.values()):
-        raise QueryError(400, 'invalid_filters')
-    values = {key: value[0] for key, value in values.items() if value[0]}
-    filters = {key: values[key] for key in _FILTER_KEYS if key in values}
-    if any(len(value) > 256 or not value.isprintable() for value in filters.values()):
-        raise QueryError(400, 'invalid_filters')
+@dataclass(frozen=True)
+class AuditQuery:
+    filters: dict = field(default_factory=dict)
+    cursor: str = None
+
+
+def validate_query(query):
+    if not isinstance(query, AuditQuery) or not isinstance(query.filters, dict):
+        raise QueryError('invalid_filters')
+    filters = query.filters.copy()
+    if set(filters) - _FILTER_KEY_SET or any(
+            not isinstance(value, str) or not value or len(value) > 256 or not value.isprintable()
+            for value in filters.values()):
+        raise QueryError('invalid_filters')
     for key, choices in _FILTER_CHOICES.items():
         if key in filters and filters[key] not in choices:
-            raise QueryError(400, 'invalid_filters')
+            raise QueryError('invalid_filters')
     dates = {key: _date(filters[key]) for key in _DATE_FILTERS if key in filters}
     if 'since' in dates and 'until' in dates and dates['since'] > dates['until']:
-        raise QueryError(400, 'invalid_filters')
-    if values.get('format', 'jsonl') not in _EXPORT_FORMATS:
-        raise QueryError(400, 'invalid_filters')
-    if len(values.get('cursor', '')) > _MAX_CURSOR:
-        raise QueryError(400, 'invalid_cursor')
-    return filters, values.get('cursor'), values.get('format', 'jsonl')
+        raise QueryError('invalid_filters')
+    if query.cursor is not None and (not isinstance(query.cursor, str) or len(query.cursor) > _MAX_CURSOR):
+        raise QueryError('invalid_cursor')
+    return filters, query.cursor
 
 
 def _matches(record, filters):
@@ -91,9 +88,8 @@ def _matches(record, filters):
 
 
 class AuditReader:
-    def __init__(self, journal, token):
+    def __init__(self, journal):
         self.journal = journal
-        self.token   = token
         self._key    = secrets.token_bytes(32)
         self._slots  = BoundedSemaphore(2)
 
@@ -111,10 +107,10 @@ class AuditReader:
             if state['scope'] != scope:
                 raise ValueError()
             if state['expires'] < time.time():
-                raise QueryError(410, 'cursor_expired')
+                raise QueryError('cursor_expired')
             return state
         except (ValueError, KeyError, TypeError):
-            raise QueryError(400, 'invalid_cursor')
+            raise QueryError('invalid_cursor')
 
     @contextmanager
     def _snapshot(self):
@@ -130,7 +126,7 @@ class AuditReader:
             try:
                 fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
             except BlockingIOError:
-                raise QueryError(503, 'audit_busy')
+                raise QueryError('audit_busy')
             paths = [self.journal.path] + [Path(str(self.journal.path) + '.' + str(n)) for n in range(1, self.journal.files)]
             snapshot = []
             for path in paths:
@@ -154,11 +150,11 @@ class AuditReader:
                 os.close(descriptor)
 
     def page(self, query, actor):
-        filters, cursor, format = parse_query(query)
+        filters, cursor = validate_query(query)
         scope = hashlib.sha256(json.dumps([actor, filters], sort_keys=True).encode()).hexdigest()
         state = self._decode(cursor, scope) if cursor else None
         if not self._slots.acquire(False):
-            raise QueryError(503, 'audit_busy')
+            raise QueryError('audit_busy')
         try:
             with self._snapshot() as snapshot:
                 identity_reads = 0
@@ -175,11 +171,11 @@ class AuditReader:
                 for device, inode, size, marker in state['files'][state['index']:]:
                     current = files.get((device, inode))
                     if current is None or current[2] < size:
-                        raise QueryError(410, 'cursor_expired')
+                        raise QueryError('cursor_expired')
                     prefix = os.pread(current[3], min(size, _IDENTITY_BYTES), 0)
                     identity_reads += len(prefix)
                     if hashlib.sha256(prefix).hexdigest() != marker:
-                        raise QueryError(410, 'cursor_expired')
+                        raise QueryError('cursor_expired')
                 page_cursor = self._sign(state)
                 records, scanned, output_bytes = [], identity_reads, 0
                 stop = False
@@ -226,10 +222,11 @@ class AuditReader:
                         state['offset'] = state['files'][state['index']][2]
                 more = state['index'] < len(state['files'])
                 return dict(records=records, next_cursor=self._sign(state) if more else None,
-                            page_cursor=page_cursor, scanned_bytes=scanned, limit=PAGE_LIMIT), format
+                            page_cursor=page_cursor, scanned_bytes=scanned, limit=PAGE_LIMIT)
         except QueryError:
             raise
         except (OSError, ValueError, TypeError, KeyError, AuditError):
-            raise QueryError(503, 'audit_unavailable')
+            raise QueryError('audit_unavailable')
         finally:
             self._slots.release()
+

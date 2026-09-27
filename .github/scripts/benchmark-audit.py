@@ -7,11 +7,10 @@ import tempfile
 import threading
 import time
 import tracemalloc
-from urllib.parse import urlencode
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from monit_docker.audit import AuditJournal, encoded, event_record
-from monit_docker.audit_query import AuditReader, SCAN_BYTES
+from monit_docker.audit_query import AuditQuery, AuditReader, SCAN_BYTES
 
 FILE_BYTES = 10 * 1024 * 1024
 FILE_COUNT = 5
@@ -27,12 +26,12 @@ with tempfile.TemporaryDirectory() as temp:
         record['event_id'] = '%032x' % index
         target.write_bytes(encoded(record) * (FILE_BYTES // LINE_BYTES))
     journal = AuditJournal(path, max_bytes=FILE_BYTES, files=FILE_COUNT, emit=False)
-    reader = AuditReader(journal, 'b' * 64)
+    reader = AuditReader(journal)
     start = time.perf_counter()
-    page, _ = reader.page('', 'benchmark')
+    page = reader.page(AuditQuery(), 'benchmark')
     first_ms = (time.perf_counter() - start) * 1000
     tracemalloc.start()
-    reader.page('', 'benchmark')
+    reader.page(AuditQuery(), 'benchmark')
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     assert len(page['records']) == 100 and page['scanned_bytes'] <= SCAN_BYTES
@@ -40,7 +39,7 @@ with tempfile.TemporaryDirectory() as temp:
     query = {'result': 'failed'}
     requests, scanned = 0, 0
     while True:
-        page, _ = reader.page(urlencode(query), 'benchmark')
+        page = reader.page(AuditQuery({'result': query['result']}, query.get('cursor')), 'benchmark')
         requests += 1; scanned += page['scanned_bytes']
         assert not page['records'] and page['scanned_bytes'] <= SCAN_BYTES
         if not page['next_cursor']:
@@ -60,7 +59,7 @@ with tempfile.TemporaryDirectory() as temp:
     errors = []
     def browse():
         try:
-            reader.page('', 'benchmark')
+            reader.page(AuditQuery(), 'benchmark')
         except Exception as error:
             errors.append(error)
     with patch('monit_docker.audit_query.os.pread', side_effect=paused_read):
@@ -78,3 +77,4 @@ with tempfile.TemporaryDirectory() as temp:
                           first_page_python_peak_kib=round(peak/1024, 1),
                           full_sparse_search_ms=round(search_ms, 2), search_requests=requests,
                           writer_during_paused_read_ms=round(write_ms, 2)), indent=2))
+

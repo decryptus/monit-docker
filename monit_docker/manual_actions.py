@@ -23,14 +23,11 @@ _QUEUE_TIMEOUT     = 60
 
 
 class ManualActions(object):
-    def __init__(self, execute, origin, token, clock=None, monotonic=None, audit=None, trust_actor=False, allow_maintenance=False):
+    def __init__(self, execute, clock=None, monotonic=None, audit=None, allow_maintenance=False):
         self.allowed_states = {key: value for key, value in ALLOWED_STATES.items()
                                if allow_maintenance or key not in MAINTENANCE_COMMANDS}
         self.audit = audit
-        self.trust_actor = trust_actor
         self.execute = execute
-        self.origin = origin
-        self.token = token
         self.clock = clock or time.time
         self.monotonic = monotonic or time.monotonic
         self._lock = Lock()
@@ -138,3 +135,4 @@ class ManualActions(object):
                 status='failed' if error else 'succeeded', error=error,
                 error_code=error_code, finished_at=self.clock())
             self._active = None
+
