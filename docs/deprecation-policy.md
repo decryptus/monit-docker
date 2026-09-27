@@ -3,6 +3,11 @@
 **Status: policy for future changes in the 0.0.x series.** Publishing this policy
 neither deprecates an existing feature nor approves the 1.0 compatibility contract.
 The [roadmap](roadmap.md) retains its open decisions and upgrade rehearsals.
+The maintainer-approved [beta cleanup](beta-decisions.md) is a scoped exception
+to the ordinary two-release notice sequence: these interfaces are still being
+defined before 1.0. It records immediate adjustments without inventing `/v2` or
+claiming data migrations have been tested. Other changes follow the policy below.
+
 Application versions, HTTP route versions and persisted data schemas are separate
 identifiers: changing one does not automatically change the others.
 
@@ -68,8 +73,8 @@ Convenience, cleanup or a generic “bug fix” label do not waive the normal se
 
 Configuration and command changes need before/after examples, validation steps,
 and a statement of changed defaults and action selection. Do not reinterpret an
-old rule silently. In particular, the open chained-comparison and comma-selector
-decisions remain unresolved until a separately reviewed change applies this policy.
+old rule silently. The approved chained-comparison and comma-selector adjustments are described
+with before/after examples in the [beta cleanup notice](beta-decisions.md).
 
 For HTTP or metric changes, list affected consumers and the coexistence/versioning
 strategy. A `/v1` route name is not permission to change field meaning silently.

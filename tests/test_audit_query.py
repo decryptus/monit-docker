@@ -181,10 +181,12 @@ class AuditReadHttpTests(unittest.TestCase):
             connection.close()
 
     def test_disabled_anonymous_and_wrong_secret_access_are_denied(self):
-        for path in ('/v1/audit', '/v1/audit/export', '/v1//audit', '/v1//audit/export'):
+        for path in ('/v1/audit', '/v1/audit/export'):
             self.assertEqual(self.request(path, {})[0], 403)
             self.assertEqual(self.request(path, {'X-Monit-Audit-Token': TOKEN})[0], 403)
             self.assertEqual(self.request(path, dict(HEADERS, **{'X-Monit-Audit-Token': 'e'*64}))[0], 403)
+        for path in ('/v1//audit', '/v1//audit/export'):
+            self.assertEqual(self.request(path, HEADERS)[0], 404)
         self.monitor.audit_reader = None
         self.assertEqual(self.request()[0], 404)
         self.assertFalse(self.monitor.status()['audit_enabled'])

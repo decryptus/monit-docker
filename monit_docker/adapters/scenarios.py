@@ -65,8 +65,6 @@ def scenario_options(name, entry):
     mapping(select, location + '.select')
     require(not set(select) - set(_SELECT_OPTIONS), location + '.select', 'unknown selector field')
     require(bool(select) != bool(entry.get('all')), location, 'specify select or all: true, exclusively')
-    require('group' not in select or not set(select) - {'group', 'status'}, location + '.select',
-            'group cannot be combined with name, id, image or label selectors')
     values = {'subcommand': mode}
     for field, value in select.items():
         values[_SELECT_OPTIONS[field]] = tuple(_strings(value, location + '.select.' + field))
@@ -90,7 +88,7 @@ def validate_scenario(config, name):
     require(name in config.get('scenarios', {}), location, 'unknown scenario')
     entry = config['scenarios'][name]
     options = scenario_options(name, entry)
-    require(not options.client or options.client_from_env or options.client in config.get('clients', {}),
+    require(not options.client or options.client in config.get('clients', {}),
             location + '.client', 'unknown client name')
     checked(location + '.select', lambda: ContainerSelector(
         selectors=dict((kind, getattr(options, kind)) for kind in ('id', 'name', 'image', 'label')),

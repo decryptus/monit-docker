@@ -73,7 +73,7 @@ class RuleEvaluator(object):
                 raise MonitoringError(110, 'invalid value for expression if: %r' %
                                       condition.source)
         if None not in (condition.pre_operator, pre_value):
-            # Deliberately retain historical precondition operand order.
-            return (self._compare(condition.pre_operator, actual, pre_value) and
+            # Evaluate the left comparison in its written operand order.
+            return (self._compare(condition.pre_operator, pre_value, actual) and
                     self._compare(operator, actual, expected))
         return self._compare(operator, actual, expected, membership=True)

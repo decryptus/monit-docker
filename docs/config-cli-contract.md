@@ -1,6 +1,6 @@
 # Configuration and CLI compatibility contract
 
-**Status: 0.0.x baseline, reviewed for the proposed 0.0.77 release.** This reference
+**Status: beta baseline, including the unreleased decisions of 2026-09-27.** This reference
 records the current public behavior and the decisions still needed before 1.0.
 It does not declare the HTTP API, metrics or journal schema stable. Follow the
 [roadmap](roadmap.md) for the complete release criteria.
@@ -26,9 +26,10 @@ monit-docker -c config.yml run web-guard --dry-run
 
 The root must be a YAML mapping. `{}` is valid; an empty document, `null` or a
 list is not. The checked loader requires string keys and mapping-valued sections.
-It rejects unknown sections and entry fields. The historical loader is more
-permissive and can ignore unused fields; `stats` does not load command/condition
-aliases. Validate with `check-config` before deployment.
+It rejects unknown sections and entry fields. Every monitoring command validates all configured aliases and scenarios, including
+dormant entries, before Docker access. Configuration errors return 110. The file
+is rendered once; runtime and offline checks use the same validation. See the
+[beta change notice](beta-decisions.md) before upgrading.
 
 | Section | Entry structure | Meaning |
 | --- | --- | --- |
@@ -74,17 +75,17 @@ Linux container; see [access checks](access-checks.md) for runtime restrictions.
 Otherwise, `--client NAME` selects an entry, or the first loaded client is used.
 With no configured clients the historical runtime uses Docker environment
 settings, defaulting `DOCKER_HOST` to `unix:///var/run/docker.sock` when absent.
-An explicit but unknown client is rejected by checked configuration. See the
-legacy discrepancy under [open decisions](#open-decisions-before-10).
+An explicitly named unknown client is always rejected, even if `--client-from-env`
+is also supplied. With a known name, `--client-from-env` still selects the environment.
 
 ## Container selectors
 
 | Input | Current behavior |
 | --- | --- |
-| `--name`, `--id`, `--image`, `--label` | Repeatable; each value is also split at commas, with surrounding whitespace removed |
+| `--name`, `--id`, `--image`, `--label` | Repeatable; one pattern per value, surrounding whitespace removed; commas are never separators |
 | Several patterns or kinds | OR: any name, ID, image tag or label value can select the container |
 | `-s STATUS` | Repeatable status alternatives, applied in addition to the pattern selection |
-| `--ctn-group NAME` | Repeatable exact group names; their patterns form a union and replace direct name/ID/image/label patterns |
+| `--ctn-group NAME` | Repeatable exact group names; their patterns form a union, intersected with the union of direct name/ID/image/label patterns when supplied |
 | No patterns/groups | All containers allowed by the status filter, including stopped containers |
 | Ordinary pattern | Case-sensitive shell-style glob, matching the whole value |
 | `~EXPRESSION` | Case-sensitive Python regular expression matched from the start; add `$` for an end anchor or `.*` for a leading search |
@@ -92,19 +93,17 @@ legacy discrepancy under [open decisions](#open-decisions-before-10).
 | Label pattern | Matches label **values**, not keys or Docker's `key=value` filter syntax |
 | Image pattern | Matches image tags, not image IDs/digests |
 
-Quote patterns to prevent shell expansion. Direct selectors, including scenario
-selectors, split commas even inside regular expressions. For a quantifier such
-as `{1,3}`, use a container group: group `match` expressions do not split commas.
-For example:
+Quote patterns to prevent shell expansion. Repeat options for several patterns:
+`--name 'web-*' --name 'api-*'`. YAML uses a list. Regex quantifiers such as
+`--name '~worker-[0-9]{1,3}$'` remain intact. Group matches and direct patterns
+use the same matching semantics; `-s` or `select.status` is an additional filter.
 
-```yaml
-ctn-groups:
-  workers:
-    match: ['name:~worker-[0-9]{1,3}$']
-```
+A pattern is at most 4096 characters. Regex syntax is checked with Python `re`;
+matching uses `regex` VERSION0 with a 50 ms limit per pattern/value comparison.
+Invalid, oversized or timed-out patterns fail explicitly, never selecting all
+containers as a fallback. This is not a total cycle deadline. Globs retain
+case-sensitive whole-value matching; regexes retain start-of-value matching.
 
-Use `--ctn-group workers`, or scenario `select: {group: workers}`. Group matches
-do not support status expressions; use `-s` or scenario `select.status`.
 An empty result is error 114, not a successful no-op. Container iteration order
 comes from Docker and is not promised to be sorted.
 
@@ -154,8 +153,9 @@ group. Separate groups and ordinary conditions are combined with AND.
 Rules requiring only status/PID/health run before metric-dependent rules, even
 when their CLI order is interleaved. Within each phase, input order is preserved.
 Metric rules only run when the container is running or paused. This two-phase
-behavior and the historical chained comparisons need explicit consideration
-when converting long commands into scenarios.
+behavior remains when converting commands into scenarios. Chained numeric
+comparisons follow Python operand order: `10 < cpu_percent < 90` means
+`10 < cpu_percent and cpu_percent < 90`. Bounds can include supported byte units.
 
 ## Subcommands and outputs
 
@@ -198,8 +198,7 @@ The first action failure aborts the remaining actions and containers.
 Errors contain `location` and `message`; validation stops at the first error.
 Summary counts `clients`, `groups`, `commands`, `conditions`, `rules`, plus
 `scenarios` when present. It validates dormant aliases/groups/scenarios as well
-as supplied rules. `scenario list` validates all scenarios; `show` and `run`
-validate the selected scenario after checking configuration shapes. Their
+as supplied rules. `scenario list`, `show` and `run` validate all configured scenarios and aliases. Their
 configuration errors go to stderr and return 110.
 
 These inspection commands do not connect to Docker or create agent state/log
@@ -237,7 +236,7 @@ Scenario mode defaults to `cron`. All modes allow `mode`, `description`,
 `select` or `all: true`, `client`, `client-from-env`, `event-window`, `audit-file`,
 `audit-max-bytes`, `audit-files`. Selection fields are `name`, `id`, `image`,
 `label`, `group`, `status`, each a string or nonempty string list. Choose `select`
-or `all: true`, exclusively. Group selection allows only an additional status.
+or `all: true`, exclusively. Group selection intersects direct patterns; status is applied in addition.
 
 | Mode | Additional fields |
 | --- | --- |
@@ -294,35 +293,24 @@ Use an exact container selector for a process-status check. `--propagate-exit-co
 in `monit`/`cron` returns a failed completed exec's 1..255 status instead of 116;
 it can overlap every other status family. Check command mode and diagnostics.
 
-## Open decisions before 1.0
+## Beta decisions and 1.0 status
 
-- Unify or explicitly retain strict validation versus permissive runtime loading.
-  Normalize configuration failures that currently reach generic status 150.
-- Decide whether an explicitly unknown client must fail even with no configured
-  clients; the historical runtime currently falls back to the environment.
-- Decide whether mixed group/direct selection should be rejected in all commands,
-  as it already is in scenarios, rather than silently prioritizing groups.
-- Decide how to support commas in direct regular-expression selectors without
-  breaking existing comma-separated selection.
-- Review the [historical chained-comparison operand order](architecture.md#compatibility-and-validation):
-  `10 < cpu_percent < 90` currently compares the measurement against both bounds
-  using `<`. Prefer an AND condition alias with `cpu_percent > 10` and
-  `cpu_percent < 90`; do not reinterpret existing expressions without migration.
+The five CLI/YAML choices were approved on 2026-09-27: shared strict validation,
+unknown-client rejection, group/direct intersection, literal selector commas,
+and Python-order chained comparisons. Their implementation is unreleased;
+see [migration examples and limits](beta-decisions.md).
 
-The Python metadata discrepancy was resolved in 0.0.78 (`Requires-Python >=3.10`).
-The [environment baseline](supported-environments.md) now records tested platforms
-and uncertified combinations. The [deprecation policy](deprecation-policy.md)
-defines the process for future incompatible changes; it does not resolve the
-behavioral decisions above or approve the complete 1.0 contract.
+These decisions do not complete the installation, upgrade, resilience or
+stabilization milestones. Local YAML remains the configuration model; the local
+CLI adds no login. Protected remote access retains its authentication.
 
-No internal Python class, diagnostic wording, implicit argparse abbreviation,
-Docker enumeration order or undocumented YAML behavior is declared a stable API
-by this baseline. Existing DWho, HTTPdis and Sonicprobe foundations remain in use.
+Internal Python classes, diagnostic wording, implicit argparse abbreviations,
+Docker enumeration order and undocumented YAML behavior are not stable APIs.
 
 ## Verification
 
 `test_cli_contract.py` covers target selection, label values/image tags, regular
-expression boundaries, group precedence, import replacement, client precedence
+expression boundaries, group/direct intersection, import replacement, client precedence
 and option placement. `test_scenarios.py` covers scenario overrides, offline
 inspection, single rendering, state continuity and access-resource validation.
 Existing `test_check_config.py`, `test_monit_docker.py`, `test_cron.py`,

@@ -42,7 +42,7 @@ An empty mapping (`{}`) is valid; an empty file, `null` or a list is not.
 - Existing import directives, relative file paths and Mako rendering. The same
   import scope and override behavior as the runtime is used.
 - Client configuration mappings and basic TLS shape; explicit client names.
-  `--client-from-env` overrides `--client` as it does at runtime.
+  An explicitly unknown `--client` always fails, even with `--client-from-env`.
 - Every group match and regular expression, CLI selectors and selected group names.
 - Every command/condition alias, supported Docker action, action argument shape,
   rule syntax, resource name, unit conversion and condition value conversion.
@@ -55,9 +55,8 @@ entry or supplied rule; YAML syntax errors also include line and column numbers.
 Messages avoid dumping rendered configuration, command contents and credentials.
 Fix the reported error and rerun to reveal any later errors.
 
-Checks are deliberately stricter than the legacy loader, which can ignore some
-unused sections or fields. The behavior and exit codes of the existing commands
-are unchanged, except for the scenario validation correction noted above.
+Checks and monitoring execution now use the same strict validation, including
+dormant entries. See [beta changes](beta-decisions.md).
 
 See the [configuration and CLI contract](config-cli-contract.md) for precedence,
 selection semantics and the remaining compatibility decisions before 1.0.

@@ -41,8 +41,9 @@ legacy decisions. This inventory does not yet freeze a 1.0 interface.
 The [HTTP API baseline](http-api-contract.md) and [metrics catalogue](metrics.md)
 now cover field types, authentication, errors, freshness, action results, journal
 pages and metric names/types/units/labels. Targeted wire-level tests protect these
-behaviors. Content-type and method-status differences remain explicit decisions
-to resolve before approving the 1.0 contract.
+behaviors. The HTTP and five CLI/YAML decisions have now been approved; their unreleased
+implementation and migration examples are tracked in [beta decisions](beta-decisions.md).
+Final 1.0 approval still requires the remaining milestones.
 
 The [deprecation and migration policy](deprecation-policy.md) now defines advance
 release notices, replacements, urgent exceptions and migration/rollback evidence.

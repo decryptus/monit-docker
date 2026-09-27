@@ -44,7 +44,8 @@ monit-docker run web-guard
 `scenario list` prints names, modes and descriptions as JSON. `scenario show`
 prints the rendered definition as JSON; its output can include command arguments.
 Both validate offline without Docker, state files, audit writes or HTTP listeners.
-`check-config` also validates every scenario, including dormant rules/references.
+Inspection and execution validate every scenario and alias, including dormant
+rules/references, before connecting to Docker.
 
 Use `-c FILE` or the existing environment variable for another configuration:
 
@@ -92,7 +93,8 @@ HTTP actions, or launch a scheduler. The full existing CLI remains available.
 one string or a nonempty list of strings. `group` refers to an existing
 `ctn-groups` entry. Globs/regular expressions follow the existing selector syntax.
 As in the full CLI, name/id/image/label matches are alternatives (OR); status
-applies in addition. Group selection may be combined with status only.
+applies in addition. The union of selected groups intersects the union of direct patterns; status
+applies in addition. Each string is one pattern: commas are never split.
 
 An empty/missing `select` is rejected unless `all: true` is present. The two are
 mutually exclusive. Global CLI selectors and Docker client options are rejected

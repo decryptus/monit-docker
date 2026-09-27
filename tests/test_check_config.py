@@ -125,7 +125,7 @@ class CheckConfigTests(unittest.TestCase):
 
     def test_unknown_client_and_explicit_environment_precedence(self):
         self.invalid('--client', options=['--client', 'missing'])
-        self.assertEqual(self.invoke(options=['--client', 'ignored', '--client-from-env'])[0], 0)
+        self.assertEqual(self.invoke(options=['--client', 'ignored', '--client-from-env'])[0], 110)
 
     def test_additional_rules_are_all_checked_without_execution(self):
         self.invalid('--cmd-if[1]', rules=['restart', '@missing'])

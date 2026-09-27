@@ -100,6 +100,18 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(headers['Allow'], 'POST')
         self.assertNotIn('Access-Control-Allow-Origin', headers)
 
+    def test_known_routes_wrong_methods_and_unknown_paths(self):
+        for method in ('GET', 'HEAD', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'):
+            code, headers, _ = self.request('/v1/actions', method)
+            self.assertEqual(code, 405)
+            self.assertEqual(headers['Allow'], 'POST')
+        for path in ('/missing', '/v1/actions/', '/v1%2factions', '/v1//actions'):
+            for method in ('GET', 'POST', 'PUT', 'OPTIONS'):
+                code, headers, _ = self.request(path, method)
+                self.assertEqual(code, 404)
+                self.assertNotIn('Allow', headers)
+        self.assertEqual(self.actions.status()['recent'], [])
+
     def test_multiple_servers_do_not_share_monitor_or_action_credentials(self):
         other = MonitorService(Mock(return_value=snapshot()))
         second = self.start_server(other)

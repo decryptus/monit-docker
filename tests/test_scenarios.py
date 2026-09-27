@@ -179,7 +179,7 @@ class ScenarioTests(unittest.TestCase):
 
     def test_invalid_fields_modes_rules_and_policies_fail_before_docker(self):
         examples = [dict(select={}), dict(select={'name': []}), dict(all=True),
-                    dict(select={'group': 'web', 'name': 'db-*'}), dict(select={'group': 'missing'}),
+                    dict(select={'group': 'missing'}),
                     dict(select={'name': '~['}), dict(mode='monit'), dict(mode='unknown'),
                     dict(rules=[]), dict(rules=['restart', '@missing']),
                     dict(rules=['cpu_percent > 1, pid > 1.5 ? restart']),

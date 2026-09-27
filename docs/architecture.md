@@ -218,9 +218,9 @@ lifecycle changes are:
 - invalid non-mapping configuration reports 110;
 - resources are released deterministically, including on errors.
 
-The historical operand order for chained numeric conditions is preserved during
-this extraction. No change to memory accounting or rule comparison semantics is
-included.
+The extraction initially preserved the historical chained-comparison bug. The
+[approved beta changes](beta-decisions.md) correct the left operand order to
+match Python. Memory accounting is unchanged.
 
 Tests cover repeated cycles, replacement containers, selectors, configuration
 imports, rule semantics, action failure, stream exhaustion and cleanup. Core and

@@ -53,8 +53,8 @@ class AdapterTests(unittest.TestCase):
                 with self.assertRaises(MonitoringError):
                     Configuration('/nonexistent/config', content).load()
 
-    def test_selected_groups_override_cli_selectors_and_status_still_filters(self):
-        selector = ContainerSelector(selectors={'name': ['db']}, statuses=['running'],
+    def test_selected_groups_intersect_cli_selectors_and_status_still_filters(self):
+        selector = ContainerSelector(selectors={'name': ['web-1']}, statuses=['running'],
                                      groups={'web': {'match': ['name:web*']}}, selected_groups=['web'])
         self.assertTrue(selector.matches('id', 'web-1', 'running', (), ()))
         self.assertFalse(selector.matches('id', 'db', 'running', (), ()))
@@ -62,7 +62,7 @@ class AdapterTests(unittest.TestCase):
 
     def test_label_values_image_tags_regex_and_comma_selectors(self):
         for selectors in ({'label': ['front*']}, {'image': ['org/web:*']},
-                          {'name': ['~web-[0-9]+']}, {'name': ['db, web-1']}):
+                          {'name': ['~web-[0-9]+']}, {'name': ['db', 'web-1']}):
             with self.subTest(selectors=selectors):
                 selector = ContainerSelector(selectors=selectors)
                 self.assertTrue(selector.matches('id', 'web-1', 'running',
@@ -108,10 +108,10 @@ class AdapterTests(unittest.TestCase):
                                      ('status not in (paused,exited) ? restart', True)]:
             self.assertEqual(evaluator.matches(parser.parse(expression), snapshot), expected, expression)
 
-    def test_historical_precondition_operand_order_is_preserved(self):
+    def test_chained_comparisons_follow_written_operand_order(self):
         rule = RuleParser().parse('300 > cpu_percent > 200 ? restart')
-        self.assertFalse(RuleEvaluator().matches(rule, ContainerSnapshot(cpu_percent=256)))
-        self.assertTrue(RuleEvaluator().matches(rule, ContainerSnapshot(cpu_percent=400)))
+        self.assertTrue(RuleEvaluator().matches(rule, ContainerSnapshot(cpu_percent=256)))
+        self.assertFalse(RuleEvaluator().matches(rule, ContainerSnapshot(cpu_percent=400)))
 
     def test_bad_syntax_and_unknown_alias_or_action_fail_during_parsing(self):
         parser = RuleParser()

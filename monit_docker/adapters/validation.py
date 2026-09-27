@@ -15,15 +15,21 @@ _CONFIG_FIELDS = frozenset(('general', 'vars', 'clients', 'ctn-groups', 'dir-gro
                             'conditions', 'commands', 'scenarios'))
 _ENTRY_REQUIRED = {'client': 'config', 'ctn-group': 'match', 'dir-group': 'paths',
                    'condition': 'expr', 'command': 'exec', 'scenario': None}
+_VALIDATED_SECTIONS = (('clients', 'client'), ('ctn-groups', 'ctn-group'),
+                       ('dir-groups', 'dir-group'), ('conditions', 'condition'),
+                       ('commands', 'command'), ('scenarios', 'scenario'))
+_ALIAS_NAME = re.compile(r'[a-zA-Z][a-zA-Z0-9_.-]{0,64}')
 _ENTRY_VARIABLES = frozenset(('vars', '@import_vars'))
 
 
 class CheckedConfiguration(Configuration):
-    """Extra diagnostics are opt-in; other commands retain their loader behavior."""
-    def load(self, include_rules=True):
+    """Shared strict loader for configuration inspection and execution."""
+    def load(self, include_rules=True, allow_missing=False):
         self.source = (os.path.abspath(self.conffile) if os.path.exists(self.conffile)
                        else 'MONIT_DOCKER_CONFIG' if self.inline else os.path.abspath(self.conffile))
         self._root_pending = True
+        if allow_missing and not os.path.exists(self.conffile) and not self.inline:
+            return {}
         require(os.path.exists(self.conffile) or bool(self.inline), self.source,
                 'configuration file not found and MONIT_DOCKER_CONFIG is not set')
         return checked(self.source, lambda: super(CheckedConfiguration, self).load(include_rules))
@@ -70,7 +76,7 @@ class CheckedConfiguration(Configuration):
                 continue
             require(bool(name), kind, 'entry name must not be empty')
             if kind in ('condition', 'command', 'dir-group'):
-                require(re.match(r'^[a-zA-Z][a-zA-Z0-9_.-]{0,64}$', name), location, 'invalid alias name')
+                require(_ALIAS_NAME.fullmatch(name), location, 'invalid alias name')
             mapping(value, location)
             if kind == 'scenario':
                 require(SCENARIO_NAME.fullmatch(name), location, 'invalid scenario name')
@@ -95,13 +101,22 @@ def check_configuration(conffile, inline=None, selectors=None, selected_groups=(
                         from_env=False, expressions=()):
     loader = CheckedConfiguration(conffile, inline)
     config = loader.load()
+    return validate_configuration(config, selectors, selected_groups, client, from_env, expressions)
+
+
+def validate_configuration(config, selectors=None, selected_groups=(), client=None,
+                           from_env=False, expressions=()):
+    mapping(config, 'configuration')
+    require(not set(config) - _CONFIG_FIELDS, 'configuration', 'unknown top-level section')
+    for section, kind in _VALIDATED_SECTIONS:
+        CheckedConfiguration._entries(config.get(section, {}), kind)
     for name, entry in config.get('clients', {}).items():
         mapping(entry['config'], 'clients.%s.config' % name)
         if 'tls' in entry['config']:
             tls = entry['config']['tls']
             require(isinstance(tls, (dict, bool)), 'clients.%s.config.tls' % name,
                     'expected a TLS mapping or boolean')
-    if client and not from_env:
+    if client:
         require(client in config.get('clients', {}), '--client', 'unknown client name')
     for name, group in config.get('ctn-groups', {}).items():
         location = 'ctn-groups.%s.match' % name
