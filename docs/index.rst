@@ -53,6 +53,7 @@ For installation and the command reference, see the
    config-cli-contract
    supported-environments
    deprecation-policy
+   beta-decisions
    troubleshooting
    architecture
    architecture-review-2026-09-27

@@ -1,6 +1,6 @@
 """Neutral application assembly; no command parser or terminal dependencies."""
 import os
-from monit_docker.adapters.configuration import Configuration
+from monit_docker.adapters.validation import CheckedConfiguration, validate_configuration, ConfigurationCheckError
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor, client_factory
@@ -27,9 +27,12 @@ def audit_journal(options, explicit=False):
 
 def build_application(options, config=None, inline=None, use_rules=True, actor='local-operator'):
     options = validate_job(options)
-    if config is None:
-        config = Configuration(options.conffile, inline).load(
-            include_rules=use_rules)
+    try:
+        if config is None:
+            config = CheckedConfiguration(options.conffile, inline).load(allow_missing=True)
+        validate_configuration(config, client=options.client, from_env=options.client_from_env)
+    except ConfigurationCheckError as error:
+        raise MonitoringError(110, '%s: %s' % (error.location, error)) from None
     selector = ContainerSelector(
         selectors=dict((kind, getattr(options, kind)) for kind in ('id', 'name', 'label', 'image')),
         statuses=options.status, groups=config.get('ctn-groups'), selected_groups=options.ctn_grp)

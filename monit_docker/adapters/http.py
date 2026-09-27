@@ -61,8 +61,6 @@ class StatusHandler(httpdis.HttpReqHandler):
     _FUNC_SEND_ERROR       = 'send_api_error'
 
     def send_api_error(self, code, message, headers = None):
-        if code == 404 and self.command not in _READ_METHODS:
-            code = 405
         error = message if message in _API_ERRORS else _ERROR_MESSAGES.get(code, 'request_failed')
         response = json_response(dict(error = error), code)
         if code == 405:
@@ -116,10 +114,14 @@ class StatusHandler(httpdis.HttpReqHandler):
         # Routing, per-route body limits, authentication and parsing remain in HTTPdis.
         if self.command != 'POST':
             raise self.req_error(405)
-        notification = urlsplit(self.path).path == '/v1/notifications'
-        content_type = self.headers.get('Content-Type', '').lower()
-        if (content_type.split(';', 1)[0].strip() if notification else content_type) not in _JSON_CONTENT_TYPES:
+        content_types = self.headers.get_all('Content-Type') or []
+        if len(content_types) != 1:
             raise self.req_error(415)
+        content_type = content_types[0].lower().split(';', 1)[0].strip()
+        if content_type not in _JSON_CONTENT_TYPES:
+            raise self.req_error(415)
+        # HTTPdis expects a normalized media type and decodes JSON as UTF-8.
+        self.headers.replace_header('Content-Type', content_type)
         lengths = self.headers.get_all('Content-Length')
         if (self.headers.get('Transfer-Encoding') is not None
                 or not lengths or len(lengths) != 1
@@ -140,16 +142,24 @@ class StatusHandler(httpdis.HttpReqHandler):
         except (ValueError, UnicodeError):
             raise httpdis.HttpReqError(400, 'invalid_json')
 
-    def do_POST(self):
-        if (self.server.monitor.manual_actions is None
-                and not (urlsplit(self.path).path == '/v1/notifications' and self.server.monitor.notification_audit)):
+    def common_req(self, execute, send_body=True):
+        path = urlsplit(self.path).path
+        methods = allowed_methods(path)
+        monitor = self.server.monitor
+        hidden = ((path in _AUDIT_READ_PATHS and monitor.audit_reader is None)
+                  or (path == '/v1/actions' and monitor.manual_actions is None)
+                  or (path == '/v1/notifications' and monitor.notification_audit is None))
+        if methods is None or hidden:
+            self.send_api_error(404, 'not_found')
+            return
+        if self.command not in methods.split(', '):
             self.send_api_error(405, 'method_not_allowed')
             return
-        super(StatusHandler, self).do_POST()
+        super(StatusHandler, self).common_req(execute, send_body=send_body)
 
     def do_OPTIONS(self):
-        # The API deliberately has no CORS endpoint.
-        self.send_api_error(405, 'method_not_allowed')
+        # The route guard rejects OPTIONS; no CORS endpoint is exposed.
+        self.common_req(self.data_from_query)
 
     def end_response(self, response):
         if self.command == 'HEAD':

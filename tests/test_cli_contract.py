@@ -15,7 +15,7 @@ from test_monit_docker import container
 
 class CliContractTests(unittest.TestCase):
     def test_selectors_are_alternatives_and_status_is_an_additional_filter(self):
-        selector = ContainerSelector(selectors={'name': ['web-*, api-*'], 'label': ['frontend']},
+        selector = ContainerSelector(selectors={'name': ['web-*', 'api-*'], 'label': ['frontend']},
                                      statuses=['running'])
         for name, status, labels, expected in (
                 ('web-one', 'running', (), True), ('api-one', 'running', (), True),
@@ -32,8 +32,8 @@ class CliContractTests(unittest.TestCase):
                 selector = ContainerSelector(selectors={'name': [pattern]})
                 self.assertEqual(selector.matches('a' * 64, name, 'running', (), ()), expected)
 
-    def test_group_patterns_preserve_regex_commas_and_replace_direct_selectors(self):
-        selector = ContainerSelector(selectors={'name': ['db*']}, statuses=['running'],
+    def test_group_patterns_preserve_regex_commas_and_intersect_direct_selectors(self):
+        selector = ContainerSelector(selectors={'name': ['web123']}, statuses=['running'],
                                      groups={'web': {'match': ['name:~web[0-9]{1,3}$']}},
                                      selected_groups=['web'])
         self.assertTrue(selector.matches('a' * 64, 'web123', 'running', (), ()))
@@ -84,7 +84,7 @@ class CliContractTests(unittest.TestCase):
             client_factory(config, 'first')()
             configured.assert_called_with(base_url='unix:///first.sock')
             configured.reset_mock()
-            client_factory(config, 'missing', from_env=True)()
+            client_factory(config, 'first', from_env=True)()
             environment.assert_called_once_with()
             configured.assert_not_called()
 

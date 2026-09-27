@@ -1,6 +1,7 @@
 # HTTP API and metrics compatibility baseline
 
-This reference describes the **0.0.77 behavior** of the private agent listener.
+This reference includes **unreleased beta HTTP decisions from 2026-09-27**.
+See the [change notice](beta-decisions.md) for differences from 0.0.79.
 It is a tested 0.0.x baseline, not an approved 1.0 stability promise. The
 [roadmap](roadmap.md) tracks the remaining compatibility decisions. See the
 [configuration and CLI baseline](config-cli-contract.md) for startup options.
@@ -26,7 +27,7 @@ Referrer-Policy: no-referrer
 `HEAD` on read routes has the corresponding status, content type and
 representation length, but no body. A separate GET may differ as time, queued
 actions or the journal advance. There is no CORS preflight endpoint: `OPTIONS`
-returns 405 without `Access-Control-Allow-Origin`. No route changes configuration
+is rejected without `Access-Control-Allow-Origin`. No route changes configuration
 or explicitly starts a monitoring cycle. Reads never execute Docker actions.
 
 | Route | Methods | Availability / authentication | Normal response |
@@ -40,12 +41,12 @@ or explicitly starts a monitoring cycle. Reads never execute Docker actions.
 | `/v1/audit/export` | GET, HEAD | Same journal authentication | 200 JSONL or CSV attachment |
 | `/v1/notifications` | POST | Notification audit receiver enabled; separate bearer token | 202 receipt count |
 
-Use the canonical paths above, without trailing slashes. Unknown reads return
-404. POST/PUT/PATCH/DELETE/OPTIONS on read-only routes return 405. A GET on the
-POST-only action route currently returns 404, not 405. Disabled actions and
-notifications return 405; a disabled journal reader returns 404. A 405 response
-has an `Allow` header based on the declared route, even if its capability is
-disabled. Arbitrary unsupported HTTP verbs are not part of this baseline.
+Use only the canonical paths above, without trailing slashes or encoded path
+aliases. Unknown paths and disabled actions, notifications or journal routes
+return 404. Wrong supported methods on an active known route return 405 with an
+`Allow` header listing that route's methods, including GET/HEAD on POST-only routes.
+OPTIONS is not enabled and has the same 404/405 distinction; no CORS headers are
+added. Arbitrary unsupported verbs remain outside the supported interface.
 Unexpected handler failures return 500 `{"error":"internal_error"}` rather
 than a raw exception message.
 
@@ -148,9 +149,9 @@ or DEL). Otherwise the actor is `anonymous` and a supplied actor is ignored.
 Credentials are not returned in status. A trusted proxy must replace client actor
 headers; see [authentication setup](ui.md).
 
-The body limit is **1024 bytes**, inclusive. Actions currently require
-`Content-Type: application/json` without parameters, so even
-`application/json; charset=utf-8` is rejected. The body must have a single ASCII
+The body limit is **1024 bytes**, inclusive. Actions accept
+`Content-Type: application/json` with optional parameters, including
+`application/json; charset=utf-8`. The body must have a single ASCII
 decimal `Content-Length` of at most five digits and no `Transfer-Encoding`.
 Zero length is rejected with 413. JSON decoding/framing failures return 400;
 read timeouts return 408. These are current adapter behaviors, not a general
@@ -253,7 +254,7 @@ Use the administrative `audit-export` command for all retained events.
 
 `POST /v1/notifications` accepts the Alertmanager version-4 webhook shape, with
 `Authorization: Bearer TOKEN` using the separately configured audit token. No
-Origin or actor header is required. It accepts JSON content-type parameters and
+Origin or actor header is required. Like actions, it accepts JSON content-type parameters and
 has an inclusive **65536-byte** limit; length/framing rules otherwise match
 actions. Manual actions do not need to be enabled for this route.
 
@@ -344,18 +345,15 @@ curl --fail-with-body --silent --show-error --get "$AGENT_URL/v1/audit/export" \
 These are direct private-agent examples, not commands for the public demo or a
 proxy using browser/session authentication. See [UI setup](ui.md) for proxy rules.
 
-## Decisions still open before 1.0
+## Beta evolution
 
-- Unify content-type parameter handling between actions and notifications.
-- Decide whether wrong methods on known routes should consistently return 405.
-- Define support for any additional HTTP verbs, parser edge cases or path aliases;
-  do not rely on accidental acceptance as a stable interface.
-- Approve which field/value changes require an API version change, and define
-  each change's transition using the [deprecation policy](deprecation-policy.md).
+Keep `/v1` throughout this beta cleanup; its prefix does not yet constitute a
+frozen compatibility guarantee. Actions and notifications accept one
+`Content-Type: application/json` header with optional parameters (including
+`charset=utf-8`). JSON bytes are decoded as UTF-8; parameters do not select another
+encoding. Duplicate content-type headers are rejected with 415.
 
-The [journal baseline](journal-compatibility.md) defines schema evolution
-separately from the page envelope and package version. Bounded cursors and
-in-memory request IDs are not durable APIs.
-
-This documentation deliberately records current differences instead of changing
-behavior while inventorying the interfaces.
+The [beta notice](beta-decisions.md) records changes to status codes and selection.
+No `/v2`, extra HTTP methods or implicit path aliases are introduced. The final
+1.0 compatibility commitment remains separate from these approved adjustments.
+Journal schemas remain independent of HTTP route and application versions.

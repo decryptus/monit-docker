@@ -325,13 +325,12 @@ class ApiContractTests(unittest.TestCase):
     def test_content_type_parameters_and_disabled_capabilities_are_explicit(self):
         self.assertEqual(self.json_request('/v1/audit'), (404, {'error': 'not_found'}))
         self.assertEqual(self.json_request('/v1/actions', 'POST', self.payload(), _ACTION_HEADERS),
-                         (405, {'error': 'method_not_allowed'}))
+                         (404, {'error': 'not_found'}))
         self.assertEqual(self.json_request('/v1/actions'), (404, {'error': 'not_found'}))
         self.enable_actions()
         self.monitor.run_cycle()
         headers = dict(_ACTION_HEADERS, **{'Content-Type': 'application/json; charset=utf-8'})
-        self.assertEqual(self.json_request('/v1/actions', 'POST', self.payload(), headers),
-                         (415, {'error': 'json_required'}))
+        self.assertEqual(self.json_request('/v1/actions', 'POST', self.payload(), headers)[0], 202)
         journal = self.enable_audit()
         self.monitor.notification_audit = NotificationAudit(journal)
         self.monitor.manual_actions = None

@@ -109,7 +109,7 @@ _ALLOWED_METHODS = {'/' + route['name']: ', '.join(route['op']) for route in _RO
 
 
 def allowed_methods(path):
-    return _ALLOWED_METHODS.get(path, ', '.join(_READ_METHODS))
+    return _ALLOWED_METHODS.get(path)
 
 
 def register_routes():

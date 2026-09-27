@@ -345,12 +345,12 @@ class ManualHttpTests(unittest.TestCase):
         self.assertEqual(self.request(body='[]')[0], 400)
         self.assertEqual(self.request(headers={'Transfer-Encoding': 'chunked'})[0], 400)
         self.assertEqual(self.request(headers={'Content-Length': '9' * 5000})[0], 400)
-        self.assertEqual(self.request(method='GET')[0], 404)
+        self.assertEqual(self.request(method='GET')[0], 405)
         self.assertEqual(self.request(method='PUT')[0], 405)
-        self.assertEqual(self.request(path='/v1/actions/')[0], 405)
+        self.assertEqual(self.request(path='/v1/actions/')[0], 404)
         self.assertEqual(self.actions.status()['recent'], [])
         self.monitor.manual_actions = None
-        self.assertEqual(self.request()[0], 405)
+        self.assertEqual(self.request()[0], 404)
 
     def test_rearm_uses_the_same_authenticated_endpoint(self):
         self.monitor.cycle.return_value = snapshot(restart_attempts=3, restart_limit=3)

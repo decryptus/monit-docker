@@ -47,14 +47,14 @@ def container_health(obj):
 def client_factory(config, name=None, from_env=False):
     """Resolve configuration now, create a fresh connection for each cycle."""
     clients = config.get('clients')
+    if name and name not in (clients or {}):
+        raise MonitoringError(110, 'unknown client: %r' % name)
     if from_env or not clients:
         def connect():
             if not os.environ.get('DOCKER_HOST'):
                 os.environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
             return docker.from_env()
         return connect
-    if name and name not in clients:
-        raise MonitoringError(110, 'unknown client: %r' % name)
     settings = copy.deepcopy(clients[name or next(iter(clients))]['config'])
 
     def connect():

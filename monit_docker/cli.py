@@ -787,12 +787,13 @@ def scenario_output(snapshot, options):
 
 
 def run_scenario(outer, inline=None):
-    from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError
+    from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError, validate_configuration
     from monit_docker.adapters.scenarios import validate_scenario
     from monit_docker.adapters.http import run_server
     from monit_docker.service import MonitorService
     try:
         config = CheckedConfiguration(outer.conffile, inline).load()
+        validate_configuration(config)
         job = validate_scenario(config, outer.scenario)
         if outer.dry_run and not job.cmd:
             raise ConfigurationCheckError('scenarios.' + outer.scenario, '--dry-run requires a scenario with rules')
@@ -815,10 +816,11 @@ def run_scenario(outer, inline=None):
 
 
 def inspect_scenarios(options, inline=None):
-    from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError
+    from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError, validate_configuration
     from monit_docker.adapters.scenarios import validate_scenario
     try:
         config = CheckedConfiguration(options.conffile, inline).load()
+        validate_configuration(config)
         if options.operation == 'show':
             validate_scenario(config, options.scenario)
             print(json.dumps(config['scenarios'][options.scenario], indent=2))
