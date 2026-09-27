@@ -1,3 +1,11 @@
+monit-docker (0.0.79) unstable; urgency=medium
+
+  * Separate application services and HTTP security from CLI and domain behavior.
+  * Preserve CLI, monitoring, manual action and audit contracts after refactoring.
+  * Add architecture regression coverage for service and interface boundaries.
+
+ -- Codex <codex@openai.com>  Sun, 27 Sep 2026 19:04:00 +0000
+
 monit-docker (0.0.78) unstable; urgency=medium
 
   * Add offline audit-migrate with simulation, original-byte backups and verified schema 2 output.
