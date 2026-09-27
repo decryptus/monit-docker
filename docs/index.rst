@@ -55,6 +55,7 @@ For installation and the command reference, see the
    deprecation-policy
    troubleshooting
    architecture
+   architecture-review-2026-09-27
    roadmap
    dockerhub
    pypi

@@ -8,7 +8,8 @@ used from cron, a local HTTP server, or an external control plane.
 
 ```mermaid
 flowchart TD
-    CLI["Interfaces: CLI and HTTP"] --> Core["Core: cycles, rules, decisions"]
+    CLI["Interfaces: CLI and HTTP"] --> App["Application services"]
+    App --> Core["Core: cycles, rules, decisions"]
     Core --> Domain["Domain models"]
     Adapters["Docker, YAML, state adapters"] --> Domain
     CLI --> Adapters
@@ -64,8 +65,17 @@ The original application was a single executable. Refactoring is incremental:
 
 ## Current implementation and remaining work
 
-`cli.py` now handles arguments, composition, presentation, PID files and exit
-codes. `stats`, `monit`, `cron` and `serve` call `MonitoringEngine.run_once()`.
+`cli.py` handles argument parsing, presentation, PID files and exit codes.
+`composition.py` assembles validated `JobOptions`, adapters and the application.
+YAML scenarios produce the same neutral job values without argparse or CLI calls.
+`MonitoringApplication` owns monitoring cycles and manual-action orchestration,
+with injected state and clock; `StateOperations` owns offline maintenance and
+restart rearming. HTTP scheduler callbacks are bound to the application instance.
+
+The transport-secret/query coupling in manual action, notification and journal
+services remains tracked as M3 in the dated review; dynamic selector bounds and
+shared validation cleanup remain M4/M5. This extraction does not claim those
+separate findings are resolved.
 
 - `core/engine.py` coordinates a cycle and preserves the two-phase rule order.
 - `core/rules.py` evaluates conditions against snapshots, without Docker or CLI imports.
@@ -261,3 +271,4 @@ queue does not promise exactly-once execution across process restarts.
 The component is Community-only single-host software. A future commercial
 control plane is still a separate process/product for fleet management, teams
 and long-term history; it must use the versioned protocol as well.
+

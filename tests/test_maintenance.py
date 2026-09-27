@@ -102,8 +102,8 @@ class MaintenanceTests(unittest.TestCase):
         with patch('sys.argv', ['monit-docker', '-c', str(self.conf), 'serve',
                                '--state-file', str(self.path), '--rsc', 'health', '--cmd', 'restart']):
             command = cli.MonitDockerSubCmdServe(cli.argv_parse_check())
-        actions = ManualActions(command._manual_action, 'https://monitor.test', 'b' * 64, audit=command.audit)
-        monitor = MonitorService(command._cycle, manual_actions=actions)
+        actions = ManualActions(command.application.manual_action, 'https://monitor.test', 'b' * 64, audit=command.audit)
+        monitor = MonitorService(command.application.cycle, manual_actions=actions)
         monitor.run_cycle()
         data = monitor.status()
         self.assertTrue(data['ready'])
@@ -173,3 +173,4 @@ class MaintenanceStateTests(unittest.TestCase):
                 with self.assertRaises(MonitoringError):
                     with LocalState(str(path)):
                         pass
+

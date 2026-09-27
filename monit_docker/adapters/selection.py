@@ -42,7 +42,7 @@ class ContainerSelector(object):
 
     @classmethod
     def _split(cls, values):
-        if isinstance(values, list):
+        if isinstance(values, (list, tuple)):
             return [value for item in values for value in cls._split(item)]
         if isinstance(values, bytes):
             values = values.decode('utf-8', 'replace')
@@ -59,3 +59,4 @@ class ContainerSelector(object):
                       'label': labels, 'image': image_tags}
         return any(pattern(value) for kind, patterns in self.patterns.items()
                    for pattern in patterns for value in attributes[kind])
+
