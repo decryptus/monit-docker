@@ -126,7 +126,7 @@ class RestartCliTests(unittest.TestCase):
                 '--max-restarts', '1', '--cooldown', '0', '--rsc', 'health', '--cmd', 'restart']
         with patch('sys.argv', base):
             command = cli.MonitDockerSubCmdServe(cli.argv_parse_check())
-        monitor = MonitorService(command._cycle)
+        monitor = MonitorService(command.application.cycle)
         monitor.run_cycle()
         monitor.run_cycle()
         data = monitor.status()
@@ -178,8 +178,8 @@ class RestartCliTests(unittest.TestCase):
                                '--state-file', str(self.path), '--rsc', 'health',
                                '--cmd-if', 'health == unhealthy ? restart']):
             command = cli.MonitDockerSubCmdServe(cli.argv_parse_check())
-        actions = ManualActions(command._manual_action, 'https://monitor.example', 'b' * 64, audit=command.audit)
-        monitor = MonitorService(command._cycle, manual_actions=actions)
+        actions = ManualActions(command.application.manual_action, 'https://monitor.example', 'b' * 64, audit=command.audit)
+        monitor = MonitorService(command.application.cycle, manual_actions=actions)
         monitor.run_cycle()
         request = dict(request_id='c' * 32, container_id=obj.id, action='restart-reset')
         actions.submit(request, monitor.status(), actor='Adrien')
@@ -282,3 +282,4 @@ class RestartStateTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -148,11 +148,14 @@ class ScenarioTests(unittest.TestCase):
     def test_serve_reuses_existing_runner_and_config_snapshot(self):
         self.scenario.update(mode='serve', interval=15, **{'trigger-after': 60, 'max-gap': 45})
         self.write()
-        with patch.object(cli.MonitDockerSubCmdServe, '__call__', return_value=0) as runner:
+        with patch('monit_docker.adapters.http.run_server', return_value=None) as runner:
             with patch.object(Configuration, 'load', wraps=Configuration(str(self.config)).load) as load:
                 self.assertEqual(self.invoke('run', 'web-guard', '--dry-run')[0], 0)
                 self.assertEqual(load.call_count, 1)
-            runner.assert_called_once_with()
+            runner.assert_called_once()
+            monitor, bind, port = runner.call_args.args
+            self.assertEqual((bind, port), ('127.0.0.1', 9808))
+            self.assertEqual(monitor.cycle.__self__.__class__.__module__, 'monit_docker.application')
         self.connection.assert_not_called()
 
     def test_list_show_and_check_config_are_offline_and_do_not_write(self):
@@ -310,3 +313,4 @@ class ScenarioTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

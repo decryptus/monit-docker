@@ -1,8 +1,19 @@
 # Architecture and coding-contract review — 2026-09-27
 
 Reviewed commit: `67837c48238c5f62e95e03432d9cc09cf2b5ef2c` on `master`.
-Status: **review completed; runtime corrections below remain open**.
-This change adds review/engineering documentation, not a runtime refactor.
+Status: **M1/M2 corrected on this branch; M3/M4/M5 remain open follow-ups**.
+The findings below describe the pinned original snapshot. The follow-up extracts
+neutral JobOptions/scenario validation, composition, MonitoringApplication and
+StateOperations. CLI classes retain input/output and transport startup only.
+State and clock dependencies are injected; no shared service imports the CLI.
+New AST and fresh-process tests exercise composition, cycles, manual cooldown,
+maintenance expiry, restart rearm and dry-run with CLI imports blocked.
+
+Local follow-up validation: **337 tests and 504 subtests passed**, including two
+new architecture tests; 15 opt-in Docker integration tests were skipped.
+CI results are recorded on the PR. No Docker daemon action
+was performed locally. The HTTP credential/query separation and selector/style
+findings below are deliberately tracked separately from the M1/M2 extraction.
 
 ## Scope and method
 

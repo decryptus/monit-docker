@@ -20,16 +20,14 @@ import docker
 from docker.errors import APIError, DockerException
 from sonicprobe import helpers
 
+from monit_docker.composition import build_application, audit_journal as _audit_journal
+from monit_docker.job import JobOptions, validate_job
+from dataclasses import replace
 from monit_docker.audit import DEFAULT_MAX_BYTES
-from monit_docker.adapters.configuration import Configuration
-from monit_docker.adapters.docker import DockerCollector, DockerActionExecutor, client_factory
-from monit_docker.adapters.rules import RuleParser
-from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import RESOURCE_CHOICES, DEFAULT_RESOURCE_CHOICES, STATUS_RC, HEALTH_RC
 from monit_docker.domain.runtime import DEFAULT_EVENT_WINDOW, valid_event_window
-from monit_docker.core import MonitoringEngine
-from monit_docker.core.policy import CooldownPolicy, RestartPolicy, DEFAULT_MAX_RESTARTS, restart_key
-from monit_docker.domain.maintenance import MAX_MAINTENANCE_SECONDS, MAINTENANCE_COMMANDS
+from monit_docker.core.policy import DEFAULT_MAX_RESTARTS
+from monit_docker.domain.maintenance import MAX_MAINTENANCE_SECONDS
 from monit_docker.domain.errors import ActionRejected, CommandExecutionError, MonitoringError
 from monit_docker.outputs.formatting import format_resource
 from monit_docker.domain.filesystems import filesystem_resource
@@ -44,6 +42,14 @@ MONIT_DOCKER_CONFFILE = os.environ.get('MONIT_DOCKER_CONFFILE') or DEFAULT_CONFF
 MONIT_DOCKER_LOGFILE = os.environ.get('MONIT_DOCKER_LOGFILE') or DEFAULT_LOGFILE
 MONIT_DOCKER_RUNTIMEDIR = os.environ.get('MONIT_DOCKER_RUNTIMEDIR') or DEFAULT_RUNTIMEDIR
 _SUBCMDS = {}
+
+
+def job_options(options):
+    from dataclasses import fields
+    values = {field.name: getattr(options, field.name, field.default) for field in fields(JobOptions)}
+    values.update(notifications_enabled=bool(getattr(options, 'notification_token_file', None)),
+                  audit_read_enabled=bool(getattr(options, 'audit_read_token_file', None)))
+    return JobOptions(**values)
 
 
 def _resource_argument(value):
@@ -151,20 +157,6 @@ def argv_parse_check(argv=None, parser_class=argparse.ArgumentParser):
 
 class MonitDockerExit(SystemExit):
     pass
-
-
-def _audit_journal(options, explicit=False):
-    from monit_docker.audit import AuditJournal
-    path = getattr(options, 'audit_file', None)
-    if not path:
-        if explicit:
-            raise MonitoringError(110, 'Specify --audit-file for export or forwarding')
-        state = getattr(options, 'state_file', None)
-        directory = (os.path.join(os.path.dirname(os.path.abspath(state)), 'audit') if state else
-                     os.path.join(os.environ.get('XDG_STATE_HOME') or os.path.expanduser('~/.local/state'), 'monit-docker', 'audit'))
-        path = os.path.join(directory, 'events.jsonl')
-    return AuditJournal(path, getattr(options, 'audit_max_bytes', DEFAULT_MAX_BYTES),
-                        getattr(options, 'audit_files', 5))
 
 
 def _read_audit_token(path):
@@ -297,24 +289,12 @@ class MonitDockerSubCmdRestartReset(object):
             parser.error('--container-id must be a full 64-character lowercase hexadecimal ID')
 
     def __call__(self):
-        import uuid
+        from monit_docker.application_state import StateOperations
         from monit_docker.adapters.state import LocalState
-        with LocalState(self.options.state_file) as state:
-            key = restart_key(self.options.container_id)
-            if key not in state.restarts:
-                raise MonitoringError(110, 'no restart attempts recorded for this container')
-            audit = _audit_journal(self.options)
-            fields = dict(correlation_id=uuid.uuid4().hex, source='manual', actor=getpass.getuser(),
-                          container_id=self.options.container_id, action='restart-reset')
-            audit.record('action', 'started', result='pending', **fields)
-            try:
-                state.reset_restarts(key)
-            except Exception as error:
-                audit.finish('action', 'completed', result='failed', reason=type(error).__name__,
-                             error_code=getattr(error, 'code', None), **fields)
-                raise
-            audit.finish('action', 'completed', result='succeeded', **fields)
-        print(json.dumps(dict(container_id=self.options.container_id, status='rearmed')))
+        operations = StateOperations(LocalState, _audit_journal(self.options))
+        result = operations.reset_restarts(self.options.state_file, self.options.container_id,
+                                           getpass.getuser())
+        print(json.dumps(result))
         return 0
 
 
@@ -336,24 +316,12 @@ class MonitDockerSubCmdMaintenance(MonitDockerSubCmdRestartReset):
             parser.error('--duration must be between 0 and 86400 seconds')
 
     def __call__(self):
-        import time
-        import uuid
+        from monit_docker.application_state import StateOperations
         from monit_docker.adapters.state import LocalState
-        with LocalState(self.options.state_file) as state:
-            audit = _audit_journal(self.options)
-            now = time.time()
-            fields = dict(correlation_id=uuid.uuid4().hex, source='manual', actor=getpass.getuser(),
-                          container_id=self.options.container_id, action='maintenance',
-                          reason='duration_seconds=%d' % self.options.duration)
-            audit.record('action', 'started', result='pending', **fields)
-            try:
-                state.set_maintenance(self.options.container_id, self.options.duration, now)
-            except Exception as error:
-                audit.finish('action', 'completed', result='failed', error_code=getattr(error, 'code', None), **fields)
-                raise
-            audit.finish('action', 'completed', result='succeeded', **fields)
-        print(json.dumps(dict(container_id=self.options.container_id,
-                              maintenance_until=now + self.options.duration if self.options.duration else None)))
+        operations = StateOperations(LocalState, _audit_journal(self.options))
+        result = operations.maintenance(self.options.state_file, self.options.container_id,
+                                        self.options.duration, getpass.getuser())
+        print(json.dumps(result))
         return 0
 
 
@@ -364,30 +332,11 @@ class MonitDockerSubCmdStats(object):
 
     def __init__(self, options):
         self.options = options
-        config = getattr(options, '_scenario_config', None)
-        if config is None:
-            config = Configuration(options.conffile, MONIT_DOCKER_CONFIG).load(
-                include_rules=self.USE_RULES)
-        selector = ContainerSelector(
-            selectors=dict((kind, getattr(options, kind)) for kind in ('id', 'name', 'label', 'image')),
-            statuses=options.status, groups=config.get('ctn-groups'), selected_groups=options.ctn_grp)
-        self.rules = ()
-        if self.USE_RULES:
-            parser = RuleParser(config.get('commands'), config.get('conditions'), config.get('dir-groups'))
-            self.rules = tuple(parser.parse(expression) for expression in options.cmd)
-        collector = DockerCollector(client_factory(config, options.client, options.client_from_env),
-                                    selector, config.get('dir-groups'), options.event_window)
-        for resource in options.resource or ():
-            filesystem = filesystem_resource(resource)
-            if filesystem and filesystem[1] not in collector.dir_groups:
-                raise MonitoringError(110, 'unknown directory group: %s' % filesystem[1])
-        self.audit = None
-        if self.rules or getattr(options, 'allow_actions', False) or getattr(options, 'notification_token_file', None) or getattr(options, 'audit_read_token_file', None):
-            self.audit = _audit_journal(options)
-        source = 'manual' if options.subcommand == 'monit' else 'automatic'
-        actor = getpass.getuser() if source == 'manual' else 'cron' if options.subcommand == 'cron' else 'rule-engine'
-        self.engine = MonitoringEngine(collector, DockerActionExecutor(collector), audit=self.audit,
-                                       audit_source=source, audit_actor=actor)
+        self.application = build_application(job_options(options),
+            config=getattr(options, '_scenario_config', None), inline=MONIT_DOCKER_CONFIG,
+            use_rules=self.USE_RULES, actor=getpass.getuser())
+        self.engine, self.rules, self.audit = self.application.engine, self.application.rules, self.application.audit
+
 
     @classmethod
     def load_subcmd_parser(cls, subparsers):
@@ -537,32 +486,6 @@ def _validate_policy_options(parser, options):
         parser.error('--max-gap requires a positive --trigger-after')
 
 
-def _rule_policy(state, rules, options, audit=None):
-    import time
-    import uuid
-    now = time.time()
-    expired = [identifier for identifier, until in state.maintenance.items() if until <= now]
-    fields = []
-    if audit and not options.dry_run:
-        for identifier in expired:
-            event = dict(correlation_id=uuid.uuid4().hex, source='automatic', actor='rule-engine',
-                         container_id=identifier, action='maintenance-expired')
-            audit.record('action', 'started', result='pending', **event)
-            fields.append(event)
-    try:
-        state.expire_maintenance(now, read_only=options.dry_run)
-    except Exception as error:
-        for event in fields:
-            audit.finish('action', 'completed', result='failed', error_code=getattr(error, 'code', None), **event)
-        raise
-    for event in fields:
-        audit.finish('action', 'completed', result='succeeded', **event)
-    if not rules:
-        return CooldownPolicy(state, rules, options.cooldown)
-    return RestartPolicy(state, rules, options.cooldown, options.trigger_after,
-                         options.max_gap, read_only=options.dry_run, max_restarts=options.max_restarts)
-
-
 class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
     CMD_NAME = 'cron'
     CMD_HELP = 'run one locked monitoring cycle with persistent action cooldowns'
@@ -589,12 +512,7 @@ class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
         _validate_policy_options(parser, options)
 
     def __call__(self):
-        from monit_docker.adapters.state import LocalState
-        with LocalState(self.options.state_file) as state:
-            policy = _rule_policy(state, self.rules, self.options, self.audit)
-            return self.engine.run_once(rules=self.rules, resources=(),
-                                        dry_run=self.options.dry_run, action_policy=policy,
-                                        on_action=self._output_action)
+        return self.application.run_once(on_action=self._output_action)
 
 
 class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
@@ -682,21 +600,6 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--max-gap must exceed --interval to allow time for collection')
         options.resource = options.resource or DEFAULT_RESOURCE_CHOICES
 
-    def _cycle(self, observer):
-        def run(policy=None):
-            return self.engine.run_once(rules=self.rules, resources=self.options.resource,
-                                        dry_run=self.options.dry_run, action_policy=policy,
-                                        on_action=observer)
-        try:
-            if self.options.state_file:
-                from monit_docker.adapters.state import LocalState
-                with LocalState(self.options.state_file) as state:
-                    return run(_rule_policy(state, self.rules, self.options, self.audit))
-            return run()
-        except APIError as error:
-            raise MonitoringError(180, str(error))
-        except DockerException as error:
-            raise MonitoringError(170, str(error))
 
     def __call__(self):
         from monit_docker.service import MonitorService
@@ -713,7 +616,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
                 token = raw_token.rstrip('\n')
             except (OSError, UnicodeError, ValueError):
                 raise MonitoringError(110, 'action token file must contain a 64-character hex secret')
-            actions = ManualActions(self._manual_action, self.options.action_origin, token,
+            actions = ManualActions(self.application.manual_action, self.options.action_origin, token,
                                     audit=self.audit, trust_actor=self.options.trust_proxy_user,
                                     allow_maintenance=self.options.allow_maintenance)
         notifications = None
@@ -727,30 +630,9 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             if (actions and read_token == actions.token) or (notifications and read_token == notifications.token):
                 raise MonitoringError(110, 'audit read secret must differ from action and notification secrets')
             reader = AuditReader(self.audit, read_token)
-        monitor = MonitorService(self._cycle, self.options.interval, self.options.stale_after,
+        monitor = MonitorService(self.application.cycle, self.options.interval, self.options.stale_after,
                                  manual_actions=actions, notification_audit=notifications, audit_reader=reader)
         run_server(monitor, self.options.bind, self.options.port)
-
-    def _manual_action(self, container_id, command):
-        import hashlib
-        import time
-        from monit_docker.adapters.state import LocalState
-        try:
-            with LocalState(self.options.state_file) as state:
-                def claim(identifier):
-                    if command == 'restart-reset' and restart_key(identifier) not in state.restarts:
-                        raise ActionRejected('no_restart_attempts')
-                    key = hashlib.sha256(('manual:' + identifier).encode('ascii')).hexdigest()
-                    return state.reserve(key, time.time(), self.options.action_cooldown)
-                if command in MAINTENANCE_COMMANDS and not self.options.allow_maintenance:
-                    raise ActionRejected('unsupported_action')
-                self.engine.run_manual_action(container_id, command, claim,
-                                             reset_restarts=lambda identifier: state.reset_restarts(restart_key(identifier)),
-                                             set_maintenance=lambda identifier, seconds: state.set_maintenance(identifier, seconds, time.time()))
-        except APIError as error:
-            raise MonitoringError(180, str(error))
-        except DockerException as error:
-            raise MonitoringError(170, str(error))
 
 
 class MonitDockerSubCmdCheckConfig(object):
@@ -810,11 +692,10 @@ class MonitDockerSubCmdRun(object):
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
-        from monit_docker.adapters.scenarios import reject_selection_overrides
-        reject_selection_overrides(parser, options)
+        if any(getattr(options, field) for field in ('name','id','image','label','ctn_grp','status')) or options.client or options.client_from_env:
+            parser.error('put container selection and Docker client settings in the scenario')
 
     def __call__(self):
-        from monit_docker.adapters.scenarios import run_scenario
         return run_scenario(self.options, MONIT_DOCKER_CONFIG)
 
 
@@ -835,7 +716,6 @@ class MonitDockerSubCmdScenario(MonitDockerSubCmdRun):
             parser.error('scenario show requires a name; scenario list takes no name')
 
     def __call__(self):
-        from monit_docker.adapters.scenarios import inspect_scenarios
         return inspect_scenarios(self.options, MONIT_DOCKER_CONFIG)
 
 
@@ -865,6 +745,11 @@ def main(options):
             print('%s operation failed (%s)' % (options.subcommand, type(error).__name__), file=sys.stderr)
             return getattr(error, 'code', 119)
 
+    initialize_runtime(options)
+    return run_operation(lambda: _SUBCMDS[options.subcommand](options)(), options)
+
+
+def initialize_runtime(options):
     xformat     = "%(levelname)s:%(asctime)-15s: %(message)s"
     datefmt     = '%Y-%m-%d %H:%M:%S'
     logging.basicConfig(level   = options.loglevel,
@@ -885,10 +770,11 @@ def main(options):
             LOG.warning("unable to create runtime directory: %r", options.runtimedir)
             setattr(options, 'runtimedir', None)
 
+
+def run_operation(operation, options):
     rc           = 0
     try:
-        monit_docker = _SUBCMDS[options.subcommand](options)
-        monit_docker()
+        operation()
     except APIError as e:
         rc = 180
         LOG.error(e.explanation)
@@ -913,6 +799,61 @@ def main(options):
         LOG.exception(e)
 
     return rc
+
+
+def scenario_output(snapshot, options):
+    values = {resource: format_resource(resource, snapshot.resource_value(resource)) for resource in options.resource}
+    if options.output == 'json':
+        print(json.dumps({snapshot.name: values}))
+    else:
+        print('|'.join([snapshot.name] + ['%s:%s' % (key, 'null' if value is None or key == 'pid' and not value else value)
+                                         for key, value in values.items()]))
+
+
+def run_scenario(outer, inline=None):
+    from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError
+    from monit_docker.adapters.scenarios import validate_scenario
+    from monit_docker.adapters.http import run_server
+    from monit_docker.service import MonitorService
+    try:
+        config = CheckedConfiguration(outer.conffile, inline).load()
+        job = validate_scenario(config, outer.scenario)
+        if outer.dry_run and not job.cmd:
+            raise ConfigurationCheckError('scenarios.' + outer.scenario, '--dry-run requires a scenario with rules')
+        inherited = {field.replace('-', '_'): getattr(outer, field.replace('-', '_'))
+                     for field in ('audit-file','audit-max-bytes','audit-files','event-window')
+                     if field not in config['scenarios'][outer.scenario]}
+        job = validate_job(replace(job, conffile=outer.conffile, dry_run=job.dry_run or outer.dry_run, **inherited))
+    except (ConfigurationCheckError, ValueError) as error:
+        print('Invalid scenario configuration: %s: %s' % (getattr(error, 'location', 'options'), error), file=sys.stderr)
+        return 110
+    initialize_runtime(outer)
+    def operation():
+        app = build_application(job, config=config, use_rules=job.subcommand != 'stats')
+        if job.subcommand == 'serve':
+            run_server(MonitorService(app.cycle, job.interval, job.stale_after), job.bind, job.port)
+        else:
+            app.run_once(on_snapshot=lambda snapshot: scenario_output(snapshot, job),
+                         on_action=MonitDockerSubCmdStats._output_action)
+    return run_operation(operation, outer)
+
+
+def inspect_scenarios(options, inline=None):
+    from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError
+    from monit_docker.adapters.scenarios import validate_scenario
+    try:
+        config = CheckedConfiguration(options.conffile, inline).load()
+        if options.operation == 'show':
+            validate_scenario(config, options.scenario)
+            print(json.dumps(config['scenarios'][options.scenario], indent=2))
+        else:
+            entries = [dict(name=name, mode=validate_scenario(config, name).subcommand, description=entry.get('description',''))
+                       for name, entry in sorted(config.get('scenarios',{}).items())]
+            print(json.dumps(entries, indent=2))
+    except ConfigurationCheckError as error:
+        print('Invalid scenario configuration: %s: %s' % (error.location, error), file=sys.stderr)
+        return 110
+    return 0
 
 
 if __name__ == '__main__':

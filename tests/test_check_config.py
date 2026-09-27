@@ -22,7 +22,7 @@ class CheckConfigTests(unittest.TestCase):
         patch.object(cli, 'MONIT_DOCKER_CONFIG', None).start()
         self.docker = patch.object(cli.docker, 'DockerClient', side_effect=AssertionError('Docker connected')).start()
         self.env = patch.object(cli.docker, 'from_env', side_effect=AssertionError('Docker connected')).start()
-        self.factory = patch.object(cli, 'client_factory', side_effect=AssertionError('Docker configured')).start()
+        self.factory = patch('monit_docker.composition.client_factory', side_effect=AssertionError('Docker configured')).start()
         self.logs = patch.object(cli, 'WatchedFileHandler', side_effect=AssertionError('log opened')).start()
         self.runtime = patch.object(cli.helpers, 'make_dirs', side_effect=AssertionError('runtime created')).start()
 
@@ -148,3 +148,4 @@ class CheckConfigTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
