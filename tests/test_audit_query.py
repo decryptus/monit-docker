@@ -114,7 +114,7 @@ class QueryTests(unittest.TestCase):
                 read_page(self.reader, query, 'alice')
             self.assertEqual(query_error_status(error.exception), 400)
 
-    def test_scan_does_not_hold_writer_lock_and_busy_writer_is_not_waited_on(self):
+    def test_scan_releases_writer_lock_and_persistent_contention_is_bounded(self):
         self.populate(2)
         lock = os.open(str(self.path) + '.lock', os.O_RDWR)
         self.addCleanup(os.close, lock)
@@ -137,6 +137,36 @@ class QueryTests(unittest.TestCase):
             self.assertEqual(error.exception.reason, 'audit_busy')
         finally:
             self.reader._slots.release(); self.reader._slots.release()
+
+    def test_short_writer_contention_recovers_within_same_read(self):
+        records = self.populate(2)
+        lock = os.open(str(self.path) + '.lock', os.O_RDWR)
+        self.addCleanup(os.close, lock)
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        def release_writer(delay):
+            self.assertGreater(delay, 0)
+            self.assertLessEqual(delay, .002)
+            fcntl.flock(lock, fcntl.LOCK_UN)
+        with patch('monit_docker.audit_query.time.sleep', side_effect=release_writer) as sleep:
+            self.assertEqual(read_page(self.reader, '', 'alice')[0]['records'], records[::-1])
+        sleep.assert_called_once()
+
+    def test_writer_wait_deadline_releases_query_slot(self):
+        self.populate(1)
+        lock = os.open(str(self.path) + '.lock', os.O_RDWR)
+        self.addCleanup(os.close, lock)
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with patch('monit_docker.audit_query.time.monotonic', side_effect=[10, 10.099, 10.101]), \
+                patch('monit_docker.audit_query.time.sleep') as sleep:
+            with self.assertRaises(QueryError) as error:
+                read_page(self.reader, '', 'alice')
+        self.assertEqual(error.exception.reason, 'audit_busy')
+        self.assertAlmostEqual(sleep.call_args.args[0], .001)
+        fcntl.flock(lock, fcntl.LOCK_UN)
+        self.assertTrue(read_page(self.reader, '', 'alice')[0]['records'])
+        self.assertTrue(self.reader._slots.acquire(False))
+        self.assertTrue(self.reader._slots.acquire(False))
+        self.reader._slots.release(); self.reader._slots.release()
 
     def test_malformed_queries_files_and_missing_history(self):
         self.assertEqual(read_page(self.reader, '', 'alice')[0]['records'], [])

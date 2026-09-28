@@ -242,6 +242,13 @@ Errors are `{"error":"REASON"}`: 400 `invalid_filters` or `invalid_cursor`,
 `audit_busy` / `audit_unavailable`. A 503 is an explicit read failure, never an
 empty successful history. Cursor and storage errors do not reveal file paths.
 
+In the post-0.0.80 candidate, snapshot acquisition retries a busy writer lock
+within a 100 ms monotonic-time budget. Each attempt is nonblocking; sleeps are
+at most 2 ms and bounded by the remaining budget. Scheduling and filesystem
+operations can add latency beyond that budget. The two-reader admission limit
+still fails immediately when full. The shared lock is released before scanning
+or serializing records; prolonged contention still returns 503 `audit_busy`.
+
 `/v1/audit/export` returns one bounded page, not the whole journal. Pass the
 displayed `page_cursor` and the same filters. Its media type is
 `application/x-ndjson; charset=utf-8` or `text/csv; charset=utf-8`, with
