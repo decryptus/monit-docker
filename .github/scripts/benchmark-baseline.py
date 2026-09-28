@@ -1,5 +1,8 @@
 """Measured local journal/HTTP baselines, isolated per workload; no Docker actions."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+import csv
+import io
 import hashlib
 import http.client
 import json
@@ -15,12 +18,13 @@ import tempfile
 import threading
 import time
 import tracemalloc
+from urllib.parse import urlencode
 
 _ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_ROOT))
 from monit_docker.audit import AuditJournal, encoded, event_record, export_events
 from monit_docker.audit_query import AuditQuery, AuditReader, SCAN_BYTES
-from monit_docker.adapters.http import StatusServer
+from monit_docker.adapters.http import HttpSecurity, StatusServer
 from monit_docker.domain.models import ContainerSnapshot
 from monit_docker.domain.rules import CycleResult
 from monit_docker.service import MonitorService
@@ -30,8 +34,14 @@ _LINE_BYTES = 1024
 _FILES = 5
 _SAMPLES = 7
 _HTTP_SAMPLES = 30
+_AUDIT_PATH = '/v1/audit'
+_EXPORT_PATH = '/v1/audit/export'
+_AUDIT_TOKEN = 'a' * 64  # Disposable loopback fixture only.
+_AUDIT_HEADERS = {'X-Monit-Audit-Token': _AUDIT_TOKEN, 'X-Monit-Actor': 'benchmark'}
+_CONCURRENT_SAMPLES = 10
+_HTTP_TIMEOUT = 10
 _BOUNDS = {'first_page_p95_ms': 2000, 'first_page_peak_python_bytes': 16 * 1024**2,
-           'sparse_search_ms': 60000, 'export_ms': 60000, 'http_p95_ms': 2000}
+           'sparse_search_ms': 60000, 'export_ms': 60000, 'http_p95_ms': 2000, 'audit_http_p95_ms': 2000}
 
 
 def io_counters():
@@ -99,33 +109,110 @@ def workload(mib):
             assert sum(1 for _ in records) == per_file*(_FILES-1)+1
         result = CycleResult(tuple(ContainerSnapshot(id='%064x' % i, name='web-%s' % i,
                              status='running', cpu_percent=1, mem_usage=1024) for i in range(100)), ())
-        monitor = MonitorService(lambda observer: result, stale_after=300)
+        monitor = MonitorService(lambda observer: result, stale_after=300, audit_reader=reader)
         monitor.run_cycle()
-        server = StatusServer(('127.0.0.1', 0), monitor)
+        server = StatusServer(('127.0.0.1', 0), monitor, HttpSecurity(audit_token=_AUDIT_TOKEN))
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
-        def http_status():
-            connection = http.client.HTTPConnection(*server.server_address, timeout=3)
+
+        def request(route, headers=_AUDIT_HEADERS, allow_busy=False):
+            connection = http.client.HTTPConnection(*server.server_address, timeout=_HTTP_TIMEOUT)
             try:
-                connection.request('GET', '/v1/status')
+                connection.request('GET', route, headers=headers)
                 response = connection.getresponse()
-                body = json.loads(response.read())
-                assert response.status == 200 and len(body['containers']) == 100
+                body = response.read()
+                if allow_busy and response.status == 503:
+                    assert json.loads(body) == {'error': 'audit_busy'}
+                    return None
+                assert response.status == 200, (route.split('?')[0], response.status, body[:200])
+                return body
             finally:
                 connection.close()
+
+        def http_status():
+            assert len(json.loads(request('/v1/status', {}))['containers']) == 100
+
+        def http_page(filters=None):
+            page = json.loads(request(_AUDIT_PATH + '?' + urlencode(filters or {})))
+            assert page['scanned_bytes'] <= SCAN_BYTES
+            assert len(page['records']) <= 100
+            return page
+
         try:
             http_status()
             http_metrics = measured(http_status, _HTTP_SAMPLES)
+            audit_metrics = {}
+            for name, filters in (('first_page', {}),
+                                  ('correlation_page', {'correlation_id': 'reference-action'}),
+                                  ('sparse_page', {'result': 'failed'})):
+                def read_page():
+                    page = http_page(filters)
+                    assert len(page['records']) == (0 if name == 'sparse_page' else 100)
+                audit_metrics[name] = measured(read_page, _HTTP_SAMPLES)
+            filters = {'correlation_id': 'reference-action'}
+            snapshot = http_page(filters)
+            expected_ids = [row['event_id'] for row in snapshot['records']]
+            for format in ('jsonl', 'csv'):
+                route = _EXPORT_PATH + '?' + urlencode(dict(filters, cursor=snapshot['page_cursor'], format=format))
+                def export_page():
+                    body = request(route).decode('utf-8')
+                    rows = ([json.loads(line) for line in body.splitlines()] if format == 'jsonl'
+                            else list(csv.DictReader(io.StringIO(body))))
+                    assert [row['event_id'] for row in rows] == expected_ids
+                audit_metrics['export_' + format] = measured(export_page, _HTTP_SAMPLES)
+
+            # Two real HTTP readers share the two query slots while a durable
+            # writer runs. Bound the writer and propagate every worker exception.
+            barrier = threading.Barrier(3, timeout=_HTTP_TIMEOUT)
+            stop = threading.Event()
+            def write_during_reads():
+                barrier.wait()
+                timings = []
+                for _ in range(1000):
+                    started = time.perf_counter()
+                    journal.record('action', 'completed', correlation_id='concurrent-writer')
+                    timings.append((time.perf_counter() - started) * 1000)
+                    if stop.wait(.001):
+                        break
+                return dict(records=len(timings), max_ms=max(timings),
+                            median_ms=statistics.median(timings))
+            def read_during_writes():
+                barrier.wait()
+                outcomes = {'ok': 0, 'busy': 0}
+                def read_once():
+                    body = request(_AUDIT_PATH, allow_busy=True)
+                    if body is None:
+                        outcomes['busy'] += 1
+                    else:
+                        page = json.loads(body)
+                        assert page['scanned_bytes'] <= SCAN_BYTES and len(page['records']) <= 100
+                        outcomes['ok'] += 1
+                metrics = measured(read_once, _CONCURRENT_SAMPLES)
+                metrics['responses'] = outcomes
+                return metrics
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                writer = pool.submit(write_during_reads)
+                readers = [pool.submit(read_during_writes) for _ in range(2)]
+                try:
+                    concurrent_readers = [future.result(timeout=60) for future in readers]
+                finally:
+                    stop.set()
+                concurrent_writer = writer.result(timeout=60)
+            assert http_page({'correlation_id': 'concurrent-writer'})['records']
         finally:
             server.shutdown(); thread.join(5); server.server_close()
             assert not thread.is_alive()
         values = dict(first_page_p95_ms=page_metrics['p95_ms'], first_page_peak_python_bytes=peak,
                       sparse_search_ms=search['max_ms'], export_ms=exports['max_ms'],
-                      http_p95_ms=http_metrics['p95_ms'])
+                      http_p95_ms=http_metrics['p95_ms'],
+                      audit_http_p95_ms=max(item['p95_ms'] for item in
+                                           list(audit_metrics.values()) + concurrent_readers))
         return dict(requested_mib=mib, actual_bytes=per_file*_FILES*_LINE_BYTES,
                     records=per_file*_FILES, first_page=page_metrics, correlation_page=correlation,
                     sparse_search=search, full_jsonl_export=exports, rotation=rotation,
-                    http_status_100_containers=http_metrics, first_page_peak_python_bytes=peak,
+                    http_status_100_containers=http_metrics, audit_http=audit_metrics,
+                    concurrent_http_readers=concurrent_readers, concurrent_writer=concurrent_writer,
+                    first_page_peak_python_bytes=peak,
                     process_peak_rss_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                     bounds=_BOUNDS, breaches=[key for key in values if values[key] > _BOUNDS[key]])
 
