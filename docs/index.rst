@@ -51,6 +51,7 @@ For installation and the command reference, see the
 
    check-config
    config-cli-contract
+   shared-terminal
    supported-environments
    installation-upgrades
    performance-resilience
