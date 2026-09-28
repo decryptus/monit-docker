@@ -19,6 +19,7 @@ async function main() {
     const page = await browser.newPage({viewport:{width:1440,height:1050}, acceptDownloads:true});
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     let requests = 0, mode = 200, lastParams, exportParams, actionMode = 'paged';
+    let exportRequests = 0, exportMode = 200;
     let releaseAction, actionHeld;
     const event = {schema_version:2,event_id:'1234',timestamp:'2026-09-23T18:30:00Z',host:'docker-host',category:'action',event:'completed',source:'manual',actor:'alice',container_name:'api-service',action:'restart',result:'succeeded',duration_ms:180,correlation_id:'request-1234',reason:null};
     const examples = [
@@ -34,7 +35,7 @@ async function main() {
     for (const example of examples) example.container_id = event.container_id;
     await page.route('**/v1/audit?*', async route => {
       requests++;
-      if (mode !== 200) return route.fulfill({status:mode,json:{error:'denied'}});
+      if (mode !== 200) return route.fulfill({status:mode,json:{error:mode === 503 ? 'audit_busy' : 'denied'}});
       const params = new URL(route.request().url()).searchParams;
       lastParams = params;
       if (params.has('correlation_id')) {
@@ -65,6 +66,8 @@ async function main() {
       await route.fulfill({json:{records:params.get('container') === 'absent' ? [] : older ? [{...event, event_id:'older',result:'failed',reason:'execution_failed',container_name:'<img src=x onerror=alert(1)>'}] : matching,next_cursor:older ? null : 'older',page_cursor:older ? 'older' : 'first',scanned_bytes:1000,limit:100}}).catch(() => {});
     });
     await page.route('**/v1/audit/export?*', route => {
+      exportRequests++;
+      if (exportMode !== 200) return route.fulfill({status:exportMode,json:{error:'audit_busy'}});
       const params = new URL(route.request().url()).searchParams;
       exportParams = params;
       assert.equal(params.get('cursor'), 'first');
@@ -268,6 +271,58 @@ async function main() {
       assert.equal(await page.locator('.log-event').count(),0);
       assert.equal(await page.locator('#export-jsonl').isDisabled(),true);
     }
+    // A busy response must remain an explicit failure, without background retry.
+    await page.clock.install();
+    const failedJournalRequests = requests;
+    assert.match(await page.locator('#log-notice').textContent(), /busy or unavailable/);
+    assert.equal(await page.locator('#log-notice').getAttribute('data-error'), 'true');
+    assert.equal(await page.locator('#log-empty').isVisible(), false, '503 is not an empty successful history');
+    await page.clock.fastForward(30000);
+    assert.equal(requests, failedJournalRequests, 'busy journal must not poll or retry');
+    mode = 200;
+    await page.locator('#reset-logs').click();
+    await loaded();
+    assert.equal(requests, failedJournalRequests + 1, 'manual recovery makes one request');
+    assert.equal(await page.locator('#log-notice').getAttribute('data-error'), 'false');
+    assert.equal(await page.locator('#export-csv').isEnabled(), true);
+
+    mode = 503;
+    await page.locator('#log-events .log-view-action').first().click();
+    await actionLoaded();
+    assert.match(await page.locator('#action-notice').textContent(), /busy or unavailable/);
+    assert.match(await page.locator('#action-notice').textContent(), /incomplete or outdated/);
+    assert.ok(await page.locator('#action-events .log-event').count(), 'retain the labeled preview');
+    const failedActionRequests = requests;
+    await page.clock.fastForward(30000);
+    assert.equal(requests, failedActionRequests, 'busy action history must not retry');
+    mode = 200; actionMode = 'paged';
+    await page.locator('#refresh-action').click();
+    await actionLoaded();
+    assert.equal(requests, failedActionRequests + 1);
+    assert.equal(await page.locator('#action-notice').getAttribute('data-error'), 'false');
+    await page.locator('#close-action').click();
+
+    let busyDownloads = 0;
+    const onBusyDownload = () => busyDownloads++;
+    page.on('download', onBusyDownload);
+    exportMode = 503;
+    const exportsBefore = exportRequests;
+    await page.locator('#export-csv').click();
+    await page.waitForFunction(() => document.getElementById('log-notice').dataset.error === 'true');
+    assert.match(await page.locator('#log-notice').textContent(), /busy or unavailable/);
+    assert.ok(await page.locator('#log-events .log-event').count(), 'failed export preserves the displayed page');
+    await page.clock.fastForward(30000);
+    assert.equal(exportRequests, exportsBefore + 1, 'busy export must not retry');
+    assert.equal(busyDownloads, 0, 'error response must not become a download');
+    assert.equal(await page.locator('#export-csv').isEnabled(), true);
+    page.off('download', onBusyDownload);
+    exportMode = 200;
+    const recoveredDownload = page.waitForEvent('download');
+    await page.locator('#export-csv').click();
+    assert.equal((await recoveredDownload).suggestedFilename(), 'monit-docker-events.csv');
+    assert.equal(exportRequests, exportsBefore + 2);
+    assert.equal(await page.locator('#log-notice').getAttribute('data-error'), 'false');
+    assert.equal(await page.locator('#log-notice').textContent(), 'Export ready.');
     assert.deepEqual(errors,[]);
     console.log('Journal browser checks passed: mobile, no polling, filters, cursor history, downloads, stale requests, XSS and error states.');
   } finally {await browser.close();server.close();}
