@@ -8,3 +8,6 @@ HTTP and terminal rendering. Parsing, selection and authorization stay unchanged
 
 This change adds no ncurses interface and no Redis/configuration requirement.
 Local YAML, cron/serve behavior and output contracts remain unchanged.
+
+The explicit read-only [terminal interface](terminal.md) is being developed
+separately. Ordinary commands never activate curses automatically.

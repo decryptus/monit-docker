@@ -49,6 +49,11 @@ def test_scenario_composition_cycles_and_state_operations_without_cli():
         from monit_docker.core.policy import restart_key
         from monit_docker.domain.errors import ActionRejected, MonitoringError
         from monit_docker.job import JobOptions
+        from monit_docker.observation import Observation
+        from monit_docker.domain.rules import CycleResult
+        observed = Observation(lambda: CycleResult((), ()))
+        observed.refresh()
+        assert observed.snapshot()['collection_error'] is None
 
         config = {'scenarios': {'web': {'mode': 'stats', 'select': {'name': ['web-*']}}}}
         job = validate_scenario(config, 'web')
