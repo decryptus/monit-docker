@@ -111,6 +111,36 @@ Until then, releases stay in the 0.0.x series.
   justify the added complexity.
 - Broader action-history navigation and export options based on user feedback.
 
+### Optional AI incident explanations — exploratory TODO
+
+Idea recorded on 2026-09-28. This is a post-1.0 candidate, not a delivery
+commitment or a change to the current stabilization priorities.
+
+- [ ] Prototype a read-only **Explain** entry point on an incident. A possible
+  CLI counterpart is `monit-docker explain <container>`; syntax is not yet decided.
+- [ ] Assemble a bounded evidence snapshot from available measurements, relevant
+  YAML rules, correlated audit events, action results and restart protections.
+  Identify missing, expired or incomplete history explicitly.
+- [ ] Cite event IDs/timestamps and relevant rules in explanations. Separate
+  observed facts, possible causes and suggested checks; report insufficient
+  evidence instead of inventing a diagnosis.
+- [ ] Evaluate usefulness on representative incidents, including ambiguous cases:
+  supported claims, incorrect diagnoses, time saved, latency and cost. Expand
+  only if the prototype provides measurable value.
+- [ ] If useful, explore incident-period summaries and proposed YAML changes
+  presented as reviewable diffs and validated with `check-config`. Applying a
+  change remains an explicit operator decision.
+
+Keep AI optional and disabled by default. Monitoring and remediation must retain
+their deterministic behavior without a model or when inference fails. Explore
+local and remote model adapters with explicit control over transmitted data,
+secret redaction and bounded requests. Treat journal/configuration text as
+evidence, never as instructions granting the model authority.
+
+Autonomous actions are outside the prototype. Any later action assistance needs
+a separate decision, explicit human approval and the existing authorization,
+protected-container, maintenance and restart-budget checks.
+
 ## Design constraints
 
 Keep the DWho, HTTPdis and Sonicprobe foundations, global constants and a light
