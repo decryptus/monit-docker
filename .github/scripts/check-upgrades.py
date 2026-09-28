@@ -80,7 +80,8 @@ def main():
                         '--group-add', str(os.stat('/var/run/docker.sock').st_gid),
                         '-v', str(work) + ':' + str(work), '-w', str(work),
                         '-v', '/var/run/docker.sock:/var/run/docker.sock',
-                        '-e', 'MONIT_DOCKER_INTEGRATION=1', '--entrypoint', 'python', image]
+                        '-e', 'MONIT_DOCKER_INTEGRATION=1', '-e', 'LOGNAME=upgrade-rehearsal',
+                        '-e', 'USER=upgrade-rehearsal', '--entrypoint', 'python', image]
             report['artifacts'] = artifacts
 
             def invoke(version, arguments, label):
@@ -117,6 +118,7 @@ def main():
         report['error'] = str(error)
         if isinstance(error, subprocess.CalledProcessError):
             (output / 'failure.log').write_text(error.output or '')
+            print(error.output or '', file=sys.stderr)
         raise
     finally:
         report['seconds'] = round(time.monotonic() - started, 2)

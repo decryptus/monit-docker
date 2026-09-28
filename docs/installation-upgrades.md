@@ -32,6 +32,12 @@ artifact URLs/hashes and dependencies; Docker image IDs identify the exact image
 used. The report includes the candidate commit, runtime, phases and failures.
 Dependencies are resolved at execution time, so keep these reports with releases.
 
+When running an image with a numeric `--user` absent from its passwd database,
+provide `LOGNAME`/`USER` explicitly. The 0.0.79 CLI uses `getpass.getuser()` for
+action attribution and fails without either a resolvable account or that environment.
+The rehearsal sets `LOGNAME=upgrade-rehearsal` and preserves the host UID/GID for
+its disposable mounted files. This is attribution, not authentication.
+
 For each baseline, the old implementation creates persistent state with a
 cooldown, observation streak, restart attempt and maintenance deadline, plus
 archived schema 1/current schema 2 events and a YAML configuration. The candidate:
