@@ -5,7 +5,7 @@ monit-docker (1.0.0) stable; urgency=medium
   * Bound Docker statistics response bodies and normalize invalid selector errors.
   * Restore terminal state on SIGHUP and SIGTERM; centralize identifier validation.
   * Require complete unittest collection and same-revision regression/upgrade gates.
-  * Trigger the OOM integration fixture after startup and verify raw Docker evidence.
+  * Synchronize real child OOM evidence before testing automatic restart retention.
   * Document release evidence, pending field validation and known limits.
 
  -- Codex <codex@openai.com>  Mon, 28 Sep 2026 11:00:00 +0000
