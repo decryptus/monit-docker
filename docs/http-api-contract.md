@@ -1,6 +1,6 @@
 # HTTP API and metrics compatibility baseline
 
-This reference includes **unreleased beta HTTP decisions from 2026-09-27**.
+This reference includes **0.0.80 beta HTTP decisions approved on 2026-09-27**.
 See the [change notice](beta-decisions.md) for differences from 0.0.79.
 It is a tested 0.0.x baseline, not an approved 1.0 stability promise. The
 [roadmap](roadmap.md) tracks the remaining compatibility decisions. See the

@@ -1,3 +1,16 @@
+monit-docker (0.0.80) unstable; urgency=medium
+
+  * Apply approved beta CLI/YAML and HTTP behavior corrections; see docs/beta-decisions.md.
+  * Validate configuration consistently, reject unknown clients and intersect group/direct selectors.
+  * Preserve literal selector commas, bound regex work and correct chained comparisons.
+  * Correct group image/label collection and canonical HTTP route/method handling.
+  * Stream validated CLI audit exports from fixed-size snapshots to bound memory use.
+  * Rehearse upgrades and rollback from 0.0.78/0.0.79 with retained state and journals.
+  * Add journal/HTTP performance baselines and crash, storage and concurrency checks.
+  * Document transient audit_busy responses during concurrent writes and remaining limits.
+
+ -- Codex <codex@openai.com>  Mon, 28 Sep 2026 00:45:00 +0000
+
 monit-docker (0.0.79) unstable; urgency=medium
 
   * Separate application services and HTTP security from CLI and domain behavior.

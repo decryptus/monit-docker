@@ -1,6 +1,6 @@
 # Configuration and CLI compatibility contract
 
-**Status: beta baseline, including the unreleased decisions of 2026-09-27.** This reference
+**Status: beta baseline, including the 0.0.80 decisions approved on 2026-09-27.** This reference
 records the current public behavior and the decisions still needed before 1.0.
 It does not declare the HTTP API, metrics or journal schema stable. Follow the
 [roadmap](roadmap.md) for the complete release criteria.
@@ -297,7 +297,7 @@ it can overlap every other status family. Check command mode and diagnostics.
 
 The five CLI/YAML choices were approved on 2026-09-27: shared strict validation,
 unknown-client rejection, group/direct intersection, literal selector commas,
-and Python-order chained comparisons. Their implementation is unreleased;
+and Python-order chained comparisons. Their implementation is included in 0.0.80;
 see [migration examples and limits](beta-decisions.md).
 
 These decisions do not complete the installation, upgrade, resilience or
