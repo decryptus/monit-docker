@@ -58,9 +58,15 @@ Python allocations for that page, 0.85 s for a missing-result search over 50 MiB
 and 3.4 s for the full export. The large-profile process peak was approximately
 253 MiB. Repeated measurements vary; the raw report contains the retained run.
 
-**Full export still materializes the journal in memory.** Bounded page reads do
-not imply bounded full-export memory. This is a measured limitation to address
-before raising retention limits or making a whole-agent memory commitment.
+The baseline above predates streaming. Full CLI export now validates then streams
+from fixed-size open-file snapshots. In the same local 50 MiB workload, process
+peak RSS fell from about 252 MiB to 35 MiB; export wall time was about 2.9 seconds
+(previous retained run: 3.0 seconds). These single samples establish the memory
+gain, not a reliable speedup. The [streaming report](benchmarks/2026-09-28-streaming.json)
+retains all measurements. The post-export rotation count check also now streams,
+so it does not mask export improvements with a separate materialized read.
+`AuditJournal.read()` and `audit-send` still materialize data; no whole-agent
+memory commitment follows from this CLI export improvement.
 
 ## Regression guardrails
 

@@ -1,0 +1,233 @@
+{
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+  "logical_cpus": 9,
+  "script_sha256": "3e8441cce976daa6289c8d25d8cc0fe70cfbf0d3057cc8b3d8f8c4743a3aeb0c",
+  "working_tree_dirty": true,
+  "commit": "005ad5f1116feb86254c11a3c594beb75a5ea79f",
+  "profiles": [
+    {
+      "requested_mib": 1,
+      "actual_bytes": 1044480,
+      "records": 1020,
+      "first_page": {
+        "samples": 7,
+        "median_ms": 3.583687999707763,
+        "p95_ms": 5.4870189997018315,
+        "max_ms": 5.4870189997018315,
+        "cpu_ms": 26.61407399999993,
+        "io_delta": {
+          "rchar": 935539,
+          "wchar": 0,
+          "syscr": 79,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "correlation_page": {
+        "samples": 7,
+        "median_ms": 3.456653001194354,
+        "p95_ms": 3.7926599998172605,
+        "max_ms": 3.7926599998172605,
+        "cpu_ms": 24.338647999999964,
+        "io_delta": {
+          "rchar": 935539,
+          "wchar": 0,
+          "syscr": 79,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "sparse_search": {
+        "samples": 1,
+        "median_ms": 16.27811400067003,
+        "p95_ms": 16.27811400067003,
+        "max_ms": 16.27811400067003,
+        "cpu_ms": 16.368535000000016,
+        "io_delta": {
+          "rchar": 1052531,
+          "wchar": 0,
+          "syscr": 23,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "full_jsonl_export": {
+        "samples": 1,
+        "median_ms": 53.243799000483705,
+        "p95_ms": 53.243799000483705,
+        "max_ms": 53.243799000483705,
+        "cpu_ms": 53.358821,
+        "io_delta": {
+          "rchar": 2089075,
+          "wchar": 1044480,
+          "syscr": 512,
+          "syscw": 128,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "rotation": {
+        "samples": 1,
+        "median_ms": 0.9268640005757334,
+        "p95_ms": 0.9268640005757334,
+        "max_ms": 0.9268640005757334,
+        "cpu_ms": 0.9970320000000088,
+        "io_delta": {
+          "rchar": 118,
+          "wchar": 494,
+          "syscr": 3,
+          "syscw": 1,
+          "read_bytes": 0,
+          "write_bytes": 4096,
+          "cancelled_write_bytes": 208896
+        }
+      },
+      "http_status_100_containers": {
+        "samples": 30,
+        "median_ms": 5.388782000409265,
+        "p95_ms": 9.205354999721749,
+        "max_ms": 14.452274001087062,
+        "cpu_ms": 184.38925899999992,
+        "io_delta": {
+          "rchar": 119,
+          "wchar": 0,
+          "syscr": 2,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "first_page_peak_python_bytes": 570693,
+      "process_peak_rss_kib": 35252,
+      "bounds": {
+        "first_page_p95_ms": 2000,
+        "first_page_peak_python_bytes": 16777216,
+        "sparse_search_ms": 60000,
+        "export_ms": 60000,
+        "http_p95_ms": 2000
+      },
+      "breaches": []
+    },
+    {
+      "requested_mib": 50,
+      "actual_bytes": 52428800,
+      "records": 51200,
+      "first_page": {
+        "samples": 7,
+        "median_ms": 5.088527001134935,
+        "p95_ms": 5.535725000299863,
+        "max_ms": 5.535725000299863,
+        "cpu_ms": 35.80651300000004,
+        "io_delta": {
+          "rchar": 935543,
+          "wchar": 0,
+          "syscr": 79,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "correlation_page": {
+        "samples": 7,
+        "median_ms": 3.637097001046641,
+        "p95_ms": 4.824559999178746,
+        "max_ms": 4.824559999178746,
+        "cpu_ms": 27.17077899999998,
+        "io_delta": {
+          "rchar": 935543,
+          "wchar": 0,
+          "syscr": 79,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "sparse_search": {
+        "samples": 1,
+        "median_ms": 966.6359990005731,
+        "p95_ms": 966.6359990005731,
+        "max_ms": 966.6359990005731,
+        "cpu_ms": 965.775134,
+        "io_delta": {
+          "rchar": 52884343,
+          "wchar": 0,
+          "syscr": 586,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "full_jsonl_export": {
+        "samples": 1,
+        "median_ms": 2860.5514259998017,
+        "p95_ms": 2860.5514259998017,
+        "max_ms": 2860.5514259998017,
+        "cpu_ms": 2859.092797999999,
+        "io_delta": {
+          "rchar": 104857721,
+          "wchar": 52428800,
+          "syscr": 25602,
+          "syscw": 6400,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "rotation": {
+        "samples": 1,
+        "median_ms": 3.1065089988260297,
+        "p95_ms": 3.1065089988260297,
+        "max_ms": 3.1065089988260297,
+        "cpu_ms": 3.1848329999997205,
+        "io_delta": {
+          "rchar": 125,
+          "wchar": 494,
+          "syscr": 3,
+          "syscw": 1,
+          "read_bytes": 0,
+          "write_bytes": 4096,
+          "cancelled_write_bytes": 10485760
+        }
+      },
+      "http_status_100_containers": {
+        "samples": 30,
+        "median_ms": 5.223626499173406,
+        "p95_ms": 6.805658998928266,
+        "max_ms": 11.194417000297108,
+        "cpu_ms": 167.24437199999986,
+        "io_delta": {
+          "rchar": 128,
+          "wchar": 0,
+          "syscr": 2,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        }
+      },
+      "first_page_peak_python_bytes": 570769,
+      "process_peak_rss_kib": 35864,
+      "bounds": {
+        "first_page_p95_ms": 2000,
+        "first_page_peak_python_bytes": 16777216,
+        "sparse_search_ms": 60000,
+        "export_ms": 60000,
+        "http_p95_ms": 2000
+      },
+      "breaches": []
+    }
+  ]
+}

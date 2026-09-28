@@ -384,7 +384,8 @@ class AuditCliTests(unittest.TestCase):
         journal.record('action', 'completed')
         journal.record('notification', 'received')
         output = io.StringIO()
-        with redirect_stdout(output):
+        with redirect_stdout(output), patch.object(AuditJournal, 'read',
+                                                   side_effect=AssertionError('materialized export')):
             self.assertEqual(self.invoke('--audit-file', str(path), 'audit-export', '--category', 'notification',
                                          '--since', '2020-01-01T00:00:00Z'), 0)
         self.assertEqual(json.loads(output.getvalue())['category'], 'notification')
