@@ -100,6 +100,54 @@ transient rejections; they do not establish zero rejections or writer fairness
 under sustained load. Persistent contention still returns `audit_busy`, and
 content scanning continues after releasing the shared lock.
 
+## Finite sustained and saturated load
+
+```sh
+python .github/scripts/benchmark-audit-load.py --seconds 30 --output /tmp/audit-load.json
+```
+
+Each isolated process runs either two or six authenticated HTTP readers alongside
+one durable writer. Five 256 KiB files start full; approximately 1 KiB new events
+force rotation while reads continue. Readers use new loopback connections and
+request first pages continuously. The writer sleeps 2 ms after each durable
+append. CI runs 15 seconds per profile; the command above runs 30. Longer manual
+runs accept up to 3,600 seconds per profile, with a parent-process timeout.
+
+Successful and busy-response latencies have separate fixed-size millisecond
+histograms. p95 is the histogram bucket's upper edge; the final bucket includes
+all latencies of 10 seconds or more and its count is reported explicitly. Current
+RSS and open file descriptors are sampled once per second. CPU and Linux I/O
+counters cover the complete process, including the HTTP clients and measurement
+threads, so they are not isolated server resource measurements. Telemetry memory
+is bounded independently of the request count.
+
+The script fails on unexpected HTTP errors, malformed/duplicate page records,
+worker failures, lack of read/write progress, invalid retained history, retention
+size overflow, failed post-load recovery, or file descriptors remaining open after
+shutdown. It verifies the last acknowledged write is retained. It does not impose
+a throughput, RSS-growth, rejection-rate or fairness target. Even six active
+readers do not guarantee all query slots are occupied at every instant: actual
+contention depends on scheduling, I/O and the HTTP worker pool.
+
+The [local 30-second-per-profile report](benchmarks/2026-09-28-sustained.json)
+records this candidate on the same Xeon/Python environment:
+
+| Readers | Successful reads | Busy responses | Durable writes | Worst reader successful p95 bucket | Writer p95 bucket |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2 | 3,547 | 0 | 2,185 | 30 ms | 18 ms |
+| 6 | 2,007 | 7,079 | 1,031 | 71 ms | 43 ms |
+
+The six-reader run rejected about 78% of reads while both reads and writes kept
+progressing. This is observed overload behavior, not an accepted production
+rejection target. Descriptor counts returned from four to four after shutdown in
+both profiles. RSS rose from roughly 33 MiB to 41 MiB during each run; that does
+not demonstrate either a leak or a stable plateau. A longer run is needed to
+separate initial allocation from continuing growth. Process CPU includes clients.
+
+This finite run complements the short burst; it is not a multi-hour soak, an
+external-client load test, or proof that every event remains available beyond
+configured retention. No Docker action or production endpoint is involved.
+
 ## Regression guardrails
 
 For these fixed workloads, CI fails if first-page p95 or cached loopback HTTP

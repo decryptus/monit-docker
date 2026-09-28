@@ -79,7 +79,10 @@ recorded, including the versions actually tested.
 
 The [performance and resilience baseline](performance-resilience.md) adds measured
 1/50 MiB workloads, loopback HTTP timing, resource counters and failure-injection
-checks. Whole-deployment/browser latency and physical storage failure rehearsals
+checks. A finite two/six-reader HTTP load harness also records separate successful
+and busy latencies, durable writer progress, RSS/descriptor samples and post-load
+recovery during rotation. Longer soak tests remain pending.
+Whole-deployment/browser latency and physical storage failure rehearsals
 remain outside this first baseline.
 
 - [ ] Benchmark ordinary and large retained journals, filters, action history,

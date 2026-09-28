@@ -212,11 +212,16 @@ jobs:
       - name: Measure journal and loopback HTTP resource baselines
         if: matrix.python-version == '3.12'
         run: python .github/scripts/benchmark-baseline.py --output "$RUNNER_TEMP/performance-baseline.json"
+      - name: Measure sustained and saturated audit HTTP load
+        if: matrix.python-version == '3.12'
+        run: python .github/scripts/benchmark-audit-load.py --output "$RUNNER_TEMP/audit-load.json"
       - uses: actions/upload-artifact@v4
         if: always() && matrix.python-version == '3.12'
         with:
           name: performance-baseline
-          path: ${{ runner.temp }}/performance-baseline.json
+          path: |
+            ${{ runner.temp }}/performance-baseline.json
+            ${{ runner.temp }}/audit-load.json
           retention-days: 30
       - name: Exercise engine against a real Docker daemon
         if: matrix.python-version == '3.12'
