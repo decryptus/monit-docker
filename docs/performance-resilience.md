@@ -201,4 +201,5 @@ Measure proxy/browser latency, sustained and saturated concurrent load, and
 long-running CPU/RSS behavior on reference hardware.
 Rehearse real read-only/full filesystems, kill points around atomic replacement,
 Docker daemon restarts and delayed/unresponsive endpoints on isolated hosts.
-Choose tighter operating targets from those measurements before 1.0 approval.
+Choose tighter operating targets from those measurements for each deployment.
+The 1.0 compatibility contract does not certify these pending measurements.

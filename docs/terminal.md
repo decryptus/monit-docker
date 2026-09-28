@@ -3,7 +3,7 @@
 The explicit `monit-docker tui` command provides a local curses view over the
 same collection engine as `stats`. It does not require a running HTTP server.
 Introduced in 0.0.82. Real Docker/PTY acceptance is automated; SSH acceptance and prolonged observation
-remain part of 1.0 stabilization.
+remain open field-validation work; see the [1.0.0 limits](release-1.0.0.md).
 
 ```sh
 monit-docker tui
@@ -53,8 +53,9 @@ are not modified. Busy/unavailable reads are labeled as errors and are retried
 at the next normal refresh. Use `audit-export` for complete history.
 
 The first version has no actions, configuration editor, history pagination or
-rule editing. Those are outside this read-only milestone. Before 1.0, complete
-SSH acceptance and candidate stabilization in addition to the automated tests.
+rule editing. Those are outside this read-only milestone. SSH acceptance and
+prolonged field observation remain separate from automated PTY tests and are
+not certified by the 1.0 version number.
 
 ## Screenshots
 

@@ -62,5 +62,6 @@ For installation and the command reference, see the
    architecture
    architecture-review-2026-09-27
    roadmap
+   release-1.0.0
    dockerhub
    pypi
