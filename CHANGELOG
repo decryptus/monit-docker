@@ -1,3 +1,10 @@
+monit-docker (0.0.81) unstable; urgency=medium
+
+  * Reuse DWho CLI JSON presentation while preserving output and exit-code contracts.
+  * Require published DWho 0.3.63 and document the shared terminal boundary.
+
+ -- Codex <codex@openai.com>  Mon, 28 Sep 2026 06:00:00 +0000
+
 monit-docker (0.0.80) unstable; urgency=medium
 
   * Apply approved beta CLI/YAML and HTTP behavior corrections; see docs/beta-decisions.md.
