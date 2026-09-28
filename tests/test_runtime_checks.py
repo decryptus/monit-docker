@@ -50,6 +50,15 @@ def pid_container(current=8, limit=10):
 
 
 class EventTests(unittest.TestCase):
+    def test_exit_137_and_restart_without_oom_notification_do_not_invent_oom(self):
+        died = event('die', 900)
+        died['Actor']['Attributes']['exitCode'] = '137'
+        data = event_counts([event('start', 800), died, event('start', 901)],
+                            ['demo'], WINDOW, NOW)['demo']
+        self.assertEqual(data['event_history_complete'], 1)
+        self.assertEqual(data['oom_events'], 0)
+        self.assertEqual(data['starts_recent'], 2)
+
     def test_window_boundaries_duplicates_and_container_identity(self):
         events = [event('oom', 700), event('oom', 701), event('start', 999),
                   event('start', 999), event('oom', 1000), event('start', 950, 'replacement'),

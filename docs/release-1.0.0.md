@@ -41,7 +41,7 @@ Pin `monit-docker==1.0.0` or `decryptus/monit-docker:1.0.0`; the optional UI use
 ## Validation status and remaining limits
 
 The release workflow must pass on the tagged revision. Its checks include the
-397-case application suite, separately executed opt-in Docker/terminal tests,
+398-case application suite, separately executed opt-in Docker/terminal tests,
 desktop/mobile browser checks, documentation and published-version upgrade and
 rollback exercises. Collection counts include tests whose prerequisites are
 unavailable in an individual job; dedicated integration jobs remain necessary.
@@ -56,9 +56,12 @@ items in the [roadmap](roadmap.md):
   level guarantees or a multi-hour soak across production workloads.
 - Statistics body bounds are not an absolute deadline for the entire monitoring
   cycle or every action. Connection/header phases retain their own timeouts.
-- The intermittent OOM integration failure has not been explained. CI now
-  preserves raw event/fixture diagnostics and exercises six fresh fixtures. Successful
-  repeated fixtures do not establish its cause or constitute a demonstrated fix.
+- The original intermittent OOM fixture restarted with exit 137 but no Docker
+  OOM notification in either captured history query. The fixture now waits for
+  completed startup before triggering allocation and requires a raw OOM event
+  before checking collection. CI preserves diagnostics and runs six fresh fixtures.
+  This addresses a possible startup race; the exact upstream cause of the missing
+  notification is not established. No OOM is inferred from exit 137 alone.
 - Manual request deduplication is in memory; process crashes do not provide an
   exactly-once action guarantee. Journal failure cannot undo an external action.
 - Physical storage-failure rehearsals and every Docker/cgroup/platform combination
