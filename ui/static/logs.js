@@ -281,6 +281,8 @@ async function download(format) {
   const params = new URLSearchParams(filters);
   params.set('cursor', current.page_cursor); params.set('format', format);
   exporting = true; controls();
+  $('log-notice').dataset.error = 'false';
+  $('log-notice').textContent = 'Preparing export…';
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 10000);
   try {
@@ -289,6 +291,7 @@ async function download(format) {
     const url = URL.createObjectURL(await response.blob());
     const link = node('a'); link.href = url; link.download = `monit-docker-events.${format}`;
     document.body.append(link); link.click(); link.remove();
+    $('log-notice').textContent = 'Export ready.';
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   } catch (error) { $('log-notice').dataset.error = 'true'; $('log-notice').textContent = error.name === 'AbortError' ? 'Export timed out. Try again.' : error.message; }
   finally { clearTimeout(timeout); exporting = false; controls(); }
