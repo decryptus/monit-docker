@@ -47,11 +47,13 @@ rollback exercises. Collection counts include tests whose prerequisites are
 unavailable in an individual job; dedicated integration jobs remain necessary.
 Workflow results and their artifacts are the evidence, not this list of checks.
 
+Real SSH TUI acceptance was completed after publication on 2026-09-28 with the
+published agent on Debian 13; see the [tested scope](terminal.md).
+
 The following are not certified by a green CI run and remain explicit follow-up
 items in the [roadmap](roadmap.md):
 
-- Real SSH TUI acceptance and prolonged observation of the final candidate on
-  representative hosts have not been completed in this release preparation.
+- Prolonged observation on representative hosts remains pending final review.
 - Existing performance figures are finite reference measurements, not service
   level guarantees or a multi-hour soak across production workloads.
 - Statistics body bounds are not an absolute deadline for the entire monitoring
