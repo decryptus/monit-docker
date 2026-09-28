@@ -61,7 +61,7 @@ visible escapes back into controls or formulas.
 
 Schema 1 journals remain readable: values are converted to schema 2 in memory
 without rewriting archives. Schema 2 records are validated, not escaped again.
-New exporters must consume `AuditJournal.read()` / `prepare_record()` output and
+New exporters must consume `AuditJournal.iter_records()` / `AuditJournal.read()` / `prepare_record()` output and
 preserve these values. Continue using the target format's serializer (for example,
 `csv.DictWriter`); this common policy does not replace HTML or other contextual
 escaping required by a destination.
@@ -306,8 +306,8 @@ snapshot. Externally rewriting/truncating journal files is unsupported.
 `GET /v1/audit/export` with its page cursor and filters. It preserves the common
 escaped text representation. This bounds browser memory and server response size;
 use administrative `audit-export` for a complete retained-history export. The
-existing CLI full export still takes an in-memory snapshot; these web limits do
-not change that behavior. An expired snapshot must be refreshed before export.
+CLI full export now uses a validated streaming snapshot; web page limits do
+not limit the full CLI export. An expired snapshot must be refreshed before export.
 
 The regression suite checks rotation, malformed files, filter/cursor tampering,
 proxy identity replacement, writer progress during reads and browser error states.
@@ -326,3 +326,23 @@ character-by-character work while preserving the canonical escaping rules.
 Compiled regular expressions process escape sequences and ASCII control runs;
 printable Unicode is preserved, with detailed checks limited to unusual Unicode
 runs. Malformed and noncanonical escape sequences are still rejected.
+
+
+### Full CLI export memory and consistency
+
+`audit-export` opens the retained files under the journal lock, captures their
+sizes, then releases the lock. It validates every record before writing output
+and rereads the same descriptors to export incrementally, oldest first. JSONL/CSV
+encoding and category/date filters remain unchanged. Memory is bounded by record
+size and the configured number of retained files, not total journal bytes.
+
+Cooperating appends after capture are excluded; rotations do not change the open
+snapshot. Slow output does not hold the writer lock. Descriptors close on success,
+errors or an interrupted consumer. A truncated, invalid or oversized record is
+rejected during validation before output. External in-place edits of journal
+files are unsupported; do not edit/truncate them during export. Output-device or
+second-pass read errors can still leave partial output: always check exit status
+and use a temporary destination before renaming an export into place.
+
+`AuditJournal.read()` remains the materialized compatibility API. `audit-send`
+retains its existing batch forwarding behavior. The paginated HTTP API is unchanged.

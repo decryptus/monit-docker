@@ -187,16 +187,20 @@ class MonitDockerSubCmdAudit:
             except ValueError:
                 parser.error('--since must be an ISO timestamp with timezone')
 
-    def records(self):
+    def filtered_records(self, records):
         from datetime import datetime
-        records = _audit_journal(self.options, explicit=True).read()
-        return [record for record in records
+        return (record for record in records
                 if (not self.options.category or record.get('category') == self.options.category)
-                and (not self.options.since or datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')) >= self.options.since)]
+                and (not self.options.since or datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')) >= self.options.since))
+
+    def records(self):
+        # HTTPS forwarding retains its existing materialized batch contract.
+        return list(self.filtered_records(_audit_journal(self.options, explicit=True).read()))
 
     def __call__(self):
         from monit_docker.audit import export_events
-        export_events(self.records(), sys.stdout, self.options.format)
+        with _audit_journal(self.options, explicit=True).iter_records() as records:
+            export_events(self.filtered_records(records), sys.stdout, self.options.format)
         return 0
 
 

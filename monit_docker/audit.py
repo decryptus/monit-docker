@@ -2,7 +2,7 @@
 
 Standard library only so notification adapters can use the same event format.
 """
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from datetime import datetime, timezone
 import csv
 import fcntl
@@ -226,6 +226,50 @@ class AuditJournal:
             except (OSError, ValueError):
                 pass
             return record
+
+    @contextmanager
+    def iter_records(self):
+        """Validated fixed-size snapshot, with bounded memory and explicit lifetime.
+
+        Open descriptors survive cooperating append/rotation operations. Validate
+        the complete snapshot before exposing rows so malformed retained data does
+        not become an apparently successful partial export.
+        """
+        with ExitStack() as stack:
+            snapshots = []
+            with self._lock(create=False):
+                paths = [Path(str(self.path) + '.' + str(n))
+                         for n in range(self.files - 1, 0, -1)] + [self.path]
+                for path in paths:
+                    try:
+                        descriptor = self._open(path, os.O_RDONLY)
+                    except FileNotFoundError:
+                        continue
+                    stream = stack.enter_context(os.fdopen(descriptor, 'rb'))
+                    size = os.fstat(stream.fileno()).st_size
+                    if size > self.max_bytes + MAX_RECORD_BYTES:
+                        raise AuditError('Audit file exceeds configured retention size')
+                    snapshots.append((stream, size))
+            # Readers no longer hold the writer lock while parsing/outputting.
+            for _ in self._snapshot_records(snapshots):
+                pass
+            for stream, _ in snapshots:
+                stream.seek(0)
+            yield self._snapshot_records(snapshots)
+
+    @staticmethod
+    def _snapshot_records(snapshots):
+        for stream, size in snapshots:
+            remaining = size
+            while remaining:
+                line = stream.readline(min(remaining, MAX_RECORD_BYTES + 1))
+                if not line or not line.endswith(b'\n') or len(line) > MAX_RECORD_BYTES:
+                    raise AuditError('Audit journal contains an incomplete or oversized event')
+                remaining -= len(line)
+                try:
+                    yield prepare_record(json.loads(line))
+                except (UnicodeError, ValueError) as error:
+                    raise AuditError('Audit journal contains an invalid event') from error
 
     def read(self):
         """Take a bounded consistent snapshot, then release the writer lock."""

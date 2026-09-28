@@ -89,13 +89,14 @@ def workload(mib):
             raise AssertionError('pagination failed to finish')
         search = measured(sparse, 1)
         def export():
-            with open(os.devnull, 'w') as stream:
-                export_events(journal.read(), stream, 'jsonl')
+            with journal.iter_records() as records, open(os.devnull, 'w') as stream:
+                export_events(records, stream, 'jsonl')
         exports = measured(export, 1)
         # Full active file forces an actual rotation on the first append.
         rotation = measured(lambda: journal.record('action', 'completed', result='succeeded'), 1)
         assert Path(str(path)+'.1').exists()
-        assert len(journal.read()) == per_file*(_FILES-1)+1
+        with journal.iter_records() as records:
+            assert sum(1 for _ in records) == per_file*(_FILES-1)+1
         result = CycleResult(tuple(ContainerSnapshot(id='%064x' % i, name='web-%s' % i,
                              status='running', cpu_percent=1, mem_usage=1024) for i in range(100)), ())
         monitor = MonitorService(lambda observer: result, stale_after=300)
