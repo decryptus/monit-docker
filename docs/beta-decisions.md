@@ -1,6 +1,6 @@
 # Beta behavior cleanup — approved 2026-09-27
 
-Status: **unreleased** changes after 0.0.79. This is an explicit maintainer-approved
+Status: **introduced in 0.0.80**, following 0.0.79. This is an explicit maintainer-approved
 beta adjustment, not a frozen 1.0 contract or an additional API version. The
 maintainer chose to correct these behaviors now rather than preserve accidental
 semantics through an extra notice release. No deployment or data-upgrade rehearsal
