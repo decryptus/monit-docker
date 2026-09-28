@@ -111,43 +111,50 @@ Until then, releases stay in the 0.0.x series.
   justify the added complexity.
 - Broader action-history navigation and export options based on user feedback.
 
-### Optional AI incident explanations — exploratory TODO
+### Predictive monitoring and optional AI assistance — exploratory TODO
 
 Idea recorded on 2026-09-28. This is a post-1.0 candidate, not a delivery
-commitment or a change to the current stabilization priorities.
+commitment or a change to current stabilization priorities. The primary goal is
+to anticipate incidents from metric history; explanations support that goal.
 
-- [ ] Prototype a read-only **Explain** entry point on an incident. A possible
-  CLI counterpart is `monit-docker explain <container>`; syntax is not yet decided.
-- [ ] Assemble a bounded evidence snapshot from available measurements, relevant
-  YAML rules, correlated audit events, action results and restart protections.
-  Identify missing, expired or incomplete history explicitly.
-- [ ] Cite event IDs/timestamps and relevant rules in explanations. Separate
-  observed facts, possible causes and suggested checks; report insufficient
-  evidence instead of inventing a diagnosis.
-- [ ] Evaluate usefulness on representative incidents, including ambiguous cases:
-  supported claims, incorrect diagnoses, time saved, latency and cost. Expand
-  only if the prototype provides measurable value.
-- [ ] If useful, explore incident-period summaries and proposed YAML changes
-  presented as reviewable diffs and validated with `check-config`. Applying a
-  change remains an explicit operator decision.
+- [ ] Prototype read-only forecasting of disk-space or inode exhaustion, with
+  an explicit forecast horizon and conditions under which estimates are valid.
+- [ ] Obtain sufficiently long, timestamped metric history through an adapter.
+  Evaluate existing sources such as Prometheus without making them mandatory
+  for the local agent. Current values and action logs alone are insufficient.
+- [ ] Compare simple trend extrapolation with more complex time-series models.
+  Handle missing data, restarts, deployments, capacity changes and seasonality;
+  abstain when the available evidence does not support a useful forecast.
+- [ ] Report estimates, uncertainty, data provenance and model version. Keep
+  current anomalies, predicted threshold crossings and suspected causes distinct.
+- [ ] Evaluate on held-out future periods: false alerts, missed incidents,
+  useful warning time and operator time saved, compared with fixed thresholds
+  and simple forecasting baselines. Start in observation mode, then alert only.
+- [ ] As a complementary feature, explain incidents and forecasts with cited
+  events, timestamps and relevant rules. Distinguish observations, hypotheses
+  and suggested checks; identify incomplete history explicitly.
+- [ ] If useful, explore incident summaries and proposed YAML diffs validated
+  with `check-config`. Applying changes remains an explicit operator decision.
 
-Keep AI optional and disabled by default. Monitoring and remediation must retain
-their deterministic behavior without a model or when inference fails. Explore
-local and remote model adapters with explicit control over transmitted data,
-secret redaction and bounded requests. Treat journal/configuration text as
-evidence, never as instructions granting the model authority.
+Time-series statistics or ML produce forecasts; a language model may explain
+them but is not the source of truth for predicted values. Keep AI optional and
+disabled by default, with local/remote model adapters, explicit data-sharing
+choices, secret redaction and bounded requests. Treat journal/configuration text
+as evidence, never as instructions granting the model authority. Monitoring and
+remediation must retain deterministic behavior without a model or on failure.
 
-Long-term direction: monit-docker is the first incident-explanation use case.
-If Covenant becomes the shared supervision/automation foundation, make the
-evidence and explanation contracts reusable across event sources, with Docker
-details in adapters. Keep model integration separate from deterministic policy
-and execution. Validate the local prototype before extracting shared machinery;
-neither Covenant nor Centrex becomes mandatory for the local agent. This is an
-architectural intention, not a claim that the shared platform already exists.
+Long-term direction: Docker is the first use case. If Covenant becomes the
+shared supervision/automation foundation, reuse validated prediction/evidence
+contracts across sources, with Docker and later Kubernetes details in adapters.
+Validate predictions in each environment and respect Kubernetes workload
+controllers rather than copying container-level actions blindly. Extract shared
+machinery only after validating real needs; Covenant, Kubernetes and Centrex
+remain optional for the local agent. This is an architectural intention, not an
+implemented platform.
 
 Autonomous actions are outside the prototype. Any later action assistance needs
 a separate decision, explicit human approval and the existing authorization,
-protected-container, maintenance and restart-budget checks.
+protected-resource, maintenance and action-budget checks.
 
 ## Design constraints
 
