@@ -49,7 +49,12 @@ The [deprecation and migration policy](deprecation-policy.md) now defines advanc
 release notices, replacements, urgent exceptions and migration/rollback evidence.
 It does not remove a feature or approve the remaining 1.0 decisions.
 
-### 2. Validate installation and upgrades — planned
+### 2. Validate installation and upgrades — in progress
+
+The [installation/upgrade rehearsal](installation-upgrades.md) now provides a
+repeatable published 0.0.78/0.0.79-to-candidate matrix, current-data and backup
+rollback reads, installed cron/serve checks and published UI acceptance. Inspect
+the workflow evidence before declaring these milestones complete.
 
 The [environment baseline](supported-environments.md) distinguishes CI-tested
 Python/Linux combinations, Docker coverage and target-container prerequisites.

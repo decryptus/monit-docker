@@ -52,6 +52,7 @@ For installation and the command reference, see the
    check-config
    config-cli-contract
    supported-environments
+   installation-upgrades
    deprecation-policy
    beta-decisions
    troubleshooting
