@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2019-2022 Adrien Delle Cave
+# Copyright 2019-2026 Adrien Delle Cave
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Legacy CLI: argument parsing, composition, output and process exit codes."""
 

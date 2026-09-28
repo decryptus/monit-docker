@@ -91,3 +91,11 @@ are debt to remove, not examples to copy. See
 
 Current project runner: `unittest` for `tests`. CI helper tests use
 `unittest` in `.github/tests`.
+
+## Copyright review
+
+- Review project-owned copyright notices and packaging/documentation metadata
+  when preparing a release. Keep the original start year and attribution, and
+  update the end year for maintained material to reflect actual project work.
+- Keep the setup metadata and generated documentation consistent. Do not alter
+  third-party copyright notices or the dates in the standard license text.
