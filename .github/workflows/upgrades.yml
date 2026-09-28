@@ -1,0 +1,74 @@
+name: Installation and upgrade rehearsals
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/upgrades.yml'
+      - '.github/scripts/check-upgrades.py'
+      - '.github/scripts/upgrade-fixture.py'
+      - 'monit_docker/adapters/state.py'
+      - 'monit_docker/audit*.py'
+      - 'requirements.txt'
+      - 'setup.py'
+      - 'setup.yml'
+      - 'Dockerfile'
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade:
+    name: Published ${{ matrix.backend }} to candidate and rollback
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [pip, docker]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: docker pull alpine:3.20
+      - name: Exercise installed artifacts outside the checkout
+        run: python .github/scripts/check-upgrades.py --backend '${{ matrix.backend }}' --integration --output '${{ runner.temp }}/upgrade-results'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: upgrade-${{ matrix.backend }}
+          path: ${{ runner.temp }}/upgrade-results/
+          retention-days: 30
+
+  published-ui:
+    name: Published 0.0.79 agent and UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --prefix "$RUNNER_TEMP/ui-browser" --no-audit --no-fund playwright@1.55.0
+          "$RUNNER_TEMP/ui-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Test optional UI with published images
+        env:
+          MONIT_UI_RELEASE: '0.0.79'
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/ui-browser/node_modules/playwright
+          UI_SCREENSHOTS: ${{ runner.temp }}/ui-release-results
+        run: python .github/scripts/check-ui-release.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: upgrade-published-ui
+          path: ${{ runner.temp }}/ui-release-results/
+          retention-days: 30
