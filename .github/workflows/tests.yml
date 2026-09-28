@@ -269,3 +269,35 @@ jobs:
           cp tests/test_terminal_docker.py "$RUNNER_TEMP/terminal-tests/"
           cd "$RUNNER_TEMP/terminal-tests"
           "$RUNNER_TEMP/terminal-venv/bin/python" -m unittest discover -v
+
+  oom-diagnostics:
+    name: Repeated OOM evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - run: docker pull alpine:3.20
+      - name: Exercise six fresh OOM fixtures without retrying assertions
+        env:
+          MONIT_DOCKER_INTEGRATION: '1'
+        run: |
+          set -o pipefail
+          python - <<'PYTHON' 2>&1 | tee "$RUNNER_TEMP/oom-diagnostics.log"
+          import sys, unittest
+          sys.path.insert(0, 'tests')
+          from test_runtime_docker import RuntimeDockerTests
+          suite = unittest.TestSuite(RuntimeDockerTests(
+              'test_oom_event_survives_automatic_restart_and_new_agent') for _ in range(6))
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          raise SystemExit(not result.wasSuccessful())
+          PYTHON
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oom-diagnostics
+          path: ${{ runner.temp }}/oom-diagnostics.log
+          retention-days: 14

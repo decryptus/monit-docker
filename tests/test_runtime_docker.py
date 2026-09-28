@@ -1,8 +1,11 @@
 """Real cgroup PID accounting, Docker starts and a memory-limited OOM fixture."""
+import json
 import os
 import time
 import unittest
 import uuid
+from unittest.mock import patch
+from monit_docker.adapters import events as event_adapter
 
 import docker
 from docker.errors import NotFound
@@ -38,6 +41,49 @@ class RuntimeDockerTests(unittest.TestCase):
         return MonitoringEngine(collector, DockerActionExecutor(collector))
 
     def test_oom_event_survives_automatic_restart_and_new_agent(self):
+        evidence = dict(started_at=time.time(), queries=[])
+        original = event_adapter.read_history
+
+        def capture(api, until):
+            query = dict(until=until, requested_at=time.time())
+            evidence['queries'].append(query)
+            try:
+                records = original(api, until)
+                query.update(returned_at=time.time(), total_events=len(records),
+                             fixture_events=[event for event in records
+                                 if event.get('Actor', {}).get('Attributes', {}).get('name') == self.name])
+                return records
+            except Exception as error:
+                query['error'] = type(error).__name__
+                raise
+
+        try:
+            with patch.object(event_adapter, 'read_history', side_effect=capture):
+                self.exercise_oom(evidence)
+        finally:
+            # Diagnostic failure must never replace the original assertion.
+            try:
+                evidence['finished_at'] = time.time()
+                evidence['docker_version'] = self.client.version().get('Version')
+                evidence['containers'] = []
+                for obj in self.objects:
+                    obj.reload()
+                    evidence['containers'].append(dict(
+                        id=obj.id, state=obj.attrs.get('State'),
+                        restart_count=obj.attrs.get('RestartCount'),
+                        memory=obj.attrs.get('HostConfig', {}).get('Memory'),
+                        memory_swap=obj.attrs.get('HostConfig', {}).get('MemorySwap'),
+                        logs=obj.logs(tail=20).decode('utf-8', 'replace')[-4096:]))
+                until = int(time.time()) - 1
+                late = original(self.client.api, until)
+                evidence['late_history'] = dict(until=until, total_events=len(late),
+                    fixture_events=[event for event in late
+                        if event.get('Actor', {}).get('Attributes', {}).get('name') == self.name])
+            except Exception as error:
+                evidence['diagnostic_error'] = type(error).__name__
+            print('OOM_DIAGNOSTICS ' + json.dumps(evidence, sort_keys=True), flush=True)
+
+    def exercise_oom(self, evidence):
         obj = self.client.containers.run('alpine:3.20', list(OOM_COMMAND), name=self.name,
                                         detach=True, mem_limit='16m', memswap_limit='16m', pids_limit=16,
                                         restart_policy={'Name': 'on-failure', 'MaximumRetryCount': 1})
@@ -50,9 +96,12 @@ class RuntimeDockerTests(unittest.TestCase):
             time.sleep(0.2)
         else:
             self.fail('Memory-limited fixture did not OOM and restart')
+        evidence['restart_observed_at'] = time.time()
+        evidence['restart_state'] = obj.attrs.get('State')
         time.sleep(2)  # The bounded event cutoff is intentionally in the past.
         for _ in range(2):
             item = self.engine().run_once(resources=RUNTIME_RESOURCES).snapshots[0]
+            evidence.setdefault('snapshots', []).append(item.to_dict())
             self.assertEqual(item.event_history_complete, 1)
             self.assertGreaterEqual(item.oom_events, 1)
             self.assertGreaterEqual(item.starts_recent, 2)
