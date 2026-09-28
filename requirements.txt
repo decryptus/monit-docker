@@ -8,3 +8,5 @@ PyYAML>=3.10
 six>=1.13.0
 sonicprobe>=0.3.53
 regex>=2024.5.15
+
+dwho>=0.3.63

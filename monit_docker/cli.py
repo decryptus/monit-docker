@@ -7,6 +7,8 @@
 from __future__ import absolute_import
 
 import argparse
+
+from dwho.cli import write_json
 import getpass
 import json
 import logging
@@ -255,7 +257,7 @@ class MonitDockerSubCmdAuditMigrate:
         except AuditError as error:
             print('audit-migrate: %s' % error, file=sys.stderr)
             return error.code
-        print(json.dumps(report, ensure_ascii=True, sort_keys=True))
+        write_json(report, ensure_ascii=True, sort_keys=True)
         return 0
 
 
@@ -286,7 +288,7 @@ class MonitDockerSubCmdRestartReset(object):
         operations = StateOperations(LocalState, _audit_journal(self.options))
         result = operations.reset_restarts(self.options.state_file, self.options.container_id,
                                            getpass.getuser())
-        print(json.dumps(result))
+        write_json(result)
         return 0
 
 
@@ -313,7 +315,7 @@ class MonitDockerSubCmdMaintenance(MonitDockerSubCmdRestartReset):
         operations = StateOperations(LocalState, _audit_journal(self.options))
         result = operations.maintenance(self.options.state_file, self.options.container_id,
                                         self.options.duration, getpass.getuser())
-        print(json.dumps(result))
+        write_json(result)
         return 0
 
 
@@ -358,7 +360,7 @@ class MonitDockerSubCmdStats(object):
         if self.options.output == 'json':
             values = dict((resource, self._display_value(resource, snapshot.resource_value(resource)))
                           for resource in self.options.resource)
-            sys.stdout.write(json.dumps({snapshot.name: values}) + '\n')
+            write_json({snapshot.name: values})
         else:
             values = [snapshot.name]
             for resource in self.options.resource:
@@ -377,7 +379,7 @@ class MonitDockerSubCmdStats(object):
 
     @staticmethod
     def _output_action(decision):
-        sys.stdout.write(json.dumps(decision._asdict()) + '\n')
+        write_json(decision._asdict())
 
 
 class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
@@ -646,7 +648,7 @@ class MonitDockerSubCmdCheckConfig(object):
         except ConfigurationCheckError as error:
             result['errors'].append({'location': error.location, 'message': str(error)})
         if self.options.output == 'json':
-            sys.stdout.write(json.dumps(result) + '\n')
+            write_json(result)
         elif result['valid']:
             sys.stdout.write('Configuration valid: %s\n' % ', '.join(
                 '%s=%s' % (name, result['summary'][name]) for name in sorted(result['summary'])))
@@ -784,7 +786,7 @@ def run_operation(operation, options):
 def scenario_output(snapshot, options):
     values = {resource: format_resource(resource, snapshot.resource_value(resource)) for resource in options.resource}
     if options.output == 'json':
-        print(json.dumps({snapshot.name: values}))
+        write_json({snapshot.name: values})
     else:
         print('|'.join([snapshot.name] + ['%s:%s' % (key, 'null' if value is None or key == 'pid' and not value else value)
                                          for key, value in values.items()]))
@@ -827,11 +829,11 @@ def inspect_scenarios(options, inline=None):
         validate_configuration(config)
         if options.operation == 'show':
             validate_scenario(config, options.scenario)
-            print(json.dumps(config['scenarios'][options.scenario], indent=2))
+            write_json(config['scenarios'][options.scenario], indent=2)
         else:
             entries = [dict(name=name, mode=validate_scenario(config, name).subcommand, description=entry.get('description',''))
                        for name, entry in sorted(config.get('scenarios',{}).items())]
-            print(json.dumps(entries, indent=2))
+            write_json(entries, indent=2)
     except ConfigurationCheckError as error:
         print('Invalid scenario configuration: %s: %s' % (error.location, error), file=sys.stderr)
         return 110
@@ -840,3 +842,4 @@ def inspect_scenarios(options, inline=None):
 
 if __name__ == '__main__':
     sys.exit(main(argv_parse_check()))
+
