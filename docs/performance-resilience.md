@@ -144,6 +144,23 @@ both profiles. RSS rose from roughly 33 MiB to 41 MiB during each run; that does
 not demonstrate either a leak or a stable plateau. A longer run is needed to
 separate initial allocation from continuing growth. Process CPU includes clients.
 
+The [120-second-per-profile follow-up](benchmarks/2026-09-28-sustained-120s.json)
+uses the same committed harness. Two readers completed 14,311 successful reads
+without busy responses and 8,745 durable writes. Six readers completed 6,907
+successful reads, 23,890 busy responses and 3,655 durable writes. Both runs passed
+recovery, retained-history validation and descriptor cleanup (four before/after).
+
+| Readers | Median RSS 0–30 s | 30–60 s | 60–90 s | 90–120 s | Final-window RSS range |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2 | 40,504 KiB | 41,508 KiB | 41,648 KiB | 41,732 KiB | 41,704–41,760 KiB |
+| 6 | 42,790 KiB | 43,164 KiB | 43,840 KiB | 43,988 KiB | 43,924–44,052 KiB |
+
+The final two window medians differ by 84 / 148 KiB, suggesting the initial
+allocation growth is slowing. They do not prove a flat plateau or absence of a
+slow leak. Successful writes had p95 buckets of 18 / 52 ms; maximum write latency
+was 77 / 240 ms. The snapshot retry budget is not an end-to-end write deadline,
+and overload still affects writers. Multi-hour observation remains open.
+
 This finite run complements the short burst; it is not a multi-hour soak, an
 external-client load test, or proof that every event remains available beyond
 configured retention. No Docker action or production endpoint is involved.
