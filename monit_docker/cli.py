@@ -23,6 +23,7 @@ from docker.errors import APIError, DockerException
 from sonicprobe import helpers
 
 from monit_docker.composition import build_application, audit_journal as _audit_journal
+from monit_docker.observation import DEFAULT_REFRESH, MIN_REFRESH, MAX_REFRESH
 from monit_docker.job import JobOptions, validate_job
 from dataclasses import replace
 from monit_docker.audit import DEFAULT_MAX_BYTES
@@ -701,6 +702,39 @@ class MonitDockerSubCmdScenario(MonitDockerSubCmdRun):
         return inspect_scenarios(self.options, MONIT_DOCKER_CONFIG)
 
 
+class MonitDockerSubCmdTui:
+    CMD_NAME = 'tui'
+
+    def __init__(self, options):
+        self.options = options
+
+    @classmethod
+    def load_subcmd_parser(cls, subparsers):
+        parser = subparsers.add_parser(cls.CMD_NAME, help='explicit read-only terminal interface')
+        parser.add_argument('--refresh', type=int, default=DEFAULT_REFRESH, help='refresh interval in seconds (5..3600)')
+        parser.add_argument('--rsc', action='append', dest='resource', default=[], type=_resource_argument)
+
+    @classmethod
+    def valid_subcmd_parser(cls, parser, options):
+        if not MIN_REFRESH <= options.refresh <= MAX_REFRESH:
+            parser.error('--refresh must be between 5 and 3600 seconds')
+        if not options.resource:
+            options.resource = DEFAULT_RESOURCE_CHOICES
+
+    def __call__(self):
+        from monit_docker.tui import run
+        from monit_docker.observation import Observation
+        from monit_docker.audit_query import AuditReader
+
+        def create_observation():
+            job = replace(job_options(self.options), subcommand='stats')
+            application = build_application(job, inline=MONIT_DOCKER_CONFIG, use_rules=False)
+            reader = AuditReader(_audit_journal(job)) if job.audit_file else None
+            return Observation(application.run_once, reader, self.options.refresh)
+        return run(create_observation)
+
+
+_SUBCMDS['tui'] = MonitDockerSubCmdTui
 _SUBCMDS['run'] = MonitDockerSubCmdRun
 _SUBCMDS['scenario'] = MonitDockerSubCmdScenario
 _SUBCMDS['audit-export'] = MonitDockerSubCmdAudit
@@ -720,7 +754,7 @@ def main(options):
     Main function
     """
     # Resolve named jobs before setup; offline commands need no logging or Docker.
-    if options.subcommand in ('check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
+    if options.subcommand in ('tui', 'check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
         try:
             return _SUBCMDS[options.subcommand](options)()
         except (MonitoringError, OSError, ValueError) as error:

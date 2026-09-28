@@ -96,7 +96,23 @@ remain outside this first baseline.
 Completion: reproducible measurements meet the documented bounds, and failures
 remain explicit without unbounded resource consumption or misleading outcomes.
 
-### 4. Complete a stabilization period — planned
+### 4. Add an explicit read-only terminal interface — in progress
+
+See the [terminal interface scope and limits](terminal.md).
+
+- [ ] Provide `monit-docker tui` for container status, resource/check measurements
+  and bounded recent journal inspection, using DWho presentation components.
+- [ ] Preserve non-interactive CLI/cron output, exit codes and startup: no automatic
+  curses activation, including when a terminal is detected.
+- [ ] Keep terminal rendering separate from shared monitoring services; execute
+  no rules or manual actions from this first interface.
+- [ ] Validate navigation, resizing, missing/disconnected terminals, collection
+  failures and sequential bounded-rate refresh before declaring it ready.
+
+Interactive mutations are deferred. The first release is read-only and must be
+included in candidate stabilization; this section does not mark it as released.
+
+### 5. Complete a stabilization period — planned
 
 - [ ] Use a fixed candidate in real deployments for a documented observation period.
 - [ ] Triage reported issues and resolve every release-blocking regression.
