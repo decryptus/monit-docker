@@ -28,11 +28,23 @@ checked afterward.
 - First-page and matching correlation queries: seven warm samples; reported p95
   is the maximum of these seven samples, not a statistically stable tail estimate.
 - Missing-result search, full JSONL export and durable append/rotation: one sample
-  each. The export includes full journal loading and writes to `/dev/null`.
+  each. The export validates and streams the full journal to `/dev/null`.
 - HTTP: 30 sequential new loopback connections to `/v1/status`, 100 cached
   container snapshots, response read and JSON parsing included. This exercises
   HTTPdis but excludes Docker sampling, TLS/proxies, remote network and browser
-  rendering. It is not a UI page-load or authenticated audit-export benchmark.
+  rendering. It is not a UI page-load benchmark.
+- Authenticated audit HTTP: 30 requests each for first page, correlation filter,
+  missing-result page, and exact-page JSONL/CSV exports. Export event IDs must match
+  the displayed filtered page, including order. A sparse HTTP request scans one
+  bounded page, unlike the direct full-history sparse search above.
+- Concurrent load: two HTTP readers make ten requests each while a durable writer
+  appends up to 1,000 events, stopping when both readers finish. A shared barrier
+  starts all three workers. Reports count successful reads and `503 audit_busy`
+  separately: snapshot acquisition deliberately does not wait for the writer lock.
+  Concurrent latency includes both response types and must not be interpreted as
+  successful-read latency alone. A final filtered read must succeed and find the
+  writer's events. Writer timing includes durable append; this short burst is not
+  a saturation, throughput or long-running fairness test.
 - Each operation records wall time, process CPU time and Linux `/proc/self/io`
   deltas. `rchar/wchar` include buffered I/O and instrumentation; physical
   `read_bytes/write_bytes` may be zero due to cache or delayed writeback. These
@@ -68,10 +80,19 @@ so it does not mask export improvements with a separate materialized read.
 `AuditJournal.read()` and `audit-send` still materialize data; no whole-agent
 memory commitment follows from this CLI export improvement.
 
+The [authenticated HTTP report](benchmarks/2026-09-28-http.json) adds the next
+local candidate. On the 50 MiB profile, sequential p95 was about 9.5 ms for the
+first page, 10.1 ms for correlation filtering, 27.2 ms for a missing-result page,
+and 11.3 / 13.6 ms for JSONL / CSV page export. The concurrent burst completed
+15 durable writes; 11 of 20 reads succeeded and nine returned `audit_busy`.
+The final read recovered successfully. These busy responses are visible load
+shedding, not successful reads; this small sample does not establish an
+acceptable production rejection rate or a sustained-load capacity.
+
 ## Regression guardrails
 
 For these fixed workloads, CI fails if first-page p95 or cached loopback HTTP
-p95 exceeds 2 seconds, first-page Python peak exceeds 16 MiB, or complete sparse
+or authenticated audit HTTP p95 exceeds 2 seconds, first-page Python peak exceeds 16 MiB, or complete sparse
 search / full export exceeds 60 seconds. These deliberately broad limits catch
 major regressions on shared runners; they are not product SLOs. Every page must
 also obey the existing scan-byte bound, sparse searches must terminate, rotation
@@ -100,8 +121,8 @@ an exactly-once guarantee across crashes: manual request deduplication is in-mem
 
 ## Remaining work
 
-Measure authenticated audit HTTP paths, export formats, proxy/browser latency,
-concurrent read/write load and long-running CPU/RSS behavior on reference hardware.
+Measure proxy/browser latency, sustained and saturated concurrent load, and
+long-running CPU/RSS behavior on reference hardware.
 Rehearse real read-only/full filesystems, kill points around atomic replacement,
 Docker daemon restarts and delayed/unresponsive endpoints on isolated hosts.
 Choose tighter operating targets from those measurements before 1.0 approval.
