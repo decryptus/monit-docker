@@ -13,12 +13,12 @@
 [Documentation (FR)](https://www.monit-docker.com/docs/fr/) ·
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/) ·
-[Roadmap to 1.0](docs/roadmap.md) ·
+[Release roadmap](docs/roadmap.md) ·
+[1.0.0 release notes](docs/release-1.0.0.md) ·
 [Logos and icons](ui/branding/README.md)
 
 The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
-records current option precedence, selectors, scenario fields and exit codes,
-with the open decisions to resolve before 1.0. The
+defines option precedence, selectors, scenario fields and exit codes for 1.0. The
 [deprecation and migration policy](docs/deprecation-policy.md) defines advance
 notices, replacements, migration evidence and rollback limits for future changes.
 

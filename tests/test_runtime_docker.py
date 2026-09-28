@@ -15,8 +15,9 @@ from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.core import MonitoringEngine
 
 RUNTIME_RESOURCES = ('oom_events', 'starts_recent', 'pids_current', 'pids_percent')
-OOM_COMMAND = ('sh', '-c', 'if [ ! -f /tmp/oom-once ]; then touch /tmp/oom-once; '
-               'exec tail /dev/zero; fi; exec sleep 120')
+OOM_COMMAND = ('sh', '-c', 'if [ ! -f /tmp/oom-once ]; then '
+               'while [ ! -f /tmp/trigger-oom ]; do sleep 0.1; done; '
+               'touch /tmp/oom-once; exec tail /dev/zero; fi; exec sleep 120')
 
 
 @unittest.skipUnless(os.environ.get('MONIT_DOCKER_INTEGRATION') == '1', 'requires opt-in Docker daemon')
@@ -64,7 +65,9 @@ class RuntimeDockerTests(unittest.TestCase):
             # Diagnostic failure must never replace the original assertion.
             try:
                 evidence['finished_at'] = time.time()
-                evidence['docker_version'] = self.client.version().get('Version')
+                version = self.client.version()
+                evidence['docker_version'] = version.get('Version')
+                evidence['runtime_components'] = version.get('Components')
                 evidence['containers'] = []
                 for obj in self.objects:
                     obj.reload()
@@ -88,6 +91,17 @@ class RuntimeDockerTests(unittest.TestCase):
                                         detach=True, mem_limit='16m', memswap_limit='16m', pids_limit=16,
                                         restart_policy={'Name': 'on-failure', 'MaximumRetryCount': 1})
         self.objects.append(obj)
+        # Starting the allocation in PID 1 immediately can precede the runtime's
+        # OOM watcher registration. Complete start and an exec round trip first;
+        # never substitute an exit-137 inference for a real Docker OOM event.
+        obj.reload()
+        self.assertEqual(obj.status, 'running')
+        self.assertEqual(obj.attrs['RestartCount'], 0)
+        ready = obj.exec_run(['sh', '-c', 'test ! -f /tmp/oom-once'])
+        self.assertEqual(ready.exit_code, 0, ready.output)
+        evidence['trigger_requested_at'] = time.time()
+        trigger = obj.exec_run(['touch', '/tmp/trigger-oom'])
+        self.assertEqual(trigger.exit_code, 0, trigger.output)
         deadline = time.monotonic() + 40
         while time.monotonic() < deadline:
             obj.reload()
@@ -99,6 +113,11 @@ class RuntimeDockerTests(unittest.TestCase):
         evidence['restart_observed_at'] = time.time()
         evidence['restart_state'] = obj.attrs.get('State')
         time.sleep(2)  # The bounded event cutoff is intentionally in the past.
+        records = event_adapter.read_history(self.client.api, int(time.time()) - 1)
+        self.assertTrue(any(record.get('Action') == 'oom'
+                            and record.get('Actor', {}).get('ID') == obj.id
+                            for record in records),
+                        'Fixture restarted without a retained Docker OOM event')
         for _ in range(2):
             item = self.engine().run_once(resources=RUNTIME_RESOURCES).snapshots[0]
             evidence.setdefault('snapshots', []).append(item.to_dict())

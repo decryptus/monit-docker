@@ -1,3 +1,15 @@
+monit-docker (1.0.0) stable; urgency=medium
+
+  * Establish the documented CLI/YAML, HTTP /v1, metrics and journal compatibility contract.
+  * Keep explicit read-only TUI startup separate from CLI and cron automation.
+  * Bound Docker statistics response bodies and normalize invalid selector errors.
+  * Restore terminal state on SIGHUP and SIGTERM; centralize identifier validation.
+  * Require complete unittest collection and same-revision regression/upgrade gates.
+  * Trigger the OOM integration fixture after startup and verify raw Docker evidence.
+  * Document release evidence, pending field validation and known limits.
+
+ -- Codex <codex@openai.com>  Mon, 28 Sep 2026 11:00:00 +0000
+
 monit-docker (0.0.82) unstable; urgency=medium
 
   * Add explicit read-only curses views for containers, measurements and recent audit events.

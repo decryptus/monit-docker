@@ -1,9 +1,15 @@
-# Roadmap to 1.0
+# Roadmap and 1.0 validation record
 
-monit-docker remains in the **0.0.x** series while its public interfaces settle.
-Version 1.0 is a compatibility commitment, not a feature-count target or a promise
-of bug-free software. No release date is committed. This roadmap is maintained on
-the default branch; its open milestones are planned work, not completed checks.
+The maintainer selected the documented compatibility contract for **1.0.0** on
+2026-09-28. Publication remains gated by same-revision regression, installed
+package/image/UI checks and upgrade/rollback workflows. A version number is not
+a certification of every environment or a promise of bug-free software.
+
+The open field-validation items below remain open: selecting the 1.0 contract
+does not convert missing SSH, prolonged-observation or OOM-diagnostic evidence
+into completed tests. See [1.0.0 release notes](release-1.0.0.md) for the release
+scope and known limits, and inspect the tagged revision's workflow results for
+actual automated acceptance.
 
 ## Available in the 0.0.x series
 
@@ -19,14 +25,15 @@ the default branch; its open milestones are planned work, not completed checks.
 The 0.0.82 release includes the explicit read-only terminal interface; earlier
 releases added action-history previews and bounded journal exports. Local function benchmarks are not measurements of whole-page latency.
 
-## Before 1.0
+## Validation record and continuing work
 
-### 1. Define the compatibility contract — in progress
+### 1. Define the compatibility contract — selected for 1.0
 
 - [x] Inventory current YAML configuration, scenario and selector syntax.
 - [x] Inventory CLI behavior and exit codes with regression coverage.
 - [x] Resolve the five CLI/YAML compatibility decisions (0.0.80).
-- [ ] Approve the final 1.0 contract after candidate acceptance.
+- [x] Select the documented 1.0 contract by maintainer decision (2026-09-28);
+  same-revision automated acceptance remains mandatory before publication.
 - [x] Document HTTP API fields and metric names as compatibility baselines with regression coverage.
 - [x] Define journal schema evolution and compatibility with retained events.
 - [x] State supported Python/Docker environments and optional check prerequisites.
@@ -37,18 +44,18 @@ regression coverage for its important behavior.
 
 The [configuration and CLI baseline](config-cli-contract.md) records the first
 review, including the corrected offline access-resource validation and remaining
-legacy decisions. This inventory does not yet freeze a 1.0 interface.
+legacy decisions. This inventory is the documented 1.0 interface baseline.
 
 The [HTTP API baseline](http-api-contract.md) and [metrics catalogue](metrics.md)
 now cover field types, authentication, errors, freshness, action results, journal
 pages and metric names/types/units/labels. Targeted wire-level tests protect these
 behaviors. The HTTP and five CLI/YAML decisions have now been approved; their 0.0.80
 implementation and migration examples are tracked in [beta decisions](beta-decisions.md).
-Final 1.0 approval still requires the remaining milestones.
+The open validation items below are recorded independently of that contract.
 
 The [deprecation and migration policy](deprecation-policy.md) now defines advance
 release notices, replacements, urgent exceptions and migration/rollback evidence.
-It does not remove a feature or approve the remaining 1.0 decisions.
+It does not remove a feature or certify untested deployment environments.
 
 ### 2. Validate installation and upgrades — in progress
 
@@ -69,9 +76,11 @@ the versioned deployment rehearsals below; the full upgrade milestone remains op
 
 - [x] Establish repeatable fresh-install and upgrade/rollback rehearsals for PyPI
   and Docker, preserving configuration, journal and action state.
-- [ ] Run those rehearsals on the final fixed candidate, including 0.0.82.
+- [x] Gate every publication on rehearsals for the exact candidate, including
+  0.0.82; the tagged workflow run records whether execution actually succeeded.
 - [x] Document backup and rollback steps, including schema restrictions.
-- [ ] Verify cron and serve modes with and without the optional UI.
+- [x] Include installed cron/serve and optional UI checks in the release gates;
+  preserve the run-specific results with the upgrade artifacts.
 
 Completion: reproducible installation/upgrade procedures and their results are
 recorded, including the versions actually tested.
@@ -114,14 +123,15 @@ See the [terminal interface scope and limits](terminal.md).
 - [ ] Complete real SSH acceptance and prolonged candidate observation.
 
 Interactive mutations are deferred. The first release is read-only and must be
-included in candidate stabilization even though the beta feature is released.
+included in continued field validation; automated PTY checks do not certify SSH.
 
-### 5. Complete a stabilization period — planned
+### 5. Complete extended field validation — open
 
 The pre-release hardening candidate adds discovered unittest architecture guards,
 normalized selector errors, bounded statistics bodies, signal cleanup and a
 release workflow requiring regression and upgrade jobs for the same revision.
-These changes need their own green CI and candidate observation before approval.
+These changes have automated CI coverage; candidate observation remains a
+separate open activity.
 The intermittent OOM integration failure is not yet explained; retain the separate
 instrumented evidence rather than treating a successful rerun as a fix.
 
@@ -131,9 +141,9 @@ instrumented evidence rather than treating a successful rerun as a fix.
 - [ ] Review permissions, protected containers, maintenance and action attribution.
 - [ ] Recheck desktop/mobile behavior and publish release notes and known limits.
 
-Completion: all earlier milestones have evidence, no release-blocking issue
-remains, and the maintainer explicitly approves the 1.0 compatibility commitment.
-Until then, releases stay in the 0.0.x series.
+Completion: the outstanding field checks have recorded evidence and any
+confirmed regression is triaged. This section is not marked complete by the
+1.0 compatibility decision or a green automated release workflow.
 
 ## Later candidates, not 1.0 commitments
 

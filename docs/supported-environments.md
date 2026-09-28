@@ -1,6 +1,6 @@
 # Supported environments and check prerequisites
 
-This is the **0.0.82** support baseline. It separates tested environments from
+This is the **1.0.0** support baseline. It separates tested environments from
 minimum installation metadata and optional target-container prerequisites.
 It does not claim that every Python, Docker or operating-system combination has
 been tested. Installation/upgrade rehearsals remain a separate [roadmap](roadmap.md)

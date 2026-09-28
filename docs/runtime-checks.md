@@ -104,6 +104,9 @@ event and size-limit failures report collection error 115.
 No event occurrence is inferred from exit code 137 alone. `oom_events` counts
 Docker OOM notifications, which do not always mean the container's main process
 exited. A healthy restart does not erase a retained OOM within the window.
+An exit with code 137 followed by a restart can occur without any retained
+Docker OOM notification. A complete retained buffer does not certify that the
+runtime emitted every kernel OOM notification.
 
 ## Alerts, notifications and journal
 

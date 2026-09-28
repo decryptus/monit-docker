@@ -1,7 +1,7 @@
 # Installation, upgrade and rollback rehearsals
 
-The `Installation and upgrade rehearsals` workflow tests published **0.0.78 and
-0.0.79** against the candidate commit. These are explicit rehearsal baselines,
+The `Installation and upgrade rehearsals` workflow tests published **0.0.78,
+0.0.79 and 0.0.82** against the candidate commit. These are explicit rehearsal baselines,
 not a promise that every older version is supported. The candidate has not been
 published merely because these checks pass. Consult the workflow run and its
 artifacts for actual results; an added test is not evidence of an executed test.

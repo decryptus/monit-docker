@@ -1,9 +1,9 @@
 # Configuration and CLI compatibility contract
 
-**Status: beta baseline, including the 0.0.80 decisions approved on 2026-09-27.** This reference
-records the current public behavior and the decisions still needed before 1.0.
-It does not declare the HTTP API, metrics or journal schema stable. Follow the
-[roadmap](roadmap.md) for the complete release criteria.
+**Status: 1.0 compatibility contract.** This reference retains the CLI/YAML
+choices approved for 0.0.80 on 2026-09-27. HTTP, metrics and journal contracts
+have their own references. See the [release notes](release-1.0.0.md) for the
+validation record and its limits.
 
 Use full option names and explicit selectors in automation. Global options go
 before the subcommand; that subcommand's options go after it:
@@ -293,15 +293,15 @@ Use an exact container selector for a process-status check. `--propagate-exit-co
 in `monit`/`cron` returns a failed completed exec's 1..255 status instead of 116;
 it can overlap every other status family. Check command mode and diagnostics.
 
-## Beta decisions and 1.0 status
+## Decisions retained in 1.0
 
 The five CLI/YAML choices were approved on 2026-09-27: shared strict validation,
 unknown-client rejection, group/direct intersection, literal selector commas,
 and Python-order chained comparisons. Their implementation is included in 0.0.80;
 see [migration examples and limits](beta-decisions.md).
 
-These decisions do not complete the installation, upgrade, resilience or
-stabilization milestones. Local YAML remains the configuration model; the local
+Compatibility does not certify every deployment environment or workload.
+Local YAML remains the configuration model; the local
 CLI adds no login. Protected remote access retains its authentication.
 
 Internal Python classes, diagnostic wording, implicit argparse abbreviations,

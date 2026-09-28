@@ -1,9 +1,9 @@
-# HTTP API and metrics compatibility baseline
+# HTTP API and metrics compatibility contract
 
 This reference includes **0.0.80 beta HTTP decisions approved on 2026-09-27**.
 See the [change notice](beta-decisions.md) for differences from 0.0.79.
-It is a tested 0.0.x baseline, not an approved 1.0 stability promise. The
-[roadmap](roadmap.md) tracks the remaining compatibility decisions. See the
+These documented behaviors form the 1.0 contract; `/v1` remains the route
+prefix. See the [release notes](release-1.0.0.md) for validation limits and the
 [configuration and CLI baseline](config-cli-contract.md) for startup options.
 
 ## Scope and transport
@@ -352,15 +352,14 @@ curl --fail-with-body --silent --show-error --get "$AGENT_URL/v1/audit/export" \
 These are direct private-agent examples, not commands for the public demo or a
 proxy using browser/session authentication. See [UI setup](ui.md) for proxy rules.
 
-## Beta evolution
+## Evolution after the beta cleanup
 
-Keep `/v1` throughout this beta cleanup; its prefix does not yet constitute a
-frozen compatibility guarantee. Actions and notifications accept one
+Keep `/v1` in 1.0. Future incompatible changes follow the
+[deprecation policy](deprecation-policy.md). Actions and notifications accept one
 `Content-Type: application/json` header with optional parameters (including
 `charset=utf-8`). JSON bytes are decoded as UTF-8; parameters do not select another
 encoding. Duplicate content-type headers are rejected with 415.
 
 The [beta notice](beta-decisions.md) records changes to status codes and selection.
-No `/v2`, extra HTTP methods or implicit path aliases are introduced. The final
-1.0 compatibility commitment remains separate from these approved adjustments.
+No `/v2`, extra HTTP methods or implicit path aliases are introduced by 1.0.
 Journal schemas remain independent of HTTP route and application versions.

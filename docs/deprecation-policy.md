@@ -1,12 +1,9 @@
 # Deprecation and migration policy
 
-**Status: policy for future changes in the 0.0.x series.** Publishing this policy
-neither deprecates an existing feature nor approves the 1.0 compatibility contract.
-The [roadmap](roadmap.md) retains its open decisions and upgrade rehearsals.
-The maintainer-approved [beta cleanup](beta-decisions.md) is a scoped exception
-to the ordinary two-release notice sequence: these interfaces are still being
-defined before 1.0. It records immediate adjustments without inventing `/v2` or
-claiming data migrations have been tested. Other changes follow the policy below.
+**Status: policy for 1.0 and later changes.** The documented public contracts
+are the compatibility baseline. Historical [beta cleanup](beta-decisions.md)
+exceptions applied before 1.0; they do not authorize future silent breakage.
+See the [release notes](release-1.0.0.md) for the current validation limits.
 
 Application versions, HTTP route versions and persisted data schemas are separate
 identifiers: changing one does not automatically change the others.
@@ -16,7 +13,9 @@ identifiers: changing one does not automatically change the others.
 Review changes against the documented [configuration and CLI](config-cli-contract.md),
 [HTTP API](http-api-contract.md), [metrics](metrics.md),
 [journal](journal-compatibility.md) and [environment](supported-environments.md)
-baselines. A 0.0.x version increment alone does not imply compatibility.
+baselines. Patch and minor releases preserve these documented contracts; planned
+incompatible changes require a major release and the notice sequence below.
+Urgent exceptions remain explicit and documented.
 
 Treat the following as potentially incompatible, even when described as a fix:
 
@@ -39,7 +38,7 @@ they are not interchangeable with human diagnostic text.
 1. Record the old behavior, affected users, replacement and compatibility risks in
    the change's pull request. Link the relevant baseline and tracking issue or PR.
 2. Publish the replacement and a deprecation notice in at least one **released
-   0.0.x version** while the old documented behavior remains usable. A notice only
+   version** while the old documented behavior remains usable. A notice only
    on the development branch is insufficient. Document both forms with examples.
 3. Name the announcing release and the earliest removal release in the notice.
    Removal must be in a later release, never the announcing release. There is no
@@ -57,7 +56,7 @@ or journal records. This policy adds no warning mechanism by itself.
 
 Pin exact versions in deployments and read all intervening notices when skipping
 releases. This policy does not promise indefinite support or backports for every
-0.0.x release; each incompatible change identifies its tested upgrade paths.
+release; each incompatible change identifies its tested upgrade paths.
 
 ## Urgent exceptions
 
@@ -124,5 +123,4 @@ Urgent exception justification (if applicable):
 ```
 
 If a field is inapplicable, explain why. Keep notices and machine-facing examples
-in English; the website also provides a French explanation. Approval of the 1.0
-contract will require a separate review of the versioning and support commitment.
+in English; the website also provides a French explanation. The 1.0 contract does not create a calendar support or backport promise.
