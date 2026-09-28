@@ -2,8 +2,9 @@
 
 The explicit `monit-docker tui` command provides a local curses view over the
 same collection engine as `stats`. It does not require a running HTTP server.
-Introduced in 0.0.82. Real Docker/PTY acceptance is automated; SSH acceptance and prolonged observation
-remain open field-validation work; see the [1.0.0 limits](release-1.0.0.md).
+Introduced in 0.0.82. Real Docker/PTY acceptance is automated; post-release SSH
+acceptance of 1.0.0 passed on 2026-09-28 as detailed below. Prolonged observation
+remains open; see the [1.0.0 limits](release-1.0.0.md).
 
 ```sh
 monit-docker tui
@@ -54,8 +55,8 @@ at the next normal refresh. Use `audit-export` for complete history.
 
 The first version has no actions, configuration editor, history pagination or
 rule editing. Those are outside this read-only milestone. SSH acceptance and
-prolonged field observation remain separate from automated PTY tests and are
-not certified by the 1.0 version number.
+prolonged field observation require their own evidence; neither follows from
+the 1.0 version number.
 
 ## Screenshots
 
@@ -86,3 +87,18 @@ Reproduce after installing the selected package and pulling `alpine:3.20`:
 This opt-in test creates and removes only its own disposable containers. It is a
 PTY acceptance test, not an SSH connection test or a prolonged deployment soak.
 Review the workflow result for the exact commit before treating acceptance as passed.
+
+### Post-release SSH acceptance
+
+On 2026-09-28, the published 1.0.0 agent passed acceptance on a Debian 13 host
+through a real SSH connection and Docker exec PTY. Checks covered live container
+collection, details, small/normal terminal resizing, retained journal records,
+normal quit, Ctrl-C (exit 130), local and remote terminal attribute restoration,
+and refusal of a piped TUI. Protected container identities, start times and restart
+counts remained unchanged. The same harness first passed against an isolated
+loopback SSH server and the published images.
+
+This is evidence for that tested transport and host, not every terminal emulator.
+Abrupt network loss and prolonged interactive sessions were not asserted.
+Long-duration passive observation remains a separate activity until its final
+measurements are collected and reviewed.

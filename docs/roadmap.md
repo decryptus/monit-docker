@@ -6,8 +6,9 @@ package/image/UI checks and upgrade/rollback workflows. A version number is not
 a certification of every environment or a promise of bug-free software.
 
 The open field-validation items below remain open: selecting the 1.0 contract
-does not convert missing SSH, prolonged-observation or OOM-diagnostic evidence
-into completed tests. See [1.0.0 release notes](release-1.0.0.md) for the release
+does not convert pending extended-field checks into completed tests. SSH
+acceptance now has separate post-release evidence, recorded below. See
+[1.0.0 release notes](release-1.0.0.md) for the release
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
@@ -120,10 +121,14 @@ See the [terminal interface scope and limits](terminal.md).
   no rules or manual actions from this first interface.
 - [x] Automate Docker/PTY navigation, resizing, clean exit and read-only checks
   for the candidate and published 0.0.82 (PR #76).
-- [ ] Complete real SSH acceptance and prolonged candidate observation.
+- [x] Complete real SSH acceptance of published 1.0.0 on Debian 13 (2026-09-28):
+  navigation, resizing, journal, quit/Ctrl-C, terminal restoration and piped refusal.
+- [ ] Complete prolonged candidate observation and review the final measurements.
 
 Interactive mutations are deferred. The first release is read-only and must be
-included in continued field validation; automated PTY checks do not certify SSH.
+included in continued field validation. The SSH acceptance scope and remaining
+transport limits are recorded in the terminal guide; automated PTYs alone do not
+establish those results.
 
 ### 5. Complete extended field validation — open
 
