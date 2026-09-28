@@ -1,3 +1,13 @@
+monit-docker (0.0.82) unstable; urgency=medium
+
+  * Add explicit read-only curses views for containers, measurements and recent audit events.
+  * Preserve non-interactive CLI/cron behavior and reuse DWho terminal components.
+  * Add terminal lifecycle tests, screenshots and the read-only milestone to the roadmap.
+  * Clear stale export errors and cover manual UI recovery after audit contention.
+  * Add sustained journal load, saturation and recovery measurements.
+
+ -- Codex <codex@openai.com>  Mon, 28 Sep 2026 08:20:00 +0000
+
 monit-docker (0.0.81) unstable; urgency=medium
 
   * Reuse DWho CLI JSON presentation while preserving output and exit-code contracts.

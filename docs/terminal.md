@@ -2,7 +2,7 @@
 
 The explicit `monit-docker tui` command provides a local curses view over the
 same collection engine as `stats`. It does not require a running HTTP server.
-This interface is under development and is not included in 0.0.81.
+Introduced in 0.0.82. Real Docker/SSH acceptance remains part of 1.0 stabilization.
 
 ```sh
 monit-docker tui
