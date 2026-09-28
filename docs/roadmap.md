@@ -137,6 +137,14 @@ local and remote model adapters with explicit control over transmitted data,
 secret redaction and bounded requests. Treat journal/configuration text as
 evidence, never as instructions granting the model authority.
 
+Long-term direction: monit-docker is the first incident-explanation use case.
+If Covenant becomes the shared supervision/automation foundation, make the
+evidence and explanation contracts reusable across event sources, with Docker
+details in adapters. Keep model integration separate from deterministic policy
+and execution. Validate the local prototype before extracting shared machinery;
+neither Covenant nor Centrex becomes mandatory for the local agent. This is an
+architectural intention, not a claim that the shared platform already exists.
+
 Autonomous actions are outside the prototype. Any later action assistance needs
 a separate decision, explicit human approval and the existing authorization,
 protected-container, maintenance and restart-budget checks.
