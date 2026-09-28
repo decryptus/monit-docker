@@ -40,7 +40,9 @@ checked afterward.
 - Concurrent load: two HTTP readers make ten requests each while a durable writer
   appends up to 1,000 events, stopping when both readers finish. A shared barrier
   starts all three workers. Reports count successful reads and `503 audit_busy`
-  separately: snapshot acquisition deliberately does not wait for the writer lock.
+  separately. The post-0.0.80 candidate retries writer-lock acquisition for up to
+  100 ms, using nonblocking attempts with sleeps of at most 2 ms. The two-reader
+  admission limit still rejects excess readers immediately.
   Concurrent latency includes both response types and must not be interpreted as
   successful-read latency alone. A final filtered read must succeed and find the
   writer's events. Writer timing includes durable append; this short burst is not
@@ -88,6 +90,15 @@ and 11.3 / 13.6 ms for JSONL / CSV page export. The concurrent burst completed
 The final read recovered successfully. These busy responses are visible load
 shedding, not successful reads; this small sample does not establish an
 acceptable production rejection rate or a sustained-load capacity.
+
+The [bounded-contention candidate report](benchmarks/2026-09-28-contention.json)
+records the same workload after adding the 100 ms snapshot-lock wait budget.
+Both profiles returned 20 successful concurrent reads and zero busy responses.
+For 50 MiB, the two readers' p95 values were 23.4 and 23.0 ms, while 16 durable
+writes completed (maximum append time 15.4 ms). These short runs suggest fewer
+transient rejections; they do not establish zero rejections or writer fairness
+under sustained load. Persistent contention still returns `audit_busy`, and
+content scanning continues after releasing the shared lock.
 
 ## Regression guardrails
 

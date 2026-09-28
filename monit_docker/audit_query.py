@@ -23,6 +23,8 @@ _BLOCK_BYTES      = 128 * 1024
 _IDENTITY_BYTES   = 256
 _CURSOR_TTL       = 900
 _MAX_CURSOR       = 24000
+_SNAPSHOT_WAIT    = 0.1
+_SNAPSHOT_RETRY   = 0.002
 FILTER_KEYS       = ('since', 'until', 'container', 'source', 'category', 'result', 'correlation_id')
 _FILTER_KEY_SET   = frozenset(FILTER_KEYS)
 _SOURCE_VALUES    = ('manual', 'automatic')
@@ -123,10 +125,18 @@ class AuditReader:
             lock = os.open(str(self.journal.path) + '.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
             if not stat.S_ISREG(os.fstat(lock).st_mode):
                 raise AuditError('Invalid audit lock')
-            try:
-                fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
-            except BlockingIOError:
-                raise QueryError('audit_busy')
+            deadline = time.monotonic() + _SNAPSHOT_WAIT
+            while True:
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise QueryError('audit_busy')
+                    time.sleep(min(_SNAPSHOT_RETRY, remaining))
+                    if time.monotonic() >= deadline:
+                        raise QueryError('audit_busy')
             paths = [self.journal.path] + [Path(str(self.journal.path) + '.' + str(n)) for n in range(1, self.journal.files)]
             snapshot = []
             for path in paths:
