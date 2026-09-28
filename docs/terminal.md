@@ -68,3 +68,18 @@ containers and events. They demonstrate presentation, not production measurement
 To reproduce from the repository root, install the documentation-only `pyte` and
 `Pillow` packages, then run `python .github/scripts/capture-terminal.py` on Linux
 with the DejaVu Sans Mono font installed. These are not application dependencies.
+
+## Release acceptance
+
+The regression workflow tests both the installed candidate and published 0.0.82
+outside the checkout, using a disposable real Docker container and a PTY. It
+checks live container collection, DWho details, small-terminal resizing, journal
+navigation, clean exit and restoration of terminal attributes. It verifies that
+inspection does not restart the container or modify journal contents, rejects
+piped TUI launches and executes a non-interactive cron dry run.
+
+Reproduce after installing the selected package and pulling `alpine:3.20`:
+`MONIT_DOCKER_INTEGRATION=1 python -m unittest discover -s tests -p test_terminal_docker.py -v`.
+This opt-in test creates and removes only its own disposable containers. It is a
+PTY acceptance test, not an SSH connection test or a prolonged deployment soak.
+Review the workflow result for the exact commit before treating acceptance as passed.

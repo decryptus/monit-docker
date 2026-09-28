@@ -236,3 +236,35 @@ jobs:
           python -m unittest discover -s tests -p test_access_docker.py -v
           python -m unittest discover -s tests -p test_runtime_docker.py -v
           python -m unittest discover -s tests -p test_docker_integration.py -v
+
+  terminal:
+    name: Terminal acceptance (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        package: [candidate, published-0.0.82]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install selected distribution
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          python -m venv "$RUNNER_TEMP/terminal-venv"
+          if [ "$PACKAGE" = candidate ]; then
+            "$RUNNER_TEMP/terminal-venv/bin/pip" install .
+          else
+            "$RUNNER_TEMP/terminal-venv/bin/pip" install monit-docker==0.0.82
+          fi
+      - name: Exercise installed CLI and curses against real Docker
+        env:
+          MONIT_DOCKER_INTEGRATION: '1'
+        run: |
+          docker pull alpine:3.20
+          mkdir -p "$RUNNER_TEMP/terminal-tests"
+          cp tests/test_terminal_docker.py "$RUNNER_TEMP/terminal-tests/"
+          cd "$RUNNER_TEMP/terminal-tests"
+          "$RUNNER_TEMP/terminal-venv/bin/python" -m unittest discover -v
