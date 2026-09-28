@@ -107,6 +107,7 @@ jobs:
           cp -R tests "$RUNNER_TEMP/pypi-tests/tests"
           cd "$RUNNER_TEMP/pypi-tests"
           "$RUNNER_TEMP/pypi-test/bin/python" -c 'import os; from pathlib import Path; from importlib.metadata import version; import monit_docker; expected = Path(os.environ["EXPECTED_VERSION"]).read_text().strip(); assert monit_docker.__version__ == version("monit-docker") == expected'
+          "$RUNNER_TEMP/pypi-test/bin/python" "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest tests
           "$RUNNER_TEMP/pypi-test/bin/python" -m unittest discover -s tests -v
           "$RUNNER_TEMP/pypi-test/bin/monit-docker" --help
       - uses: actions/upload-artifact@v4
@@ -124,7 +125,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Test release selection
-        run: python3 -m unittest discover -s .github/tests -v
+        run: |
+          python3 .github/scripts/check-test-collection.py --runner unittest .github/tests
+          python3 -m unittest discover -s .github/tests -v
       - name: Validate version tag
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -144,6 +147,7 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Test the built image
         run: |
+          docker run --rm --entrypoint python -v "$PWD/tests:/test/tests:ro" -v "$PWD/.github/scripts:/test/scripts:ro" -w /test monit-docker:test /test/scripts/check-test-collection.py --runner unittest tests
           docker run --rm --entrypoint sh -v "$PWD/tests:/test/tests:ro" -w /test monit-docker:test -c 'mkdir -p /test/bin; ln -s "$(command -v monit-docker)" /test/bin/monit-docker; python -m unittest discover -s tests -v'
           docker run --rm --entrypoint python -e EXPECTED_VERSION="$(cat VERSION)" monit-docker:test -c 'import os; from importlib.metadata import version; assert version("monit-docker") == os.environ["EXPECTED_VERSION"]'
           docker run --rm --entrypoint monit-docker monit-docker:test --help
