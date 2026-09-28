@@ -17,7 +17,10 @@ from monit_docker.core import MonitoringEngine
 RUNTIME_RESOURCES = ('oom_events', 'starts_recent', 'pids_current', 'pids_percent')
 OOM_COMMAND = ('sh', '-c', 'if [ ! -f /tmp/oom-once ]; then '
                'while [ ! -f /tmp/trigger-oom ]; do sleep 0.1; done; '
-               'touch /tmp/oom-once; exec tail /dev/zero; fi; exec sleep 120')
+               'touch /tmp/oom-once; tail /dev/zero; result=$?; '
+               'echo "$result" > /tmp/oom-result; '
+               'while [ ! -f /tmp/restart-after-oom ]; do sleep 0.1; done; '
+               'exit "$result"; fi; exec sleep 120')
 
 
 @unittest.skipUnless(os.environ.get('MONIT_DOCKER_INTEGRATION') == '1', 'requires opt-in Docker daemon')
@@ -102,6 +105,27 @@ class RuntimeDockerTests(unittest.TestCase):
         evidence['trigger_requested_at'] = time.time()
         trigger = obj.exec_run(['touch', '/tmp/trigger-oom'])
         self.assertEqual(trigger.exit_code, 0, trigger.output)
+        # Keep PID 1/cgroup alive until the runtime has reported the child's
+        # OOM. Immediate PID-1 death/restart can lose that notification upstream,
+        # even with a completed start handshake. No retry of the OOM workload.
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            records = event_adapter.read_history(self.client.api, int(time.time()) - 1)
+            if any(record.get('Action') == 'oom'
+                   and record.get('Actor', {}).get('ID') == obj.id
+                   for record in records):
+                break
+            time.sleep(0.2)
+        else:
+            self.fail('Memory-limited child did not produce a Docker OOM event')
+        result = obj.exec_run(['cat', '/tmp/oom-result'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(result.output.strip(), b'137')
+        obj.reload()
+        self.assertEqual(obj.attrs['RestartCount'], 0)
+        evidence['oom_observed_before_restart_at'] = time.time()
+        restart = obj.exec_run(['touch', '/tmp/restart-after-oom'])
+        self.assertEqual(restart.exit_code, 0, restart.output)
         deadline = time.monotonic() + 40
         while time.monotonic() < deadline:
             obj.reload()
@@ -109,7 +133,7 @@ class RuntimeDockerTests(unittest.TestCase):
                 break
             time.sleep(0.2)
         else:
-            self.fail('Memory-limited fixture did not OOM and restart')
+            self.fail('Fixture did not automatically restart after its OOM child exit')
         evidence['restart_observed_at'] = time.time()
         evidence['restart_state'] = obj.attrs.get('State')
         time.sleep(2)  # The bounded event cutoff is intentionally in the past.

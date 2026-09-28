@@ -57,11 +57,13 @@ items in the [roadmap](roadmap.md):
 - Statistics body bounds are not an absolute deadline for the entire monitoring
   cycle or every action. Connection/header phases retain their own timeouts.
 - The original intermittent OOM fixture restarted with exit 137 but no Docker
-  OOM notification in either captured history query. The fixture now waits for
-  completed startup before triggering allocation and requires a raw OOM event
-  before checking collection. CI preserves diagnostics and runs six fresh fixtures.
-  This addresses a possible startup race; the exact upstream cause of the missing
-  notification is not established. No OOM is inferred from exit 137 alone.
+  OOM notification in either captured history query. A startup handshake alone
+  did not remove the failure. The fixture now keeps its main process alive while
+  a child exhausts memory, requires a raw Docker OOM event, then propagates the
+  child's exit code to trigger an automatic restart. Both fresh agents must read
+  the retained OOM after that restart. CI preserves diagnostics and runs six fresh
+  fixtures. The exact upstream cause of missing notifications during immediate
+  main-process death is not established. No OOM is inferred from exit 137 alone.
 - Manual request deduplication is in memory; process crashes do not provide an
   exactly-once action guarantee. Journal failure cannot undo an external action.
 - Physical storage-failure rehearsals and every Docker/cgroup/platform combination
