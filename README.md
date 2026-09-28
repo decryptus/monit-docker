@@ -487,7 +487,7 @@ Commands inside parentheses use Docker exec, without an implicit shell. For redi
 
 The codebase is being separated into a transport-neutral monitoring core and
 thin delivery interfaces. See [Architecture](docs/architecture.md) for the
-dependency rules, compatibility guarantees, and Community/control-plane
+dependency rules, compatibility guarantees, and component
 boundary.
 
 Install the dependencies and run the regression tests with Python 3:

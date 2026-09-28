@@ -4,11 +4,11 @@ import errno
 import json
 import math
 import os
-import re
 import stat
 import tempfile
 
 from monit_docker.domain.errors import MonitoringError
+from monit_docker.domain.identifiers import HEX_64_RE
 from monit_docker.domain.maintenance import MAX_MAINTENANCE_SECONDS
 
 _STATE_FIELDS = {
@@ -122,7 +122,7 @@ class LocalState(object):
 
     @staticmethod
     def _valid_key(key):
-        return isinstance(key, str) and re.fullmatch(r'[0-9a-f]{64}', key) is not None
+        return isinstance(key, str) and HEX_64_RE.fullmatch(key) is not None
 
     @staticmethod
     def _valid_time(value):

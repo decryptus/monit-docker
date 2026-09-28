@@ -16,8 +16,8 @@ the default branch; its open milestones are planned work, not completed checks.
 - Prometheus/Grafana integration and notification examples.
 - Automated regression tests, Docker Hub/PyPI releases and a live Docker demo.
 
-The 0.0.76 release adds immediate action-history previews and faster audit text
-validation. Local function benchmarks are not measurements of whole-page latency.
+The 0.0.82 release includes the explicit read-only terminal interface; earlier
+releases added action-history previews and bounded journal exports. Local function benchmarks are not measurements of whole-page latency.
 
 ## Before 1.0
 
@@ -25,7 +25,8 @@ validation. Local function benchmarks are not measurements of whole-page latency
 
 - [x] Inventory current YAML configuration, scenario and selector syntax.
 - [x] Inventory CLI behavior and exit codes with regression coverage.
-- [ ] Resolve the open compatibility decisions and approve the 1.0 contract.
+- [x] Resolve the five CLI/YAML compatibility decisions (0.0.80).
+- [ ] Approve the final 1.0 contract after candidate acceptance.
 - [x] Document HTTP API fields and metric names as compatibility baselines with regression coverage.
 - [x] Define journal schema evolution and compatibility with retained events.
 - [x] State supported Python/Docker environments and optional check prerequisites.
@@ -52,7 +53,7 @@ It does not remove a feature or approve the remaining 1.0 decisions.
 ### 2. Validate installation and upgrades — in progress
 
 The [installation/upgrade rehearsal](installation-upgrades.md) now provides a
-repeatable published 0.0.78/0.0.79-to-candidate matrix, current-data and backup
+repeatable published 0.0.78/0.0.79/0.0.82-to-candidate matrix, current-data and backup
 rollback reads, installed cron/serve checks and published UI acceptance. Inspect
 the workflow evidence before declaring these milestones complete.
 
@@ -66,10 +67,10 @@ schemas, read-time adaptation, mixed-history regression coverage, export limits
 and future conversion requirements. Its backup/rollback procedure still needs
 the versioned deployment rehearsals below; the full upgrade milestone remains open.
 
-- [ ] Rehearse fresh installations from both PyPI and the published Docker images.
-- [ ] Exercise upgrades from documented supported 0.0.x versions while preserving
-  configuration, retained journal entries and relevant persistent action state.
-- [ ] Document backup and rollback steps, including any schema restrictions.
+- [x] Establish repeatable fresh-install and upgrade/rollback rehearsals for PyPI
+  and Docker, preserving configuration, journal and action state.
+- [ ] Run those rehearsals on the final fixed candidate, including 0.0.82.
+- [x] Document backup and rollback steps, including schema restrictions.
 - [ ] Verify cron and serve modes with and without the optional UI.
 
 Completion: reproducible installation/upgrade procedures and their results are
@@ -85,34 +86,45 @@ recovery during rotation. Longer soak tests remain pending.
 Whole-deployment/browser latency and physical storage failure rehearsals
 remain outside this first baseline.
 
-- [ ] Benchmark ordinary and large retained journals, filters, action history,
-  rotation and exports with explicit datasets and hardware details.
+- [x] Record local 1/50 MiB journal, filter, action-history, rotation and export
+  benchmarks with dataset and environment details.
+- [ ] Repeat measurements on the fixed deployment candidate.
 - [ ] Measure CPU, memory, disk I/O and end-to-end latency; distinguish server
   processing from network and browser time.
-- [ ] Exercise Docker unavailability, concurrent actions, process restarts and
-  storage failures; document observed limits and recovery behavior.
+- [x] Test Docker unavailability, duplicate actions, process crashes and injected
+  storage failures, with recovery and limitations documented.
+- [ ] Observe a representative deployment through failures and prolonged load.
 - [ ] Define acceptable resource and latency bounds for reference workloads.
 
 Completion: reproducible measurements meet the documented bounds, and failures
 remain explicit without unbounded resource consumption or misleading outcomes.
 
-### 4. Add an explicit read-only terminal interface — in progress
+### 4. Stabilize the read-only terminal interface — delivered in 0.0.82
 
 See the [terminal interface scope and limits](terminal.md).
 
-- [ ] Provide `monit-docker tui` for container status, resource/check measurements
+- [x] Provide `monit-docker tui` for container status, resource/check measurements
   and bounded recent journal inspection, using DWho presentation components.
-- [ ] Preserve non-interactive CLI/cron output, exit codes and startup: no automatic
+- [x] Preserve non-interactive CLI/cron output, exit codes and startup: no automatic
   curses activation, including when a terminal is detected.
-- [ ] Keep terminal rendering separate from shared monitoring services; execute
+- [x] Keep terminal rendering separate from shared monitoring services; execute
   no rules or manual actions from this first interface.
-- [ ] Validate navigation, resizing, missing/disconnected terminals, collection
-  failures and sequential bounded-rate refresh before declaring it ready.
+- [x] Automate Docker/PTY navigation, resizing, clean exit and read-only checks
+  for the candidate and published 0.0.82 (PR #76).
+- [ ] Complete real SSH acceptance and prolonged candidate observation.
 
 Interactive mutations are deferred. The first release is read-only and must be
-included in candidate stabilization; this section does not mark it as released.
+included in candidate stabilization even though the beta feature is released.
 
 ### 5. Complete a stabilization period — planned
+
+The pre-release hardening candidate adds discovered unittest architecture guards,
+normalized selector errors, bounded statistics bodies, signal cleanup and a
+release workflow requiring regression and upgrade jobs for the same revision.
+These changes need their own green CI and candidate observation before approval.
+The intermittent OOM integration failure is not yet explained; retain the separate
+instrumented evidence rather than treating a successful rerun as a fix.
+
 
 - [ ] Use a fixed candidate in real deployments for a documented observation period.
 - [ ] Triage reported issues and resolve every release-blocking regression.

@@ -1,6 +1,6 @@
 # Supported environments and check prerequisites
 
-This is the **0.0.78** support baseline. It separates tested environments from
+This is the **0.0.82** support baseline. It separates tested environments from
 minimum installation metadata and optional target-container prerequisites.
 It does not claim that every Python, Docker or operating-system combination has
 been tested. Installation/upgrade rehearsals remain a separate [roadmap](roadmap.md)
@@ -33,7 +33,8 @@ remote TLS endpoints and alternate OCI engines require validation in the actual
 deployment; the Linux CI result does not certify all of them.
 
 Dependencies remain in `requirements.txt`; HTTPdis and Sonicprobe remain the
-agent foundations, with DWho in the optional HTTP notification integration. The
+agent foundations. DWho is a direct dependency for shared JSON/CLI and terminal
+presentation, and also supports optional notification integrations. The
 simple agent does not require Prometheus, Grafana, Redis or a browser. Use matching
 agent/UI releases and persist the configured state/journal directories.
 

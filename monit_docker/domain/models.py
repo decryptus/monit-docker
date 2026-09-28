@@ -1,8 +1,8 @@
 """Transport-neutral domain models.
 
 These objects deliberately know nothing about Docker, HTTP, Prometheus or the
-command line.  The Community agent and any external control plane can rely on
-their serialized shape without importing infrastructure code.
+command line. Application services can use these models without importing
+infrastructure code.
 """
 
 from __future__ import absolute_import

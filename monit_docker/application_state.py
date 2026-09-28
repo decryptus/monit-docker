@@ -1,13 +1,11 @@
 """Offline state operations shared by operator interfaces."""
-import re
 import time
 import uuid
 
 from monit_docker.core.policy import restart_key
 from monit_docker.domain.errors import MonitoringError
 from monit_docker.domain.maintenance import MAX_MAINTENANCE_SECONDS
-
-CONTAINER_ID_RE = re.compile(r'[0-9a-f]{64}')
+from monit_docker.domain.identifiers import CONTAINER_ID_RE
 
 
 class StateOperations:

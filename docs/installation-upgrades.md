@@ -83,7 +83,15 @@ silently discard new history or reset consumed restart budgets by restoring an o
 backup. If schema changes force restoration, keep both copies and reconcile the
 operational state before re-enabling actions. Never replay historical actions.
 
-The current rehearsal checks direct readability of updated data by 0.0.78/0.0.79;
+The current rehearsal checks direct readability of updated data by 0.0.78/0.0.79/0.0.82;
 it does not establish a downgrade path for unknown future schemas. Failed schema
 validation must remain an explicit stop. A backup read check does not by itself
 prove that restoring it is operationally safe.
+
+## Release gate
+
+The publication workflow calls both regression and installation/upgrade workflows
+for the same revision. Publication requires those jobs, installed-package checks,
+image tests and UI tests to succeed. Upgrade rehearsals now include published
+0.0.82 alongside 0.0.78 and 0.0.79; a historical successful run does not validate a
+new candidate. Reusable workflows also run for pull requests without publishing.

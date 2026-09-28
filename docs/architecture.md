@@ -1,14 +1,14 @@
 # Architecture
 
-monit-docker is designed as a lightweight Community agent. Its core must stay
+monit-docker is designed as a lightweight standalone agent. Its core must stay
 independent from the way it is invoked or observed so the same behavior can be
-used from cron, a local HTTP server, or an external control plane.
+used from cron, a local HTTP server, or the explicit terminal interface.
 
 ## Dependency direction
 
 ```mermaid
 flowchart TD
-    CLI["Interfaces: CLI and HTTP"] --> App["Application services"]
+    CLI["Interfaces: CLI, HTTP, TUI"] --> App["Application services"]
     App --> Core["Core: cycles, rules, decisions"]
     Core --> Domain["Domain models"]
     Adapters["Docker, YAML, state adapters"] --> Domain
@@ -31,17 +31,6 @@ The Community repository owns the single-host agent:
 
 These capabilities must remain usable without a remote service or account.
 
-## External control-plane boundary
-
-A future multi-host product is a separate process and repository. It consumes
-the agent's documented, versioned HTTP API instead of importing private agent
-modules. Multi-host inventory, long-term history, teams, audit, SSO, advanced
-notifications, and fleet-wide rule management belong to that control plane.
-
-There must be no `if premium` branches in the Community engine. Commercial
-features are separated by deployment boundary and protocol, not scattered
-feature flags.
-
 ## Compatibility rules
 
 1. Existing CLI commands and exit codes remain stable.
@@ -61,7 +50,7 @@ The original application was a single executable. Refactoring is incremental:
 4. extract rule parsing, evaluation, and action execution — done;
 5. introduce a one-shot engine API and use it from the CLI — done;
 6. add cron safeguards and an optional HTTP interface — done;
-7. document the initial read-only `/v1/status` protocol — done; external control plane — later.
+7. document the initial read-only `/v1/status` protocol — done.
 
 ## Current implementation and remaining work
 
@@ -83,8 +72,11 @@ and returns a page dictionary; its `QueryError` exposes a domain reason. The
 and maps reasons to HTTP status codes. Cursor scope still binds filters and caller
 identity. Existing HTTP routes, response envelopes and error codes are unchanged.
 
-Dynamic selector bounds and shared validation cleanup remain M4/M5 in the dated
-review. They are separate from the interface extraction.
+Dynamic regex matching is bounded to 50 ms per comparison and invalid syntax
+is a configuration error. Exact identifier contracts are shared in
+`domain/identifiers.py`; selectors retain their separate glob/regex semantics.
+The six application/transport architecture tests run under unittest against the
+actual imported package, including installed distributions.
 
 - `core/engine.py` coordinates a cycle and preserves the two-phase rule order.
 - `core/rules.py` evaluates conditions against snapshots, without Docker or CLI imports.
@@ -243,13 +235,18 @@ selector and rule parsers, and offline condition checks. It bypasses runtime/log
 initialization and Docker client construction; text/JSON diagnostics are owned by
 the CLI. See [configuration validation](check-config.md).
 
-Still pending: a cycle-wide deadline and an embedded UI. A client timeout can be configured through existing
-client settings; it is not an overall cycle deadline. Configuration is fixed for
-each constructed CLI command; automatic reload is not added.
-Legacy Python versions advertised by the package are not exercised by the CI
-matrix, which currently runs Python 3.10 and 3.12. Some advertised interpreters
-cannot run the current code; the supported minimum remains to be reconciled with
-the metadata. See the [configuration and CLI compatibility baseline](config-cli-contract.md).
+Statistics response bodies have a five-second deadline enforced by shutting down
+an overdue socket, a 2 MiB byte cap and an eight-sample progress limit. Socket
+connection/header reads use the smaller of the configured timeout and five
+seconds. The body watchdog is cancelled and joined and the response is closed on
+every exit; it does not abandon a reader thread. Collection failures remain
+explicit. This is not an overall cycle deadline: selection, event history, each
+container/probe and configured actions have separate lifecycles. Client timeouts
+are not absolute deadlines for connection negotiation or slowly arriving headers.
+Configuration remains fixed for each constructed command, without automatic reload.
+Python metadata requires 3.10+; the tested interpreter matrix is documented in
+[supported environments](supported-environments.md).
+
 
 
 ## Optional UI and manual operations
@@ -265,8 +262,8 @@ HTTP adapter verifies a proxy secret, exact origin, method, content type and
 body length before admission. `MonitorService` executes one pending operation
 between cycles, using the same operation mutex as collection. The engine's
 manual method reselects an exact container ID and checks the supported action
-vocabulary, including optional maintenance and restart-budget rearm. CLI
-composition supplies the state-backed reservation function;
+vocabulary, including optional maintenance and restart-budget rearm. `MonitoringApplication`
+supplies the state-backed reservation function;
 core/domain code has no HTTP, authentication, UI or storage imports.
 
 Manual cooldowns use a distinct per-container key across the manual commands;
@@ -277,7 +274,5 @@ refreshes the cache. Autonomous rules remain enabled and can reverse a manual
 operation unless automatic actions are suspended by temporary maintenance. The
 queue does not promise exactly-once execution across process restarts.
 
-The component is Community-only single-host software. A future commercial
-control plane is still a separate process/product for fleet management, teams
-and long-term history; it must use the versioned protocol as well.
-
+The component is standalone single-host software. All operational policy remains
+enforced by the agent.

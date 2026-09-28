@@ -26,6 +26,19 @@ def container(name='demo', cpu=256):
         for i in range(2)
     ]
     obj.stats.return_value = iter(json.dumps(s).encode() for s in samples)
+    # HTTP response fixture follows the currently configured sample stream, so
+    # failure/cleanup tests can still replace it after construction.
+    obj.client.api.timeout = 5
+    def response(*args, **kwargs):
+        stream = obj.stats(stream=True)
+        result = Mock()
+        def chunks(**kwargs):
+            for line in stream:
+                yield line + b'\n'
+        result.iter_content.side_effect = chunks
+        result.close.side_effect = lambda: getattr(stream, 'close', lambda: None)()
+        return result
+    obj.client.api._get.side_effect = response
     obj.exec_run.return_value = ExecResult(0, b'ok')
     return obj
 

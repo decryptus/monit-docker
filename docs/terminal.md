@@ -2,7 +2,8 @@
 
 The explicit `monit-docker tui` command provides a local curses view over the
 same collection engine as `stats`. It does not require a running HTTP server.
-Introduced in 0.0.82. Real Docker/SSH acceptance remains part of 1.0 stabilization.
+Introduced in 0.0.82. Real Docker/PTY acceptance is automated; SSH acceptance and prolonged observation
+remain part of 1.0 stabilization.
 
 ```sh
 monit-docker tui
@@ -29,7 +30,8 @@ the list for updated values. Labels and errors remain in English.
 Only this explicit command imports curses. All existing CLI and cron commands
 retain their non-interactive behavior, outputs and exit codes, even on a TTY.
 Pipes, cron without a TTY, missing TERM and missing curses support are rejected
-with exit code 2 before constructing a Docker client. Ctrl-C returns 130.
+with exit code 2 before constructing a Docker client. Ctrl-C returns 130. SIGHUP and SIGTERM unwind curses and return 129 and 143;
+the previous signal handlers are restored. SIGKILL cannot run cleanup.
 
 Collection runs sequentially in one worker, with a delay after each completed
 cycle (30 seconds by default, configurable from 5 to 3600 seconds). Navigation
@@ -51,8 +53,8 @@ are not modified. Busy/unavailable reads are labeled as errors and are retried
 at the next normal refresh. Use `audit-export` for complete history.
 
 The first version has no actions, configuration editor, history pagination or
-rule editing. Those are outside this read-only milestone. Before release, complete
-real Docker/SSH acceptance in addition to automated terminal tests.
+rule editing. Those are outside this read-only milestone. Before 1.0, complete
+SSH acceptance and candidate stabilization in addition to the automated tests.
 
 ## Screenshots
 
