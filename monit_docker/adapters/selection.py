@@ -47,10 +47,10 @@ class ContainerSelector(object):
         if not pattern.startswith('~'):
             return re.compile(fnmatch.translate(pattern)).match
         # Keep Python regex syntax; use a bounded matcher for untrusted patterns.
-        re.compile(pattern[1:])
         try:
+            re.compile(pattern[1:])
             compiled = regex.compile(pattern[1:], regex.VERSION0)
-        except regex.error:
+        except (re.error, regex.error):
             raise MonitoringError(110, 'invalid selector regular expression') from None
         def match(value):
             try:

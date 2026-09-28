@@ -12,7 +12,7 @@ import tempfile
 import time
 
 _ROOT = Path(__file__).resolve().parents[2]
-_BASELINES = ('0.0.78', '0.0.79')
+_BASELINES = ('0.0.78', '0.0.79', '0.0.82')
 _IMAGE = 'decryptus/monit-docker:'
 _CANDIDATE_IMAGE = 'monit-upgrade-candidate:local'
 

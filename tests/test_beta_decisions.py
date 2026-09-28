@@ -59,6 +59,19 @@ class BetaDecisionTests(unittest.TestCase):
             'id', 'db-1', 'running', ('prod',), ()))
         self.assertTrue(ContainerSelector({'name': ['web-*']}).matches('id', 'web-1', 'running', (), ()))
 
+    def test_invalid_regex_is_a_configuration_error_before_connecting(self):
+        from monit_docker import cli
+        for pattern in ('~[', '~(', '~(?invalid)'):
+            with self.subTest(pattern=pattern):
+                with self.assertRaises(MonitoringError) as error:
+                    ContainerSelector({'name': [pattern]})
+                self.assertEqual(error.exception.code, 110)
+                with patch('monit_docker.composition.client_factory') as factory:
+                    options = cli.argv_parse_check(['-c', '/absent-review.yml', '--name', pattern, 'stats'])
+                    with patch('monit_docker.cli.initialize_runtime'), self.assertLogs('monit-docker'):
+                        self.assertEqual(cli.main(options), 110)
+                    factory.assert_not_called()
+
     def test_unknown_client_never_falls_back_even_with_environment_option(self):
         for config in ({}, {'clients': {}}, {'clients': {'local': {'config': {}}}}):
             for from_env in (False, True):

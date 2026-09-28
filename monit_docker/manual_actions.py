@@ -6,18 +6,16 @@ An injected journal records lifecycle events without exposing storage details. C
 
 from collections import OrderedDict
 import copy
-import re
 import time
 from threading import Lock
 
 from monit_docker.core.manual import ALLOWED_STATES
+from monit_docker.domain.identifiers import CONTAINER_ID_RE, REQUEST_ID_RE
 from monit_docker.domain.maintenance import MAINTENANCE_COMMANDS
 from monit_docker.domain.errors import ActionRejected
 
 
 _REQUEST_FIELDS    = frozenset(('request_id', 'container_id', 'action'))
-_REQUEST_ID        = re.compile(r'[a-f0-9]{32}')
-_CONTAINER_ID      = re.compile(r'[a-f0-9]{64}')
 _HISTORY_LIMIT     = 32
 _QUEUE_TIMEOUT     = 60
 
@@ -48,8 +46,8 @@ class ManualActions(object):
         fields = dict(source='manual', actor=actor, result=result, reason=reason,
                       error_code=error_code, container_name=name, duration_ms=duration_ms)
         if isinstance(payload, dict):
-            for key, pattern, target in (('request_id', _REQUEST_ID, 'correlation_id'),
-                                         ('container_id', _CONTAINER_ID, 'container_id')):
+            for key, pattern, target in (('request_id', REQUEST_ID_RE, 'correlation_id'),
+                                         ('container_id', CONTAINER_ID_RE, 'container_id')):
                 if isinstance(payload.get(key), str) and pattern.fullmatch(payload[key]):
                     fields[target] = payload[key]
             if isinstance(payload.get('action'), str) and payload['action'] in ALLOWED_STATES:
@@ -68,8 +66,8 @@ class ManualActions(object):
         if (not isinstance(payload, dict)
                 or set(payload) != _REQUEST_FIELDS
                 or not all(isinstance(value, str) for value in payload.values())
-                or not _REQUEST_ID.fullmatch(payload['request_id'])
-                or not _CONTAINER_ID.fullmatch(payload['container_id'])
+                or not REQUEST_ID_RE.fullmatch(payload['request_id'])
+                or not CONTAINER_ID_RE.fullmatch(payload['container_id'])
                 or payload['action'] not in self.allowed_states):
             raise ActionRejected('invalid_request')
         with self._lock:

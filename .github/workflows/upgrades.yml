@@ -1,18 +1,8 @@
 name: Installation and upgrade rehearsals
 
 on:
+  workflow_call:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/upgrades.yml'
-      - '.github/scripts/check-upgrades.py'
-      - '.github/scripts/upgrade-fixture.py'
-      - 'monit_docker/adapters/state.py'
-      - 'monit_docker/audit*.py'
-      - 'requirements.txt'
-      - 'setup.py'
-      - 'setup.yml'
-      - 'Dockerfile'
 
 permissions:
   contents: read

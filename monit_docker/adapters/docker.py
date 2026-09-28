@@ -21,6 +21,7 @@ from monit_docker.adapters.access import access_identities
 from monit_docker.domain.filesystems import filesystem_resource, FILESYSTEM_ACCESS_FIELDS
 from monit_docker.domain.runtime import EVENT_RESOURCES, PID_RESOURCES, DEFAULT_EVENT_WINDOW, valid_event_window
 from monit_docker.adapters.events import collect_events
+from monit_docker.adapters.stats import read_stats, MAX_STATS_SAMPLES
 
 LOG = logging.getLogger('monit-docker')
 
@@ -150,10 +151,12 @@ class DockerCollector(object):
         metrics = tuple(resource for resource in resources if resource not in STATE_RESOURCES)
         if snapshot.status not in ('running', 'paused') or not metrics:
             return snapshot
-        stream = self._containers[snapshot.id].stats(stream=True)
+        stream = read_stats(self._containers[snapshot.id])
         try:
             previous = None
-            for line in stream:
+            for count, line in enumerate(stream, 1):
+                if count > MAX_STATS_SAMPLES:
+                    raise MonitoringError(115, 'Docker statistics timestamps did not progress')
                 current = json.loads(line)
                 if previous is None:
                     previous = current

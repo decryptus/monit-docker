@@ -1,7 +1,9 @@
 """Explicit opt-in terminal presentation; importing this module does not load curses."""
 import json
 import os
+import signal
 import sys
+from contextlib import contextmanager
 
 POLL_MS = 250
 MIN_HEIGHT = 7
@@ -9,6 +11,28 @@ MIN_WIDTH = 35
 QUIT_KEYS = ('q', 'Q', '\x1b')
 TAB_KEYS = ('\t', 'j', 'c')
 DETAIL_KEYS = ('\n', '\r')
+_EXIT_SIGNALS = (signal.SIGHUP, signal.SIGTERM)
+
+
+class _TerminalExit(BaseException):
+    def __init__(self, signum):
+        self.signum = signum
+
+
+@contextmanager
+def terminal_signals():
+    previous = {}
+
+    def terminate(signum, frame):
+        raise _TerminalExit(signum)
+
+    try:
+        for signum in _EXIT_SIGNALS:
+            previous[signum] = signal.signal(signum, terminate)
+        yield
+    finally:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
 
 
 def safe_text(value):
@@ -112,7 +136,10 @@ def run(create_observation):
     observation = create_observation()
     try:
         observation.start()
-        return curses.wrapper(screen_loop, observation)
+        with terminal_signals():
+            return curses.wrapper(screen_loop, observation)
+    except _TerminalExit as error:
+        return 128 + error.signum
     except KeyboardInterrupt:
         return 130
     except (curses.error, OSError):
