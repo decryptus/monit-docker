@@ -75,7 +75,12 @@ the versioned deployment rehearsals below; the full upgrade milestone remains op
 Completion: reproducible installation/upgrade procedures and their results are
 recorded, including the versions actually tested.
 
-### 3. Establish performance and resilience baselines — planned
+### 3. Establish performance and resilience baselines — in progress
+
+The [performance and resilience baseline](performance-resilience.md) adds measured
+1/50 MiB workloads, loopback HTTP timing, resource counters and failure-injection
+checks. Whole-deployment/browser latency and physical storage failure rehearsals
+remain outside this first baseline.
 
 - [ ] Benchmark ordinary and large retained journals, filters, action history,
   rotation and exports with explicit datasets and hardware details.

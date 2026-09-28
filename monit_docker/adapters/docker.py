@@ -99,8 +99,8 @@ class DockerCollector(object):
             if self.selector.statuses and obj.status not in self.selector.statuses:
                 continue
             # Avoid Docker image lookups unless an image selector needs them.
-            tags = obj.image.tags if self.selector.patterns['image'] else ()
-            labels = obj.labels.values() if self.selector.patterns['label'] else ()
+            tags = obj.image.tags if (self.selector.patterns['image'] or self.selector.group_patterns['image']) else ()
+            labels = obj.labels.values() if (self.selector.patterns['label'] or self.selector.group_patterns['label']) else ()
             if self.selector.matches(obj.id, obj.name, obj.status, labels, tags):
                 self._containers[obj.id] = obj
         if self._containers and set(self._requested).intersection(EVENT_RESOURCES):

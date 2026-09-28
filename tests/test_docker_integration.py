@@ -56,6 +56,28 @@ class DockerIntegrationTests(unittest.TestCase):
         self.objects.append(obj)
         return obj
 
+    def test_connection_outage_clears_cache_and_recovers_next_cycle(self):
+        from monit_docker.service import MonitorService
+        self.create_container()
+        monitor = MonitorService(lambda observer: self.engine.run_once(resources=('status',)))
+        monitor.run_cycle()
+        self.assertTrue(monitor.status()['ready'])
+        connect = self.collector.connect
+        self.collector.connect = lambda: docker.DockerClient(
+            base_url='unix:///tmp/monit-nonexistent-' + uuid.uuid4().hex + '.sock', timeout=1)
+        try:
+            with self.assertLogs('monit-docker', level='ERROR'):
+                monitor.run_cycle()
+            self.assertFalse(monitor.status()['ready'])
+            self.assertEqual(monitor.status()['containers'], [])
+            self.assertIsNone(self.collector.client)
+        finally:
+            self.collector.connect = connect
+        monitor.run_cycle()
+        self.assertTrue(monitor.status()['ready'])
+        self.assertEqual(monitor.status()['errors_total'], 1)
+        self.executor.execute.assert_not_called()
+
     def test_healthcheck_transitions_and_stopped_state(self):
         obj = self.create_container(healthcheck={'test': ['CMD', 'test', '-f', '/tmp/healthy'],
                                                 'interval': 1000000000, 'timeout': 1000000000, 'retries': 1})

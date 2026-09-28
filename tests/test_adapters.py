@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from monit_docker.adapters.configuration import Configuration
-from monit_docker.adapters.docker import client_factory
+from monit_docker.adapters.docker import client_factory, DockerCollector
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.core.rules import RuleEvaluator
@@ -15,6 +15,28 @@ from monit_docker.domain.models import ContainerSnapshot
 
 
 class AdapterTests(unittest.TestCase):
+    def test_group_image_and_label_metadata_reaches_selector(self):
+        for expression in ('image:app:*', 'label:production'):
+            with self.subTest(expression=expression):
+                selector = ContainerSelector(groups={'g': {'match': [expression]}},
+                                             selected_groups=['g'], selectors={'name': ['web*']})
+                obj = Mock(id='a'*64, status='running', labels={'environment': 'production'})
+                obj.name = 'web-1'
+                obj.image.tags = ['app:latest']
+                obj.attrs = {'State': {'Pid': 1}, 'Config': {}}
+                client = Mock()
+                client.containers.list.return_value = [obj]
+                collector = DockerCollector(lambda: client, selector)
+                collector.begin_cycle()
+                try:
+                    self.assertEqual([item.id for item in collector.select()], [obj.id])
+                    obj.name = 'db-1'
+                    collector.end_cycle()
+                    collector.begin_cycle()
+                    self.assertEqual(collector.select(), ())
+                finally:
+                    collector.end_cycle()
+
     def test_configuration_relative_imports_templates_and_aliases(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

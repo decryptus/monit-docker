@@ -53,6 +53,7 @@ For installation and the command reference, see the
    config-cli-contract
    supported-environments
    installation-upgrades
+   performance-resilience
    deprecation-policy
    beta-decisions
    troubleshooting
