@@ -181,6 +181,30 @@ priority across projects.
 Use the same `scenario-group` term as Auton, without coupling their engines or
 changing their different execution models. This capability is not implemented.
 
+### Single-level configuration imports (planned hardening)
+
+Existing section imports already help separate scenarios, container groups,
+conditions and commands. Keep their documented `@import_*` syntax; do not add
+a competing generic `!include` mechanism or impose Auton's client schema.
+
+- Audit the current loader, template evaluation order and import behavior before
+  changing it. Define one import level: the main configuration may import section
+  files; imported files must not import further files. Reject nesting explicitly.
+- Document path resolution from the main configuration directory, the expected
+  section-file shape, and existing import/inline precedence.
+- Bound file count and aggregate input size, diagnose missing/repeated files and
+  invalid structures, and validate references before Docker access or actions.
+- Preserve the documented 1.0 import and override contract. If stronger rejection
+  changes an accepted configuration, provide an explicit compatibility decision,
+  migration example and regression tests rather than silently changing behavior.
+- Test the import boundaries offline through `check-config`, including attempted
+  nested/self imports, malformed files, relative paths and reference errors.
+- Apply the same one-level policy to future scenario-group definitions when that
+  feature arrives. Shared principles do not require a shared runtime framework.
+
+This item records planned verification/hardening, not completed enforcement.
+Auton remains the current development priority.
+
 ## Design constraints
 
 Keep the DWho, HTTPdis and Sonicprobe foundations, global constants and a light
