@@ -157,6 +157,30 @@ confirmed regression is triaged. This section is not marked complete by the
   justify the added complexity.
 - Broader action-history navigation and export options based on user feedback.
 
+### Scenario Group (planned)
+
+Add named, ordered groups of existing scenarios as a later product enhancement.
+This is not part of the delivered 1.0 scope; Auton remains the current development
+priority across projects.
+
+- Proposed CLI: `monit-docker run --scenario-group maintenance`; preserve
+  `monit-docker run NAME`, existing container selectors and `ctn-groups`.
+- Keep scenario groups distinct from container groups. Each scenario retains
+  its own container selection and existing state/audit policies.
+- Validate all references offline before connecting to Docker. Initially use
+  flat ordered groups, rejecting duplicate members and nested group references.
+- Start with finite `stats` and `cron` scenarios. Reject continuous `serve`
+  members until a separate lifecycle design exists.
+- Run members sequentially; stop the group on the first failure or unknown
+  outcome by default and mark later members skipped. Do not imply rollback.
+- Report each scenario's result and preserve existing exit-code semantics;
+  specify and test the aggregate exit-code contract before implementation.
+- Implement orchestration in an interface-independent application service,
+  reusing existing execution protections rather than calling CLI entry points.
+
+Use the same `scenario-group` term as Auton, without coupling their engines or
+changing their different execution models. This capability is not implemented.
+
 ## Design constraints
 
 Keep the DWho, HTTPdis and Sonicprobe foundations, global constants and a light
