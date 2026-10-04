@@ -1,3 +1,12 @@
+monit-docker (1.0.1) stable; urgency=medium
+
+  * Normalize direct and wrapped Docker statistics timeouts independently of watchdog ordering.
+  * Reuse Sonicprobe XYS structural configuration validation with existing CLI/YAML semantics.
+  * Require Sonicprobe 0.3.57 and cover timeout ordering and invalid configuration regressions.
+  * Refresh release notes and installation guidance without changing the HTTP or journal contracts.
+
+ -- Codex <codex@openai.com>  Sun, 04 Oct 2026 07:00:00 +0000
+
 monit-docker (1.0.0) stable; urgency=medium
 
   * Establish the documented CLI/YAML, HTTP /v1, metrics and journal compatibility contract.
