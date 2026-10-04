@@ -4,6 +4,9 @@ import logging
 import sys
 from threading import Event, Timer
 
+from requests.exceptions import ConnectionError as RequestsConnectionError, Timeout as RequestsTimeout
+from urllib3.exceptions import ReadTimeoutError
+
 from monit_docker.domain.errors import MonitoringError
 
 STATS_TIMEOUT = 5.0
@@ -13,11 +16,22 @@ _CHUNK_SIZE = 1024
 LOG = logging.getLogger('monit-docker')
 
 
+def _transport_timed_out(error):
+    # Requests wraps urllib3's streaming read timeout in ConnectionError.
+    # Inspect its typed cause, not arbitrary error text or unrelated contexts.
+    return (isinstance(error, (RequestsTimeout, TimeoutError, ReadTimeoutError))
+            or (isinstance(error, RequestsConnectionError) and bool(error.args)
+                and isinstance(error.args[0], ReadTimeoutError)))
+
+
 def read_stats(container):
     api = container.client.api
     timeout = min(api.timeout, STATS_TIMEOUT) if api.timeout is not None else STATS_TIMEOUT
-    response = api._get(api._url('/containers/{0}/stats', container.id),
-                        params={'stream': True}, stream=True, timeout=timeout)
+    try:
+        response = api._get(api._url('/containers/{0}/stats', container.id),
+                            params={'stream': True}, stream=True, timeout=timeout)
+    except (RequestsTimeout, TimeoutError, ReadTimeoutError):
+        raise MonitoringError(115, 'Docker statistics sampling timed out') from None
     timer = None
     expired = Event()
     try:
@@ -56,8 +70,8 @@ def read_stats(container):
                 raise MonitoringError(115, 'Docker statistics sampling timed out')
             if pending.strip():
                 yield bytes(pending)
-        except Exception:
-            if expired.is_set():
+        except Exception as error:
+            if expired.is_set() or _transport_timed_out(error):
                 raise MonitoringError(115, 'Docker statistics sampling timed out') from None
             raise
     finally:

@@ -240,7 +240,11 @@ an overdue socket, a 2 MiB byte cap and an eight-sample progress limit. Socket
 connection/header reads use the smaller of the configured timeout and five
 seconds. The body watchdog is cancelled and joined and the response is closed on
 every exit; it does not abandon a reader thread. Collection failures remain
-explicit. This is not an overall cycle deadline: selection, event history, each
+explicit. A socket timeout (including Requests' wrapped streaming read timeout)
+and the body watchdog both report sampling error 115, regardless of which fires
+first. Connection/header timeouts use the same error; unrelated transport failures
+are preserved and are not classified by matching their message text.
+This is not an overall cycle deadline: selection, event history, each
 container/probe and configured actions have separate lifecycles. Client timeouts
 are not absolute deadlines for connection negotiation or slowly arriving headers.
 Configuration remains fixed for each constructed command, without automatic reload.
