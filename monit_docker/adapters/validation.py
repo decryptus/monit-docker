@@ -3,6 +3,7 @@ import os
 import re
 
 import six
+from sonicprobe.libs import xys
 
 from monit_docker.adapters.configuration import Configuration, YamlLoader
 from monit_docker.adapters.rules import RuleParser
@@ -20,6 +21,16 @@ _VALIDATED_SECTIONS = (('clients', 'client'), ('ctn-groups', 'ctn-group'),
                        ('commands', 'command'), ('scenarios', 'scenario'))
 _ALIAS_NAME = re.compile(r'[a-zA-Z][a-zA-Z0-9_.-]{0,64}')
 _ENTRY_VARIABLES = frozenset(('vars', '@import_vars'))
+CONFIG_SCHEMA = xys.load('''
+general?: !~~callback(monit_docker.config.mapping) null
+vars?: !~~callback(monit_docker.config.mapping) null
+clients?: !~~callback(monit_docker.config.mapping) null
+ctn-groups?: !~~callback(monit_docker.config.mapping) null
+dir-groups?: !~~callback(monit_docker.config.mapping) null
+conditions?: !~~callback(monit_docker.config.mapping) null
+commands?: !~~callback(monit_docker.config.mapping) null
+scenarios?: !~~callback(monit_docker.config.mapping) null
+''')
 
 
 class CheckedConfiguration(Configuration):
@@ -42,6 +53,7 @@ class CheckedConfiguration(Configuration):
             require(not set(result) - _CONFIG_FIELDS, self.source, 'unknown top-level section')
             for name, value in result.items():
                 mapping(value, '%s: %s' % (self.source, name))
+            require(xys.validate(result, CONFIG_SCHEMA), self.source, 'invalid configuration structure')
         return result
 
     def _parse_import_file(self, conf, name, config_dir, xvars=None):

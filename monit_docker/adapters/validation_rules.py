@@ -3,6 +3,7 @@ import re
 
 import six
 import yaml
+from sonicprobe.libs import xys
 
 from monit_docker.core.rules import RuleEvaluator
 from monit_docker.domain.errors import MonitoringError, ResourceTypeError, RuleSyntaxError
@@ -13,6 +14,10 @@ from monit_docker.domain.filesystems import FilesystemSample, FILESYSTEM_NUMERIC
 
 
 ACTION_OPTION_KEYS = frozenset(('args', 'kwargs'))
+xys.add_callback('monit_docker.config.key', lambda value: isinstance(value, six.string_types))
+MAPPING_SCHEMA = xys.load("!~~callback? monit_docker.config.key: !!any")
+xys.add_callback('monit_docker.config.mapping', lambda value: xys.validate(value, MAPPING_SCHEMA))
+STRING_LIST_SCHEMA = xys.load('[ !!str ]')
 
 class ConfigurationCheckError(ValueError):
     def __init__(self, location, message):
@@ -25,12 +30,13 @@ def require(condition, location, message):
 
 def mapping(value, location):
     require(isinstance(value, dict), location, 'expected a mapping')
-    require(all(isinstance(k, six.string_types) for k in value), location,
+    require(xys.validate(value, MAPPING_SCHEMA), location,
             'mapping keys must be strings')
 
 def string_list(value, location):
-    require(isinstance(value, list) and bool(value), location, 'expected a nonempty list of strings')
-    require(all(isinstance(v, six.string_types) and v.strip() for v in value), location,
+    require(xys.validate(value, STRING_LIST_SCHEMA) and bool(value), location,
+            'expected a nonempty list of strings')
+    require(all(v.strip() for v in value), location,
             'expected a nonempty list of strings')
 
 def checked(location, callback):

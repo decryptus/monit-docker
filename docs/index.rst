@@ -50,6 +50,7 @@ For installation and the command reference, see the
    :caption: Help and development
 
    check-config
+   configuration-validation
    config-cli-contract
    shared-terminal
    terminal
