@@ -561,3 +561,6 @@ package on PyPI. Manual stable tag pushes are also supported.
 Pull requests validate without publishing; Docker Hub's `latest` is not updated.
 See the [Docker Hub setup](docs/dockerhub.md) for `DOCKERHUB_TOKEN` and the
 [PyPI setup](docs/pypi.md) for password-free Trusted Publishing.
+
+See [configuration validation](docs/configuration-validation.md) for YAML schema
+coverage and compatibility.
