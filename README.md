@@ -53,6 +53,14 @@ The simple mode remains a complete way to use the tool. It requires no HTTP
 server, Prometheus or Grafana. Its commands are `stats`, `monit`, and optionally
 `cron` when you need locking and persistent cooldowns between actions.
 
+## Discover monit-docker in video
+
+A three-minute tour of Docker monitoring, cron and serve modes, and the web and terminal interfaces.
+
+- [Français — découvrir monit-docker](https://youtu.be/wPHl_Q2iyQs)
+- [English — discover monit-docker](https://youtu.be/qyfNs5BTR3E)
+- [All our videos on Decryptus](https://www.youtube.com/@decryptusHQ)
+
 ## Table of contents
 
 1. [Installation](#installation)
