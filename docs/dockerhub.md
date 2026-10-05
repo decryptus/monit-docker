@@ -14,17 +14,6 @@ After Docker Hub publication succeeds, it publishes the tested wheel and source
 archive to PyPI. Complete the [PyPI Trusted Publisher setup](pypi.md) before the
 next release. A PyPI upload failure does not roll back the Docker images or tag.
 
-## One-time setup
-
-1. Ensure the Docker Hub repository `decryptus/monit-docker` exists.
-2. Make a Docker Hub access token with read/write access to that repository.
-3. In this GitHub repository, Settings > Secrets and variables > Actions, add
-   `DOCKERHUB_TOKEN`. The workflow authenticates as `decryptus`.
-
-A repository secret in covenant is not automatically available in monit-docker.
-An organization secret must explicitly allow this repository. Never commit the
-token or put it in workflow logs.
-
 ## Release
 
 Update VERSION, RELEASE, setup.yml, monit_docker/__init__.py and CHANGELOG consistently.
