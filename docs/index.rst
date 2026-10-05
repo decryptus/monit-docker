@@ -65,5 +65,3 @@ For installation and the command reference, see the
    roadmap
    release-1.0.1
    release-1.0.0
-   dockerhub
-   pypi

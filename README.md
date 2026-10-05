@@ -552,14 +552,5 @@ includes agent health, CPU, memory, network, block I/O and action decisions.
 *Real Grafana rendering with synthetic demonstration data. See the
 [gallery and setup guide](docs/grafana.md) for details and larger panel views.*
 
-## Docker Hub and PyPI releases
-
-Merging a new stable version into `master` builds and tests the Docker image and
-Python distributions, creates the `vX.Y.Z` tag, then publishes
-`decryptus/monit-docker:X.Y.Z`, `decryptus/monit-docker:vX.Y.Z` and the Python
-package on PyPI. Manual stable tag pushes are also supported.
-Pull requests validate without publishing; Docker Hub's `latest` is not updated.
-See [Docker Hub releases](docs/dockerhub.md) and [PyPI publishing](docs/pypi.md).
-
 See [configuration validation](docs/configuration-validation.md) for YAML schema
 coverage and compatibility.
