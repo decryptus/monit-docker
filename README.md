@@ -486,29 +486,6 @@ An unknown `--ctn-group` is a configuration error (110), including when no group
 
 Commands inside parentheses use Docker exec, without an implicit shell. For redirections, pipes or shell expansion, explicitly use a shell, for example `(sh -c "echo foo > /tmp/bar")`.
 
-## Development
-
-The codebase is being separated into a transport-neutral monitoring core and
-thin delivery interfaces. See [Architecture](docs/architecture.md) for the
-dependency rules, compatibility guarantees, and component
-boundary.
-
-Install the dependencies and run the regression tests with Python 3:
-
-```sh
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -v
-```
-
-Build the documentation and check for broken internal references:
-
-```sh
-python -m pip install -r docs/requirements.txt
-python -m sphinx -n -W --keep-going -b html docs docs/_build/html
-```
-
-Build the checked-out source with `docker build -t monit-docker:local .`. The Dockerfile installs this checkout in a virtual environment instead of fetching the published `monit-docker` package.
-
 ## Lightweight cron mode
 
 Run one cycle with a process lock and persistent cooldowns, without a server:
@@ -554,3 +531,8 @@ includes agent health, CPU, memory, network, block I/O and action decisions.
 
 See [configuration validation](docs/configuration-validation.md) for YAML schema
 coverage and compatibility.
+
+## Documentation
+
+- **Users:** installation, configuration, operation and API usage in this README and the user guide.
+- **Contributors:** [architecture, tests and development](https://github.com/decryptus/monit-docker/blob/master/CONTRIBUTING.md).

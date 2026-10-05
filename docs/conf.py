@@ -186,3 +186,7 @@ epub_exclude_files = ['search.html']
 # Napoleon settings
 #napoleon_google_docstring = True
 #napoleon_numpy_docstring = False
+
+# Keep both documentation audiences explicit on every generated page.
+html_context = {'contributor_index': 'contributors', 'contributor_pages': ['contributors', 'contributing', 'architecture', 'architecture-review-2026-09-27', 'beta-decisions', 'shared-terminal', 'performance-resilience', 'roadmap']}
+html_sidebars = {'**': ['about.html', 'documentation-tracks.html', 'localtoc.html', 'searchbox.html']}

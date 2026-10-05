@@ -1,5 +1,5 @@
-monit-docker: choose your mode
-==============================
+monit-docker user documentation
+===============================
 
 Monitor Docker containers and optionally execute rules when conditions match.
 Both modes use the same selectors and rule syntax.
@@ -47,21 +47,26 @@ For installation and the command reference, see the
 
 .. toctree::
    :maxdepth: 1
-   :caption: Help and development
+   :caption: Reference, upgrades and troubleshooting
 
    check-config
    configuration-validation
    config-cli-contract
-   shared-terminal
    terminal
    supported-environments
    installation-upgrades
-   performance-resilience
    deprecation-policy
-   beta-decisions
    troubleshooting
-   architecture
-   architecture-review-2026-09-27
-   roadmap
    release-1.0.1
    release-1.0.0
+
+Contributor documentation
+-------------------------
+
+Changing the project? Use the separate :doc:`contributors` guide.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: For contributors
+
+   contributors

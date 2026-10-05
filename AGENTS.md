@@ -99,3 +99,25 @@ Current project runner: `unittest` for `tests`. CI helper tests use
   update the end year for maintained material to reflect actual project work.
 - Keep the setup metadata and generated documentation consistent. Do not alter
   third-party copyright notices or the dates in the standard license text.
+
+## Separate user and contributor documentation
+
+- Maintain two distinct entry points and tables of contents: user documentation
+  for installation, configuration, operation, public APIs and troubleshooting;
+  contributor documentation for architecture, internals, tests, benchmarks,
+  release engineering and development plans.
+- Keep README and package descriptions focused on users. Link to the contributor
+  guide instead of embedding maintainer procedures. Library API examples belong
+  in the user guide when they are needed to integrate the library.
+- Keep registry publishing, CI setup, repository secrets and maintainer account
+  configuration out of user guides, website manuals and package descriptions.
+  Never include credential values or private infrastructure evidence in either guide.
+- Put implementation reviews and acceptance records under the contributor
+  navigation. Preserve user-facing compatibility limits, migration instructions,
+  security requirements and failure semantics in the user documentation.
+- Apply this separation to generated documentation and FR/EN website content.
+  Update source content and generators together; do not patch only generated HTML.
+- Before delivery, inspect both entry points, check links and build documentation
+  with warnings treated as errors where supported. Review README/package text and
+  the deployed manual for accidental maintainer content. Preserve private-project
+  visibility and existing review/publication approval requirements.
