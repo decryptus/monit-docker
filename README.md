@@ -559,8 +559,7 @@ Python distributions, creates the `vX.Y.Z` tag, then publishes
 `decryptus/monit-docker:X.Y.Z`, `decryptus/monit-docker:vX.Y.Z` and the Python
 package on PyPI. Manual stable tag pushes are also supported.
 Pull requests validate without publishing; Docker Hub's `latest` is not updated.
-See the [Docker Hub setup](docs/dockerhub.md) for `DOCKERHUB_TOKEN` and the
-[PyPI setup](docs/pypi.md) for password-free Trusted Publishing.
+See [Docker Hub releases](docs/dockerhub.md) and [PyPI publishing](docs/pypi.md).
 
 See [configuration validation](docs/configuration-validation.md) for YAML schema
 coverage and compatibility.
