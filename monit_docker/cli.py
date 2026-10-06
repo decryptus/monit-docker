@@ -711,6 +711,8 @@ class MonitDockerSubCmdTui:
     @classmethod
     def load_subcmd_parser(cls, subparsers):
         parser = subparsers.add_parser(cls.CMD_NAME, help='explicit read-only terminal interface')
+        parser.add_argument('--ui', choices=('curses', 'textual'), default='curses',
+                            help='terminal renderer (default: curses; textual requires the optional extra)')
         parser.add_argument('--refresh', type=int, default=DEFAULT_REFRESH, help='refresh interval in seconds (5..3600)')
         parser.add_argument('--rsc', action='append', dest='resource', default=[], type=_resource_argument)
 
@@ -722,7 +724,14 @@ class MonitDockerSubCmdTui:
             options.resource = DEFAULT_RESOURCE_CHOICES
 
     def __call__(self):
-        from monit_docker.tui import run
+        if self.options.ui == 'textual':
+            try:
+                from monit_docker.textual_tui import run
+            except ImportError:
+                print('Textual requires Python 3.9+ and the candidate DWho Textual package; see the Textual guide.', file=sys.stderr)
+                return 2
+        else:
+            from monit_docker.tui import run
         from monit_docker.observation import Observation
         from monit_docker.audit_query import AuditReader
 

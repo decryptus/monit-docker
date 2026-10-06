@@ -15,3 +15,4 @@ For installation and operation, return to :doc:`/index`.
    shared-terminal
    performance-resilience
    roadmap
+   textual-review

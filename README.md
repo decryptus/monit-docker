@@ -544,3 +544,9 @@ coverage and compatibility.
 
 - **Users:** installation, configuration, operation and API usage in this README and the user guide.
 - **Contributors:** [architecture, tests and development](https://github.com/decryptus/monit-docker/blob/master/CONTRIBUTING.md).
+
+## Optional Textual interface (candidate)
+
+A shared Textual terminal interface is available on the candidate branch.
+See the [installation and compatibility guide](docs/textual.md). The current
+release and default curses interface are unchanged.

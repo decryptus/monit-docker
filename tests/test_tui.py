@@ -77,7 +77,7 @@ class TerminalTests(unittest.TestCase):
     import importlib.abc, sys
     class Block(importlib.abc.MetaPathFinder):
         def find_spec(self, fullname, path=None, target=None):
-            if fullname in ('curses', 'monit_docker.tui', 'dwho.tui'):
+            if fullname in ('curses', 'monit_docker.tui', 'monit_docker.textual_tui', 'dwho.tui', 'textual', 'rich'):
                 raise AssertionError(fullname)
     sys.meta_path.insert(0, Block())
     from monit_docker.cli import argv_parse_check, main
