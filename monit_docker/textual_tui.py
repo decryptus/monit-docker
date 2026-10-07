@@ -40,6 +40,8 @@ class MonitorApp(DashboardApp):
         self.refresh_snapshot()
 
     def refresh_snapshot(self):
+        if not self.is_running:
+            return
         data = self.observation.snapshot()
         journal = self.view == 'journal'
         error = data['journal_error'] if journal else data['collection_error']

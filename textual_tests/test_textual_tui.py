@@ -49,3 +49,11 @@ class TextualTests(unittest.IsolatedAsyncioTestCase):
             observation.start.assert_called_once()
             app.return_value.run.assert_called_once()
             observation.close.assert_called_once()
+
+    async def test_refresh_does_not_access_observation_after_app_shutdown(self):
+        app = demo_app()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+        with patch.object(app.observation, 'snapshot') as snapshot:
+            app.refresh_snapshot()
+            snapshot.assert_not_called()
