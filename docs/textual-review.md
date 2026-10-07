@@ -6,7 +6,7 @@ The optional presentation imports the shared DWho dashboard. The product supplie
 rows and handles navigation. Container and journal read views are covered. No rule evaluation or intervention is started by the terminal adapter.
 
 The default interface remains curses. This branch depends on the separate DWho
-candidate `01b802bb33aa02d4dff8a602e27404c5a7e5c21d`; it must be reconciled with
+candidate `fdc3a12b1547c9f78ebec28e1e53770444f34caf`; it must be reconciled with
 the concurrent DWho/HTTPdis audit before merge. No release/version bump or
 production website deployment is included.
 
@@ -52,3 +52,12 @@ For the video, replace the terminal passages only once the new interaction is
 accepted. Existing narration and unrelated scenes can be retained where they
 still match. These candidate captures do not imply that the complete published
 video has been regenerated.
+
+## Post-audit integration — 2026-10-07
+
+This release candidate targets monit-docker 1.1.0 with the optional shared
+DWho 0.3.65 foundation, including published DWho 0.3.64 audit fixes.
+HTTPdis 0.6.34 and Sonicprobe 0.3.58 are the current published dependencies.
+The historical validation counts above are retained; the final pull request
+records the coordinated CI checks and generated captures. Publication and
+replacement of shared website media await the agreed visual acceptance.

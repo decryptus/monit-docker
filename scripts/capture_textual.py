@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import dwho.tui.textual
 
 os.environ.pop('NO_COLOR', None)
 from monit_docker.textual_demo import demo_app
@@ -33,8 +34,12 @@ async def capture(output):
         revision, dirty = None, None
     sources = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
                for p in sorted(Path('monit_docker').glob('*.py'))}
+    shared_root = Path(dwho.tui.textual.__file__).parent
+    shared_sources = {f.name: hashlib.sha256(f.read_bytes()).hexdigest()
+                      for f in sorted(shared_root.glob('*.py'))}
     (output / 'manifest.json').write_text(json.dumps(dict(product='monit-docker', synthetic=True,
         renderer='Textual', textual_version=importlib.metadata.version('textual'),
+        dwho_version=importlib.metadata.version('dwho'), shared_source_sha256=shared_sources,
         source_revision=revision, dirty=dirty, source_sha256=sources, captures=artifacts), indent=2)+'\n')
 
 

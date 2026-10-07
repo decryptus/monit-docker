@@ -7,7 +7,7 @@ This feature is available on a review branch, not in the published release.
 From this candidate checkout:
 
 ```sh
-python -m pip install 'git+https://github.com/decryptus/dwho.git@01b802bb33aa02d4dff8a602e27404c5a7e5c21d'
+python -m pip install 'git+https://github.com/decryptus/dwho.git@fdc3a12b1547c9f78ebec28e1e53770444f34caf'
 python -m pip install '.[textual]'
 monit-docker tui --ui textual
 ```
