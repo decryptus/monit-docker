@@ -1,7 +1,7 @@
 # monit-docker project
 
-**Current stable release: [1.0.1](https://github.com/decryptus/monit-docker/releases/tag/v1.0.1)**
-— [Release notes and upgrade guidance](docs/release-1.0.1.md).
+**Current stable release: [1.1.0](https://github.com/decryptus/monit-docker/releases/tag/v1.1.0)**
+— [Release notes and upgrade guidance](docs/release-1.1.0.md).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
@@ -17,7 +17,7 @@
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/) ·
 [Release roadmap](docs/roadmap.md) ·
-[1.0.1 release notes](docs/release-1.0.1.md) ·
+[1.1.0 release notes](docs/release-1.1.0.md) ·
 [Logos and icons](ui/branding/README.md)
 
 The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
