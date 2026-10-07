@@ -30,7 +30,7 @@ setup(
     packages                      = find_packages(),
     scripts                       = ['bin/monit-docker'],
     install_requires              = requirements,
-    extras_require                = {'textual': ['dwho[textual]>=0.3.65', "textual>=8.2.8,<9; python_version >= '3.9'"]},
+    extras_require                = {'textual': ['dwho[textual]>=0.3.66', "textual>=8.2.8,<9; python_version >= '3.9'"]},
     python_requires               = ', '.join(setup_cfg['python_requires']),
     classifiers                   = setup_cfg['classifiers'],
     long_description              = long_desc,

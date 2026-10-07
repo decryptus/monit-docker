@@ -1,3 +1,9 @@
+monit-docker (1.1.1) stable; urgency=medium
+
+  * Give the optional Textual interface its product palette with DWho 0.3.66.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Wed, 07 Oct 2026 09:00:00 +0200
+
 monit-docker (1.1.0) unstable; urgency=medium
 
   * Add optional read-only Textual views backed by shared DWho components.

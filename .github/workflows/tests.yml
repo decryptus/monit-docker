@@ -8,28 +8,21 @@ permissions:
 
 jobs:
   textual:
-    name: Optional Textual candidate
+    name: Optional Textual interface
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: decryptus/dwho
-          ref: 50b50eaa9696628e9521a31ae92305e01966e6fa
-          path: candidate-dwho
-          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install ./candidate-dwho
       - run: python -m pip install '.[textual]'
       - name: Test installed interface outside source checkout
         run: |
           cd "$(mktemp -d)"
           python "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest "$GITHUB_WORKSPACE/textual_tests"
           python -m unittest discover -s "$GITHUB_WORKSPACE/textual_tests" -v
-      - name: Generate candidate captures from actual interface
+      - name: Generate synthetic captures from actual interface
         run: PYTHONPATH=. python scripts/capture_textual.py --output "$RUNNER_TEMP/textual-captures"
       - uses: actions/upload-artifact@v4
         with:
