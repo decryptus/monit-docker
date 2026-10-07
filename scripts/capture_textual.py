@@ -13,7 +13,7 @@ os.environ.pop('NO_COLOR', None)
 from monit_docker.textual_demo import demo_app
 
 
-async def capture(output):
+async def capture(output, png=False):
     output.mkdir(parents=True, exist_ok=True)
     app = demo_app()
     artifacts = []
@@ -27,6 +27,11 @@ async def capture(output):
             path = output / (name + '.svg')
             path.write_text(app.export_screenshot(title='monit-docker — SYNTHETIC DEMO'), encoding='utf-8')
             artifacts.append(dict(file=path.name, sha256=hashlib.sha256(path.read_bytes()).hexdigest()))
+            if png:
+                import resvg_py
+                rendered = path.with_suffix('.png')
+                rendered.write_bytes(resvg_py.svg_to_bytes(svg_path=str(path), monospace_family='DejaVu Sans Mono'))
+                artifacts.append(dict(file=rendered.name, sha256=hashlib.sha256(rendered.read_bytes()).hexdigest()))
     try:
         revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.DEVNULL, text=True).strip()
         dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], text=True))
@@ -56,5 +61,6 @@ async def output_view(pilot, app):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--png', action='store_true', help='Also render PNG with resvg-py')
     args = parser.parse_args()
-    asyncio.run(capture(args.output))
+    asyncio.run(capture(args.output, args.png))

@@ -545,8 +545,17 @@ coverage and compatibility.
 - **Users:** installation, configuration, operation and API usage in this README and the user guide.
 - **Contributors:** [architecture, tests and development](https://github.com/decryptus/monit-docker/blob/master/CONTRIBUTING.md).
 
-## Optional Textual interface (candidate)
 
-A shared Textual terminal interface is available on the candidate branch.
-See the [installation and compatibility guide](docs/textual.md). The current
-release and default curses interface are unchanged.
+## Textual terminal interface
+
+Install the optional extra and select the modern interface explicitly:
+
+```sh
+python -m pip install 'monit-docker[textual]'
+monit-docker tui --ui textual
+```
+
+See the [Textual guide](docs/textual.md) for navigation and supported operations.
+The existing curses interface remains available. Screenshots use synthetic data.
+
+![Textual monitoring with synthetic observations](docs/images/textual-containers.png)

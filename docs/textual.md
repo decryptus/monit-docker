@@ -1,14 +1,9 @@
-# Textual terminal candidate
+# Textual terminal interface
 
-The optional Textual interface requires Python 3.9+ and the unreleased shared
-DWho Textual candidate. Existing commands retain curses as their default.
-This feature is available on a review branch, not in the published release.
-
-From this candidate checkout:
+Install the optional terminal interface and select it explicitly. The existing curses interface remains available.
 
 ```sh
-python -m pip install 'git+https://github.com/decryptus/dwho.git@fdc3a12b1547c9f78ebec28e1e53770444f34caf'
-python -m pip install '.[textual]'
+python -m pip install 'monit-docker[textual]'
 monit-docker tui --ui textual
 ```
 
@@ -26,8 +21,14 @@ python -m monit_docker.textual_demo
 
 This opens the actual interface with labelled synthetic fixtures. It connects
 to no service and performs no operation. Screenshots generated from it are
-candidate demonstrations, not production observations or release evidence.
+demonstrations, not production observations or deployment evidence.
 
-See the [contributor validation and media guide](textual-review.md) for tests
-and capture generation. The published manual and existing screenshots still
-represent the current release until migration is accepted.
+See the [contributor validation and media guide](textual-review.md) for tests and capture generation.
+
+## Synthetic interface examples
+
+![Synthetic Textual containers](images/textual-containers.png)
+
+![Synthetic Textual journal](images/textual-journal.png)
+
+![Synthetic Textual unavailable](images/textual-unavailable.png)

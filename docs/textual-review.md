@@ -1,63 +1,24 @@
-# Textual candidate: validation and media
+# Textual validation and media
 
-## Architecture and rollout
-
-The optional presentation imports the shared DWho dashboard. The product supplies
-rows and handles navigation. Container and journal read views are covered. No rule evaluation or intervention is started by the terminal adapter.
-
-The default interface remains curses. This branch depends on the separate DWho
-candidate `fdc3a12b1547c9f78ebec28e1e53770444f34caf`; it must be reconciled with
-the concurrent DWho/HTTPdis audit before merge. No release/version bump or
-production website deployment is included.
-
-## Local validation (Python 3.12)
-
-The discovery roots are `tests`, `textual_tests` and `.github/tests`.
-They contain 440 unittest cases: 407 base regressions,
-4 optional Textual cases and 29 helper cases. Intentional skips:
-18 opt-in Docker integration cases and one pytest-only helper case. Redis/Docker prerequisites remain separate CI gates.
-
-Optional tests exercise the real Textual app with headless key/click input,
-existing service boundaries and offline fixtures. Packages are built and the
-optional suite is also run against the installed wheel outside the checkout.
-This is not production Docker acceptance or a complete SSH-terminal matrix.
+The Textual adapter uses `dwho.tui.textual` and existing product services.
+Base commands remain independent of optional Textual imports. Run the collection
+check and the base and `textual_tests` unittest roots separately.
 
 ```sh
-python .github/scripts/check-test-collection.py --runner unittest tests textual_tests .github/tests
+python .github/scripts/check-test-collection.py --runner unittest tests textual_tests
 python -m unittest discover -s tests -v
 python -m unittest discover -s textual_tests -v
-python -m unittest discover -s .github/tests -v
+python scripts/capture_textual.py --output /tmp/textual-captures --png
 ```
 
-## Reproducible captures and demonstration
+PNG rendering requires `resvg-py`; do not substitute CairoSVG because its terminal
+font layout differs. Captures use the actual interface with labelled synthetic
+fixtures and include source/shared-library hashes. Inspect normal, unavailable,
+confirmation, progress and result states. Do not claim synthetic captures prove
+production authorization or deployment. Capture scripts and website generators
+must use the released source revision.
 
-```sh
-PYTHONPATH=. python scripts/capture_textual.py --output /tmp/monit-docker-textual-captures
-```
-
-This drives the actual interface and exports three SVG screens with synthetic
-fixtures. The accompanying manifest records source hashes, renderer version,
-Git revision when available and whether the checkout has modifications. No live
-credentials or infrastructure are captured. The optional CI job publishes these
-as review artifacts, without replacing release screenshots.
-
-The demonstration modules run interactively from the user guide. Existing
-curses captures and production website source pins are preserved. After release
-acceptance, update the website's source pin and regenerate shared manual
-screenshots from this capture script; review scenario legends and source hashes.
-Auton's README must continue to use the shared `auton.run/manual-captures/`
-assets, not committed copies. Keep the same principle for monit-docker.
-
-For the video, replace the terminal passages only once the new interaction is
-accepted. Existing narration and unrelated scenes can be retained where they
-still match. These candidate captures do not imply that the complete published
-video has been regenerated.
-
-## Post-audit integration — 2026-10-07
-
-This release candidate targets monit-docker 1.1.0 with the optional shared
-DWho 0.3.65 foundation, including published DWho 0.3.64 audit fixes.
-HTTPdis 0.6.34 and Sonicprobe 0.3.58 are the current published dependencies.
-The historical validation counts above are retained; the final pull request
-records the coordinated CI checks and generated captures. Publication and
-replacement of shared website media await the agreed visual acceptance.
+Auton retains explicit execution preparation, guided arguments, scenario/group
+selection, result export and read-only reconciliation. Execution services retain
+server ACLs, ordered failover and uncertain-outcome handling. monit-docker retains
+the existing observation-only contract and does not execute interventions.

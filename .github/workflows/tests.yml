@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: decryptus/dwho
-          ref: fdc3a12b1547c9f78ebec28e1e53770444f34caf
+          ref: 50b50eaa9696628e9521a31ae92305e01966e6fa
           path: candidate-dwho
           persist-credentials: false
       - uses: actions/setup-python@v5
