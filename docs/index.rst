@@ -51,6 +51,8 @@ For installation and the command reference, see the
 
    check-config
    configuration-validation
+   textual
+   release-1.1.0
    config-cli-contract
    terminal
    supported-environments

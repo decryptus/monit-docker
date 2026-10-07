@@ -1,5 +1,9 @@
 # Read-only terminal interface
 
+For the modern interface, install `monit-docker[textual]` and run
+`monit-docker tui --ui textual`. See the [Textual guide](textual.md).
+The compatibility curses interface and its key reference are documented below.
+
 The explicit `monit-docker tui` command provides a local curses view over the
 same collection engine as `stats`. It does not require a running HTTP server.
 Introduced in 0.0.82. Real Docker/PTY acceptance is automated; post-release SSH

@@ -1,7 +1,7 @@
 # monit-docker project
 
-**Current stable release: [1.0.1](https://github.com/decryptus/monit-docker/releases/tag/v1.0.1)**
-— [Release notes and upgrade guidance](docs/release-1.0.1.md).
+**Current stable release: [1.1.0](https://github.com/decryptus/monit-docker/releases/tag/v1.1.0)**
+— [Release notes and upgrade guidance](docs/release-1.1.0.md).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
@@ -17,7 +17,7 @@
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/) ·
 [Release roadmap](docs/roadmap.md) ·
-[1.0.1 release notes](docs/release-1.0.1.md) ·
+[1.1.0 release notes](docs/release-1.1.0.md) ·
 [Logos and icons](ui/branding/README.md)
 
 The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
@@ -544,3 +544,18 @@ coverage and compatibility.
 
 - **Users:** installation, configuration, operation and API usage in this README and the user guide.
 - **Contributors:** [architecture, tests and development](https://github.com/decryptus/monit-docker/blob/master/CONTRIBUTING.md).
+
+
+## Textual terminal interface
+
+Install the optional extra and select the modern interface explicitly:
+
+```sh
+python -m pip install 'monit-docker[textual]'
+monit-docker tui --ui textual
+```
+
+See the [Textual guide](docs/textual.md) for navigation and supported operations.
+The existing curses interface remains available. Screenshots use synthetic data.
+
+![Textual monitoring with synthetic observations](docs/images/textual-containers.png)

@@ -121,3 +121,13 @@ Current project runner: `unittest` for `tests`. CI helper tests use
   with warnings treated as errors where supported. Review README/package text and
   the deployed manual for accidental maintainer content. Preserve private-project
   visibility and existing review/publication approval requirements.
+
+## Optional Textual presentation
+
+- Reuse `dwho.tui.textual` for shared layout, widgets and visual states. Keep
+  collection, permissions, rules and execution in application/client services.
+- Maintain the separate `textual_tests` unittest discovery root and optional CI
+  job. Base commands must work without Textual/Rich imports.
+- Generate candidate captures with `scripts/capture_textual.py`; keep synthetic
+  fixtures labelled and record source hashes. Publish shared website captures
+  only after the corresponding interface and source revision are accepted.
