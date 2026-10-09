@@ -27,7 +27,9 @@ services:
 
 networks:
   agent:
-    internal: true
+    # Use a normal bridge for the loopback-published API port. The standalone
+    # UI example instead uses an internal network and publishes no agent port.
+    driver: bridge
 
 volumes:
   state:

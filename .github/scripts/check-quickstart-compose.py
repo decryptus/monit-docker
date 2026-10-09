@@ -30,16 +30,17 @@ def compose(files, *args):
 
 def wait_for(check, description, timeout=150):
     deadline = time.monotonic() + timeout
+    last_error = None
     while time.monotonic() < deadline:
         try:
             result = check()
             if result:
                 print('Verified: ' + description, flush=True)
                 return result
-        except (URLError, OSError, KeyError):
-            pass
+        except (URLError, OSError, KeyError) as error:
+            last_error = error
         time.sleep(2)
-    raise AssertionError('Timed out: ' + description)
+    raise AssertionError('Timed out: %s; last error: %r' % (description, last_error))
 
 
 def main():
@@ -124,7 +125,7 @@ def main():
         assert before == after, 'Observation restart changed or lost the retained journal'
         print('Verified: retained journal survives down/up', flush=True)
     finally:
-        compose(LAB_FILES, 'logs', '--tail=30')
+        print(compose(LAB_FILES, 'logs', '--tail=30'), flush=True)
         compose(LAB_FILES, 'down', '--volumes', '--remove-orphans')
 
 
