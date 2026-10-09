@@ -1,12 +1,33 @@
-version: '3.2'
+# Default installation: observe containers, without automatic actions.
+# See docs/compose-quickstart.md before replacing the old root cron example.
 services:
   monit-docker:
-    image: decryptus/monit-docker:latest
-    container_name: monit-docker
-    environment:
-      MONIT_DOCKER_CRONS: |
-        */2 * * * * monit-docker monit --cmd-if 'mem_usage > 200 MiB ? (kill -USR2 1)'
-        */2 * * * * monit-docker monit --cmd-if 'status not in (paused,running) ? restart'
-        */2 * * * * monit-docker monit --rsc pid
+    image: decryptus/monit-docker:1.1.1
+    command: [monit-docker, --audit-file, /var/lib/monit-docker/audit/events.jsonl, serve, --bind, 0.0.0.0, --interval, '30']
+    restart: unless-stopped
+    stop_grace_period: 60s
+    ports:
+      - '127.0.0.1:${MONIT_DOCKER_PORT:-9808}:9808'
+    networks: [agent]
     volumes:
-      - /var/run:/var/run:rw
+      # A read-only socket mount still grants Docker API control.
+      - type: bind
+        source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
+      - state:/var/lib/monit-docker
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:9808/readyz", timeout=3).read()']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+networks:
+  agent:
+    internal: true
+
+volumes:
+  state:

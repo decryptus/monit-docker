@@ -7,6 +7,17 @@ permissions:
   contents: read
 
 jobs:
+  compose-quickstart:
+    name: Minimal Compose and tutorial acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Exercise agent, authenticated UI, memory rule and persistence
+        run: python3 .github/scripts/check-quickstart-compose.py
+
   textual:
     name: Optional Textual interface
     runs-on: ubuntu-latest

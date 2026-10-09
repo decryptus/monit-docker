@@ -1,7 +1,7 @@
 # monit-docker project
 
-**Current stable release: [1.1.0](https://github.com/decryptus/monit-docker/releases/tag/v1.1.0)**
-— [Release notes and upgrade guidance](docs/release-1.1.0.md).
+**Current package and image version: [1.1.1](https://github.com/decryptus/monit-docker/tree/v1.1.1)**
+— [Release notes and upgrade guidance](docs/release-1.1.1.md).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
@@ -17,7 +17,7 @@
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/) ·
 [Release roadmap](docs/roadmap.md) ·
-[1.1.0 release notes](docs/release-1.1.0.md) ·
+[1.1.1 release notes](docs/release-1.1.1.md) ·
 [Logos and icons](ui/branding/README.md)
 
 The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
@@ -116,6 +116,30 @@ or newer. To run the published Docker image, see the
 the release workflow does not update `latest`.
 
 ## <a name="quickstart"></a>Quickstart
+
+### Docker Compose installation
+
+| Installation | Files | What runs |
+| --- | --- | --- |
+| Minimal | `docker-compose.yml` | Agent only, observation by default |
+| With web UI | Add `docker-compose.ui.yml` | Same agent plus authenticated HTTPS UI |
+| Prometheus and Grafana | `examples/monitoring/compose.yaml` | Separate optional history and dashboards stack |
+
+```sh
+git clone https://github.com/decryptus/monit-docker.git
+cd monit-docker
+docker compose up -d --wait
+```
+
+Read the [Compose quickstart](docs/compose-quickstart.md) ([français](docs/compose-quickstart-fr.md))
+for prerequisites, the UI, upgrades and stopping the stack. The
+[reproducible memory tutorial](docs/tutorial-memory.md) adds a bounded test worker,
+then explicitly enables one automatic restart. The default installation has no action rules.
+
+**Existing root Compose users:** the old cron/PHP-FPM example is replaced by
+observation-only `serve`. Preserve and review your old configuration before
+upgrading; the old `MONIT_DOCKER_CRONS` jobs do not run in this new entry point.
+
 
 Before running configured rules, use [`check-config`](docs/check-config.md) to validate
 the YAML, imports, selectors and aliases without connecting to Docker.

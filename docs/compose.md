@@ -1,5 +1,8 @@
 # Serve, Prometheus and Grafana with Docker Compose
 
+For the minimal agent or its optional web UI, start with the
+[Compose quickstart](compose-quickstart.md).
+
 This optional example starts the complete **serve mode** stack and loads the
 dashboard automatically. It observes real containers on your Docker daemon and
 executes no remediation rules. For a command that exits after one cycle, use
@@ -137,10 +140,11 @@ backups; archive them separately if you rely on this history.
 
 ## Customize
 
-The services are pinned to monit-docker 0.0.57, Prometheus 3.5.0 and Grafana 12.2.0.
+The services are pinned to monit-docker 1.1.1, Prometheus 3.5.0 and Grafana 12.2.0.
 Update versions deliberately in `examples/monitoring/compose.yaml`, then run
 `docker compose pull` and `sh start.sh`. The repository-root `docker-compose.yml`
-is the older cron example; use the file in `examples/monitoring` for this stack.
+runs the minimal observation agent; use the file in `examples/monitoring` for this
+separate stack. Stop the minimal stack first or change the published agent port.
 
 The dashboard is mounted directly from `examples/grafana/monit-docker.json`.
 Provisioned panels cannot be saved over from the Grafana UI; save a copy under a

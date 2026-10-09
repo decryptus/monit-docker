@@ -1,5 +1,9 @@
 # Optional lightweight interface
 
+For a minimal installation from the repository root, use the
+[Compose quickstart](compose-quickstart.md#add-the-web-ui). The standalone example
+below remains available for the advanced UI overlays.
+
 `monit-docker-ui` is a separate, optional Community component. The Python package
 and the simple/cron mode do not include a frontend. An agent in `serve` mode
 supplies API v1; Nginx serves the UI and authenticates its API requests.
