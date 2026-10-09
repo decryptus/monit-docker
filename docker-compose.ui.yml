@@ -1,0 +1,14 @@
+# Add to docker-compose.yml. Reuse the existing UI and its secret preparation.
+# python3 examples/ui/prepare.py --self-signed
+# docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d --wait
+services:
+  ui:
+    extends:
+      file: ./examples/ui/compose.yaml
+      service: ui
+    depends_on:
+      monit-docker:
+        condition: service_healthy
+
+networks:
+  frontend:

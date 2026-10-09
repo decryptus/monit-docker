@@ -13,3 +13,6 @@ examples/monitoring/notifications.local/
 examples/ui/secrets.local/
 examples/ui/.env
 ui/test-results/
+
+tutorial-actions.csv
+tutorial-events.jsonl

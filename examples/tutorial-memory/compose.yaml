@@ -1,0 +1,36 @@
+# Overlay for the root Compose, optionally with docker-compose.ui.yml.
+# All bind paths are relative to the first Compose file, at repository root.
+services:
+  monit-docker:
+    command: [monit-docker, -c, /etc/monit-docker/tutorial.yml, --audit-file, /var/lib/monit-docker/audit/events.jsonl, run, '${DEMO_SCENARIO:-demo-observe}']
+    volumes:
+      - type: bind
+        source: ./examples/tutorial-memory/monit-docker.yml
+        target: /etc/monit-docker/tutorial.yml
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      demo-worker:
+        condition: service_started
+
+  demo-worker:
+    image: python:3.12-alpine
+    container_name: monit-docker-tutorial-memory
+    command: [python, -u, /demo/worker.py]
+    labels:
+      org.decryptus.tutorial: decryptus-memory-tutorial
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    pids_limit: 32
+    read_only: true
+    restart: 'no'
+    network_mode: none
+    volumes:
+      - type: bind
+        source: ./examples/tutorial-memory/worker.py
+        target: /demo/worker.py
+        read_only: true
+        bind:
+          create_host_path: false

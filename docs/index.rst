@@ -31,6 +31,9 @@ For installation and the command reference, see the
    :maxdepth: 2
    :caption: Serve mode
 
+   compose-quickstart
+   compose-quickstart-fr
+   tutorial-memory
    serve
    http-api-contract
    ui

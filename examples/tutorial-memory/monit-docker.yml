@@ -1,0 +1,29 @@
+ctn-groups:
+  tutorial:
+    # Label selectors match VALUES, not Docker's key=value filter syntax.
+    match: ['label:decryptus-memory-tutorial']
+
+scenarios:
+  demo-observe:
+    description: Observe the tutorial worker without actions
+    mode: serve
+    select:
+      group: tutorial
+      name: monit-docker-tutorial-memory
+    bind: 0.0.0.0
+    interval: 5
+
+  demo-guard:
+    description: Restart the tutorial worker once after sustained high memory
+    mode: serve
+    select:
+      group: tutorial
+      name: monit-docker-tutorial-memory
+    bind: 0.0.0.0
+    interval: 5
+    rules: ['mem_percent > 60 ? restart']
+    trigger-after: 20
+    max-gap: 15
+    cooldown: 120
+    max-restarts: 1
+    state-file: /var/lib/monit-docker/tutorial/state.json
