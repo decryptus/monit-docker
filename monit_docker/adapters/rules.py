@@ -21,6 +21,14 @@ _NUMERIC_OPERATORS = ('==', '!=', '<', '<=', '>', '>=')
 _NUMERIC_CONDITION_PARTS = (('value', 'value_unit'), ('pre_value', 'pre_value_unit'))
 
 
+def _byte_value(literal):
+    """Read a sized literal as bytes; reject a unit the parser cannot resolve."""
+    try:
+        return bitmath.parse_string(literal).bytes
+    except ValueError:
+        raise RuleSyntaxError('unsupported unit in expression value: %r' % literal) from None
+
+
 class RuleParser(object):
     def __init__(self, commands=None, conditions=None, dir_groups=None):
         self.dir_groups = directory_groups(dir_groups)
@@ -44,10 +52,10 @@ class RuleParser(object):
             m = m.groupdict()
 
             if m.get('pre_value_unit'):
-                m['pre_value'] = bitmath.parse_string(m['pre_value']).bytes
+                m['pre_value'] = _byte_value(m['pre_value'])
 
             if m.get('value_unit'):
-                m['value'] = bitmath.parse_string(m['value']).bytes
+                m['value'] = _byte_value(m['value'])
 
             r.append({'real': expr,
                       'parsed': m})
@@ -89,10 +97,10 @@ class RuleParser(object):
             m = m.groupdict()
 
             if m.get('pre_value_unit'):
-                m['pre_value'] = bitmath.parse_string(m['pre_value']).bytes
+                m['pre_value'] = _byte_value(m['pre_value'])
 
             if m.get('value_unit'):
-                m['value'] = bitmath.parse_string(m['value']).bytes
+                m['value'] = _byte_value(m['value'])
 
             if m['cond_alias']:
                 cond_alias = m['cond_alias']
