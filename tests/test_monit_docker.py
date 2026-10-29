@@ -182,6 +182,18 @@ class RegressionTests(unittest.TestCase):
         self.client.containers.list.assert_not_called()
         md.docker.from_env.assert_not_called()
 
+    def test_unsupported_rule_unit_is_a_rule_syntax_error(self):
+        obj = self.client.containers.list.return_value[0]
+        self.assertEqual(self.invoke('monit', '--cmd-if', 'mem_usage > 100 mb ? restart'), 140)
+        obj.restart.assert_not_called()
+        self.client.containers.list.assert_not_called()
+        md.docker.from_env.assert_not_called()
+
+    def test_rule_value_that_does_not_fit_the_resource_is_a_value_error(self):
+        obj = self.client.containers.list.return_value[0]
+        self.assertEqual(self.invoke('monit', '--cmd-if', 'mem_usage > 1.5 ? restart'), 110)
+        obj.restart.assert_not_called()
+
     def test_status_exit_closes_client_and_does_not_sample(self):
         obj = self.client.containers.list.return_value[0]
         obj.status = 'exited'

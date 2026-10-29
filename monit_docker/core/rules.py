@@ -69,7 +69,9 @@ class RuleEvaluator(object):
                 expected = type(actual)(condition.value)
                 if pre_value is not None:
                     pre_value = type(actual)(pre_value)
-            except TypeError:
+            except (TypeError, ValueError):
+                # A literal that does not fit the measured value's type is a
+                # value error, not an unexpected exception.
                 raise MonitoringError(110, 'invalid value for expression if: %r' %
                                       condition.source)
         if None not in (condition.pre_operator, pre_value):
