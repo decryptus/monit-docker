@@ -64,7 +64,7 @@ masking remain the responsibility of the embedding application.
 Both sources are raster images. Raster exports do not add detail or enlarge the
 sources. The SVG derivatives above trace their contours into scalable paths.
 
-From the repository root, with Python 3.10 or newer:
+From the repository root, with Python 3.11 or newer:
 
 ```sh
 python3 -m venv /tmp/monit-docker-branding
