@@ -1,0 +1,82 @@
+name: Synchronize published release links
+
+on:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/sync-release-notes.yml']
+  pull_request:
+    paths: ['.github/workflows/sync-release-notes.yml']
+  workflow_run:
+    workflows: ['Docker Hub']
+    branches: [master]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve documentation links against the published tag
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, subprocess
+          version = pathlib.Path('VERSION').read_text().strip()
+          assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version)
+          assert version == pathlib.Path('RELEASE').read_text().strip()
+          tag = 'v' + version
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          notes = git('show', tag + ':docs/release-' + version + '.md')
+          def expand(match):
+              target = match.group(1)
+              if re.match(r'[a-zA-Z][a-zA-Z0-9+.-]*:', target) or target.startswith('#'):
+                  return match.group(0)
+              path, separator, fragment = target.partition('#')
+              assert re.fullmatch(r'[A-Za-z0-9_-]+\.md', path), target
+              git('cat-file', '-e', tag + ':docs/' + path)
+              return '](https://github.com/decryptus/monit-docker/blob/' + tag + '/docs/' + path + separator + fragment + ')'
+          rendered = re.sub(r'\]\(([^)]+)\)', expand, notes)
+          pathlib.Path('release-notes.md').write_text(rendered + '\n')
+          pathlib.Path('release-tag.txt').write_text(tag + '\n')
+          print('Verified published documentation targets for', tag)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-release-notes
+          path: |
+            release-notes.md
+            release-tag.txt
+          retention-days: 7
+  sync:
+    needs: render
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release-notes
+      - name: Update only the existing published release body
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$(cat release-tag.txt)"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName > release.json
+          python3 - <<'PY'
+          import json, pathlib
+          release = json.loads(pathlib.Path('release.json').read_text())
+          assert release['tagName'] == pathlib.Path('release-tag.txt').read_text().strip()
+          assert not release['isDraft'] and not release['isPrerelease']
+          PY
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md
