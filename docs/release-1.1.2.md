@@ -30,6 +30,9 @@ Versioned Docker images are `decryptus/monit-docker:1.1.2` and
 `decryptus/monit-docker-ui:1.1.2` for Linux amd64. The `latest` image tag is not
 updated; select the version explicitly.
 
+The same tested images are also published as `ghcr.io/decryptus/monit-docker:1.1.2`
+and `ghcr.io/decryptus/monit-docker-ui:1.1.2`.
+
 No configuration, HTTP API or journal schema migration is required from 1.1.1.
 Preserve configuration, state, restart budgets and journals when upgrading.
 Scripts interpreting malformed-rule exit status 150 must accept the documented
