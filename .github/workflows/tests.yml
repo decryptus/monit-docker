@@ -143,6 +143,8 @@ jobs:
           touch examples/monitoring/notifications.local/smtp_password examples/monitoring/notifications.local/slack_webhook_url
           chmod 644 examples/monitoring/notifications.local/*
           printf 'services:\n  redis-webhook:\n    ports: ["127.0.0.1:9080:9080"]\n' > "$REDIS_TEST_OVERRIDE"
+      - name: Build candidate agent for the versioned monitoring examples
+        run: docker build -t "decryptus/monit-docker:$(cat VERSION)" .
       - name: Build and start the documented Redis stack
         run: |
           sh examples/monitoring/start.sh --redis
@@ -181,6 +183,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Build candidate agent for the versioned monitoring examples
+        run: docker build -t "decryptus/monit-docker:$(cat VERSION)" .
       - name: Start the documented stack
         run: |
           docker run -d --name "$MONIT_COMPOSE_FIXTURE" alpine:3.20 sleep 900
