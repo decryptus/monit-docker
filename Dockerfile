@@ -1,6 +1,8 @@
 FROM alpine:latest
 
-LABEL maintainer="docker@doowan.net"
+LABEL maintainer="docker@doowan.net" \
+      org.opencontainers.image.title="monit-docker" \
+      org.opencontainers.image.source="https://github.com/decryptus/monit-docker"
 
 RUN apk -Uuv add bash \
                  cargo \
