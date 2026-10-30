@@ -140,7 +140,7 @@ backups; archive them separately if you rely on this history.
 
 ## Customize
 
-The services are pinned to monit-docker 1.1.1, Prometheus 3.5.0 and Grafana 12.2.0.
+The services are pinned to monit-docker 1.1.2, Prometheus 3.5.0 and Grafana 12.2.0.
 Update versions deliberately in `examples/monitoring/compose.yaml`, then run
 `docker compose pull` and `sh start.sh`. The repository-root `docker-compose.yml`
 runs the minimal observation agent; use the file in `examples/monitoring` for this

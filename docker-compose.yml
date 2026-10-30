@@ -2,7 +2,7 @@
 # See docs/compose-quickstart.md before replacing the old root cron example.
 services:
   monit-docker:
-    image: decryptus/monit-docker:1.1.1
+    image: decryptus/monit-docker:1.1.2
     command: [monit-docker, --audit-file, /var/lib/monit-docker/audit/events.jsonl, serve, --bind, 0.0.0.0, --interval, '30']
     restart: unless-stopped
     stop_grace_period: 60s

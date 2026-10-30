@@ -97,7 +97,7 @@ host ports. The UI binds to loopback unless `UI_BIND` is explicitly changed.
 Changing a host port does not change internal agent addresses. Keep the same
 directory/project name so Compose reuses its named volume.
 
-The examples pin agent and UI to **1.1.1**. When updating versions, preserve your
+The examples pin agent and UI to **1.1.2**. When updating versions, preserve your
 configuration and state, choose matching agent/UI versions, then pull and recreate
 the selected stack. `docker compose pull` alone does not change a running container.
 

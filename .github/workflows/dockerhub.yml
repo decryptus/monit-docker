@@ -168,6 +168,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      packages: write
     outputs:
       publish: ${{ steps.release.outputs.publish }}
     concurrency:
@@ -209,6 +210,13 @@ jobs:
         with:
           username: decryptus
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to GitHub Container Registry
+        if: steps.release.outputs.publish == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Create version tag
         if: steps.release.outputs.create == 'true'
         env:
@@ -230,6 +238,17 @@ jobs:
           docker tag monit-docker-ui:test "decryptus/monit-docker-ui:$TAG"
           docker push "decryptus/monit-docker-ui:${TAG#v}"
           docker push "decryptus/monit-docker-ui:$TAG"
+      - name: Publish the same tested images to GitHub Container Registry
+        if: steps.release.outputs.publish == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          for name in monit-docker monit-docker-ui; do
+            docker tag "$name:test" "ghcr.io/decryptus/$name:${TAG#v}"
+            docker tag "$name:test" "ghcr.io/decryptus/$name:$TAG"
+            docker push "ghcr.io/decryptus/$name:${TAG#v}"
+            docker push "ghcr.io/decryptus/$name:$TAG"
+          done
 
   pypi:
     name: Publish Python distributions to PyPI
@@ -255,3 +274,31 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+
+  github-release:
+    name: Publish GitHub release notes
+    needs: [publish, pypi]
+    if: github.event_name == 'push' && needs.publish.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Publish notes for the distributed version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(cat VERSION)"
+          test "$version" = "$(cat RELEASE)"
+          notes="docs/release-$version.md"
+          test -s "$notes"
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "v$version" --repo "$GITHUB_REPOSITORY" \
+              --title "monit-docker $version" --notes-file "$notes" --latest
+          else
+            gh release create "v$version" --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --title "monit-docker $version" --notes-file "$notes" --latest
+          fi
