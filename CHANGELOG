@@ -1,3 +1,12 @@
+monit-docker (1.1.2) stable; urgency=medium
+
+  * Report unusable CLI rule literals as documented rule/value errors, without traceback (#92).
+  * Add observation-only root Compose, optional authenticated UI and memory tutorial (#90).
+  * Upgrade development-only Pillow to 13 and validate all 19 branding exports (#93).
+  * Synchronize package/image pins, release guidance and GitHub publication.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Fri, 30 Oct 2026 18:00:00 +0100
+
 monit-docker (1.1.1) stable; urgency=medium
 
   * Give the optional Textual interface its product palette with DWho 0.3.66.

@@ -255,3 +255,31 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+
+  github-release:
+    name: Publish GitHub release notes
+    needs: [publish, pypi]
+    if: github.event_name == 'push' && needs.publish.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Publish notes for the distributed version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(cat VERSION)"
+          test "$version" = "$(cat RELEASE)"
+          notes="docs/release-$version.md"
+          test -s "$notes"
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "v$version" --repo "$GITHUB_REPOSITORY" \
+              --title "monit-docker $version" --notes-file "$notes" --latest
+          else
+            gh release create "v$version" --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --title "monit-docker $version" --notes-file "$notes" --latest
+          fi

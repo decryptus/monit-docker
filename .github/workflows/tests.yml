@@ -33,6 +33,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Build candidate images for the versioned Compose examples
+        run: |
+          docker build -t "decryptus/monit-docker:$(cat VERSION)" .
+          docker build -t "decryptus/monit-docker-ui:$(cat VERSION)" ui
       - name: Exercise agent, authenticated UI, memory rule and persistence
         run: python3 .github/scripts/check-quickstart-compose.py
 
