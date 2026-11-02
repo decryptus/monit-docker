@@ -131,3 +131,33 @@ Current project runner: `unittest` for `tests`. CI helper tests use
 - Generate candidate captures with `scripts/capture_textual.py`; keep synthetic
   fixtures labelled and record source hashes. Publish shared website captures
   only after the corresponding interface and source revision are accepted.
+
+## Complete delivery and release synchronization
+
+- Treat every delivery as a consistency check across the roadmap, PyPI packages,
+  Docker Hub images and registry descriptions, repository/user/contributor
+  documentation, demos, and existing product websites. Update every affected
+  surface; a merged PR alone does not establish a completed delivery.
+- Reconcile roadmap items with actual implementation and verified delivery.
+  Distinguish planned, implemented, validated and published/deployed work; keep
+  remaining limits and next steps explicit. Do not leave completed releases
+  listed as pending or mark unverified work complete.
+- For a release, publish the validated packages and images through the existing
+  release gates, verify their versions/artifacts in the registries, and align
+  installation commands, Compose examples, release notes and supported versions.
+  Never overwrite an immutable published version to update its contents.
+- Update affected documentation in every maintained language, including README,
+  guides, examples, screenshots and diagrams. Keep user and contributor material
+  separate and regenerate derived assets from the accepted source.
+- Update existing demos and websites when affected, including source/image pins,
+  visible versions, shared captures and release metadata. Validate the deployed
+  result, links and relevant desktop/mobile flows; preserve private/public
+  boundaries, credentials, data and the existing approval scope.
+- Inspect applicability on every change. A documentation-only change does not
+  require an artificial package/image release; a project without a registry,
+  demo or website does not require inventing one. Record why a surface is
+  unchanged, not applicable, blocked or explicitly deferred.
+- Complete the authorized delivery work before reporting success. In the final
+  handoff, distinguish merged code from registry publication and deployment,
+  report checks performed, and list any required surface still not updated with
+  its concrete blocker. Never imply that a planned publication already happened.
