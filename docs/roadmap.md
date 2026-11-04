@@ -12,6 +12,10 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
+## 1.1.3 maintenance update
+
+The [1.1.3 release notes](release-1.1.3.md) cover historical snapshots in the dashboard and spaced membership lists in rules.
+
 ## Available in the 0.0.x series
 
 - One-shot commands and continuous monitoring, sharing selectors and rules.

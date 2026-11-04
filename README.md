@@ -1,7 +1,7 @@
 # monit-docker project
 
-**Current package and image version: [1.1.2](https://github.com/decryptus/monit-docker/tree/v1.1.2)**
-— [Release notes and upgrade guidance](docs/release-1.1.2.md).
+**Current package and image version: [1.1.3](https://github.com/decryptus/monit-docker/tree/v1.1.3)**
+— [Release notes and upgrade guidance](docs/release-1.1.3.md).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
@@ -17,7 +17,7 @@
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/) ·
 [Release roadmap](docs/roadmap.md) ·
-[1.1.2 release notes](docs/release-1.1.2.md) ·
+[1.1.3 release notes](docs/release-1.1.3.md) ·
 [Logos and icons](ui/branding/README.md)
 
 monit-docker is a free, open-source tool for checking Docker containers and
