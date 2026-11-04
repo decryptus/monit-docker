@@ -20,27 +20,22 @@
 [1.1.2 release notes](docs/release-1.1.2.md) ·
 [Logos and icons](ui/branding/README.md)
 
-The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
-defines option precedence, selectors, scenario fields and exit codes for 1.0. The
-[deprecation and migration policy](docs/deprecation-policy.md) defines advance
-notices, replacements, migration evidence and rollback limits for future changes.
-
-The [journal compatibility baseline](docs/journal-compatibility.md) covers retained
-schemas, exports and upgrade/rollback limits without rewriting archives.
-Since **0.0.78**, the optional [audit-migrate command](docs/audit-migration.md)
-provides a dry run and explicit conversion to a new directory with verified backups.
-
-The [HTTP API and metrics baseline](docs/http-api-contract.md) documents response
-fields, authentication, errors, freshness, journal pagination and metric
-compatibility, with private-agent `curl` examples and wire-level regression tests.
-
-For persistent action and notification history, available since **0.0.65**, see
-the [audit journal guide](docs/audit.md). Since **0.0.66**, it also includes an optional
-authenticated journal page with filters, bounded reads and page exports.
-
 monit-docker is a free, open-source tool for checking Docker containers and
 optionally taking action when a condition matches, such as restarting a stopped
 container or reloading PHP-FPM when memory usage is high.
+
+**Start monitoring with Docker Compose.** With Docker and Compose installed,
+run these three commands. The default configuration observes containers without
+executing action rules.
+
+```sh
+git clone https://github.com/decryptus/monit-docker.git
+cd monit-docker
+docker compose up -d --wait
+```
+
+[Compose setup and prerequisites](docs/compose-quickstart.md) ·
+[Guide en français](docs/compose-quickstart-fr.md) · [Python installation](#installation)
 
 **Choose one of two modes.** Both use the same container selectors and rule syntax.
 
@@ -124,12 +119,6 @@ the release workflow does not update `latest`.
 | Minimal | `docker-compose.yml` | Agent only, observation by default |
 | With web UI | Add `docker-compose.ui.yml` | Same agent plus authenticated HTTPS UI |
 | Prometheus and Grafana | `examples/monitoring/compose.yaml` | Separate optional history and dashboards stack |
-
-```sh
-git clone https://github.com/decryptus/monit-docker.git
-cd monit-docker
-docker compose up -d --wait
-```
 
 Read the [Compose quickstart](docs/compose-quickstart.md) ([français](docs/compose-quickstart-fr.md))
 for prerequisites, the UI, upgrades and stopping the stack. The
@@ -583,3 +572,23 @@ See the [Textual guide](docs/textual.md) for navigation and supported operations
 The existing curses interface remains available. Screenshots use synthetic data.
 
 ![Textual monitoring with synthetic observations](docs/images/textual-containers.png)
+
+## Compatibility references
+
+The [configuration and CLI compatibility baseline](docs/config-cli-contract.md)
+defines option precedence, selectors, scenario fields and exit codes for 1.0. The
+[deprecation and migration policy](docs/deprecation-policy.md) defines advance
+notices, replacements, migration evidence and rollback limits for future changes.
+
+The [journal compatibility baseline](docs/journal-compatibility.md) covers retained
+schemas, exports and upgrade/rollback limits without rewriting archives.
+Since **0.0.78**, the optional [audit-migrate command](docs/audit-migration.md)
+provides a dry run and explicit conversion to a new directory with verified backups.
+
+The [HTTP API and metrics baseline](docs/http-api-contract.md) documents response
+fields, authentication, errors, freshness, journal pagination and metric
+compatibility, with private-agent `curl` examples and wire-level regression tests.
+
+For persistent action and notification history, available since **0.0.65**, see
+the [audit journal guide](docs/audit.md). Since **0.0.66**, it also includes an optional
+authenticated journal page with filters, bounded reads and page exports.

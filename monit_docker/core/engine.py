@@ -14,6 +14,7 @@ import uuid
 import sys
 from threading import Lock
 
+from monit_docker.core.policy import ActionPolicy
 from monit_docker.core.rules import RuleEvaluator
 from monit_docker.core.manual import ALLOWED_STATES
 from monit_docker.domain.maintenance import MAINTENANCE_COMMANDS
@@ -80,7 +81,7 @@ class MonitoringEngine(object):
             self._cycle_lock.release()
 
     def run_once(self, rules=(), resources=None, on_snapshot=None,
-                 dry_run=False, action_policy=None, on_action=None):
+                 dry_run=False, action_policy: ActionPolicy | None = None, on_action=None):
         """Run a fresh cycle and return raw snapshots and successful actions.
 
         Rules with only PID/status/health conditions run before sampling, preserving

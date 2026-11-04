@@ -13,7 +13,9 @@ import monit_docker
 from monit_docker import cli
 from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.state import LocalState
-from monit_docker.core.policy import TriggerPolicy
+from monit_docker.core.policy import GuardedActionPolicy, TriggerPolicy
+from monit_docker.application import rule_policy
+from monit_docker.job import JobOptions
 from monit_docker.domain.errors import MonitoringError
 from monit_docker.outputs.prometheus import render_metrics
 import test_monit_docker as legacy
@@ -25,6 +27,11 @@ class TriggerStateTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.path = Path(directory.name) / 'state.json'
         self.rule = RuleParser().parse('status == running ? restart')
+
+    def test_automatic_rules_receive_all_engine_safeguards(self):
+        with LocalState(str(self.path)) as state:
+            policy = rule_policy(state, [self.rule], JobOptions())
+            self.assertIsInstance(policy, GuardedActionPolicy)
 
     def observe(self, now, matched=True, after=120, gap=60, dry_run=False, rule=None, ident='a'):
         rule = rule or self.rule

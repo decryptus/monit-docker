@@ -134,6 +134,10 @@ class RuleParser(object):
         for cond in r['conditions']:
             resource = cond['parsed']['datatype']
             filesystem = filesystem_resource(resource)
+            # Normalize membership separators for both validation and evaluation.
+            parsed = cond['parsed']
+            if isinstance(parsed['value'], str) and parsed['value'].startswith('('):
+                parsed['value'] = ''.join(parsed['value'].split())
             if resource in RUNTIME_RESOURCES:
                 parsed = cond['parsed']
                 if parsed['op'].strip() not in _NUMERIC_OPERATORS:

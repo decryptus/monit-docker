@@ -19,6 +19,9 @@ monit-docker --name my-container stats --rsc mem_usage --rsc cpu_percent
 Use `--output text` for text output. Stopped containers may have a status without
 CPU or memory measurements.
 
+Rule membership lists allow spaces around commas, for example
+`status in (paused, running)`.
+
 ## 2. Check a status in a script
 
 ```sh

@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import time
+from typing import Protocol, runtime_checkable
 
 from monit_docker.domain.errors import MonitoringError
 from monit_docker.domain.models import ContainerSnapshot
@@ -17,6 +18,23 @@ def restart_key(container_id):
 
 def is_restart(action):
     return action.kind == 'docker' and action.command == 'restart'
+
+
+class ActionPolicy(Protocol):
+    """Minimum contract for a policy supplied to MonitoringEngine."""
+
+    def claim(self, container_id, rule, read_only=False) -> bool: ...
+
+
+@runtime_checkable
+class GuardedActionPolicy(ActionPolicy, Protocol):
+    """All safeguards supplied for automatic rules in cron and serve."""
+
+    def observe(self, container_id, rule, matched, read_only=False) -> bool: ...
+    def maintenance_active(self, container_id) -> bool: ...
+    def permits(self, container_id, rule) -> bool: ...
+    def claim_action(self, container_id, action, read_only=False) -> bool: ...
+    def decorate(self, snapshot: ContainerSnapshot) -> ContainerSnapshot: ...
 
 
 class CooldownPolicy(object):

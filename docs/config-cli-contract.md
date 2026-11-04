@@ -145,7 +145,7 @@ detached or streaming execs cannot be reported as successful monitored actions.
 
 Numeric comparisons use `==`, `!=`, `<`, `<=`, `>`, `>=`, nonnegative numeric
 literals and, where supported, byte units such as `MiB`. State membership uses
-`in (paused,running)` or `not in (paused,running)`, without spaces inside the list.
+`in (paused,running)` or `not in (paused, running)`. Spaces and tabs around commas are optional.
 Resource-specific bounds/operators are described in the check guides. Conditions
 for one directory group must be satisfied together by at least one path in that
 group. Separate groups and ordinary conditions are combined with AND.
