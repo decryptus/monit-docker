@@ -14,6 +14,11 @@ collection health and cumulative rule-action counters. It has no historical
 graphs: use [Grafana](grafana.md) for those. The last 32 manual request results
 are a temporary operational view, not a durable audit log.
 
+When a monitoring cycle fails, the dashboard can show the last complete snapshot
+with its date and time. Its rows are read only. The failure notice identifies
+the action and container when available. A fresh successful cycle restores the
+live view. Before the first success there are no historical rows to show.
+
 The browser refreshes every five seconds while visible. It hides measurements
 and disables controls if no successful status response arrives for ten seconds,
 including when automatic refresh is paused. Unknown metrics display a dash, not

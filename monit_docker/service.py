@@ -26,7 +26,7 @@ class MonitorService(object):
         self._last_success_tick = None
         self._data = dict(api_version=1, running=False, last_cycle_success=False,
                           last_cycle_finished_at=None, last_success_at=None,
-                          last_error_code=None, cycles_total=0, errors_total=0,
+                          last_error_code=None, failed_action=None, cycles_total=0, errors_total=0,
                           actions=dict(executed=0, cooldown=0, pending=0, **{'dry-run': 0, 'restart-limit': 0, 'maintenance': 0}),
                           containers=[])
 
@@ -40,6 +40,9 @@ class MonitorService(object):
                              and age <= self.stale_after)
         # Do not expose old measurements as current after failure or staleness.
         if not data['ready']:
+            if not data['last_cycle_success'] and data['last_success_at'] is not None:
+                data['last_complete_snapshot'] = dict(
+                    collected_at=data['last_success_at'], containers=data['containers'])
             data['containers'] = []
         data['manual_actions'] = (self.manual_actions.status() if self.manual_actions
                                 else {'enabled': False})
@@ -70,12 +73,12 @@ class MonitorService(object):
             containers = [snapshot.to_dict() for snapshot in result.snapshots]
         except Exception as error:
             LOG.exception('monitoring cycle failed')
-            update = dict(last_cycle_success=False, containers=[],
+            update = dict(last_cycle_success=False, failed_action=getattr(error, 'failed_action', None),
                           last_error_code=getattr(error, 'code', 150))
         else:
             success_tick = self.monotonic()
             update = dict(last_cycle_success=True, last_success_at=self.clock(),
-                          last_error_code=None, containers=containers)
+                          last_error_code=None, failed_action=None, containers=containers)
         finally:
             with self._lock:
                 if success_tick is not None:

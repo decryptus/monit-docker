@@ -174,6 +174,10 @@ class ApiContractTests(unittest.TestCase):
             self.monitor.run_cycle()
         failed = self.json_request('/v1/status')[1]
         self.assertEqual((failed['last_error_code'], failed['errors_total'], failed['cycles_total']), (170, 1, 2))
+        self.assertEqual(failed['last_complete_snapshot'], {
+            'collected_at': 1000, 'containers': ready['containers']})
+        self.assertEqual(failed['containers'], [])
+        self.assertEqual(self.json_request('/readyz'), (503, {'ready': False}))
         self.assertEqual(failed['last_success_at'], 1000)
         self.assertNotIn('private-details', json.dumps(failed))
         self.cycle.side_effect = None

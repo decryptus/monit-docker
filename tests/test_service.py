@@ -56,7 +56,10 @@ class ServiceTests(unittest.TestCase):
         self.monitor.run_cycle()
         self.assertEqual(self.monitor.status()['cycles_total'], 3)
         self.assertEqual(self.monitor.status()['errors_total'], 1)
-        self.assertEqual(self.monitor.status()['containers'][0]['id'], 'xyz')
+        recovered = self.monitor.status()
+        self.assertNotIn('last_complete_snapshot', recovered)
+        self.assertIsNone(recovered['failed_action'])
+        self.assertEqual(recovered['containers'][0]['id'], 'xyz')
 
     def test_cache_is_a_copy_and_partial_action_counts_survive_failure(self):
         def partial(observer):

@@ -139,8 +139,9 @@ seconds. Cache age is measured from successful cycle completion, not separately
 for each container's sampling time.
 
 Before the first success, after a failed cycle, or when data expires,
-`ready` is false and container measurements are omitted from both status and
-metrics. Process counters and the last-success timestamp remain available.
+`ready` is false and the current `containers` array is empty and per-container metrics are omitted.
+After a failure, the UI can still show the last complete snapshot in a dated,
+read-only section. The failure notice names the action and container when available. Process counters and the last-success timestamp remain available.
 During a cycle, the previous result remains available while it is still fresh.
 The HTTP listener remains responsive during a slow or blocked Docker call.
 
