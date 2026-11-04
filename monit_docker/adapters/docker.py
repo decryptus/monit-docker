@@ -52,9 +52,10 @@ def client_factory(config, name=None, from_env=False):
         raise MonitoringError(110, 'unknown client: %r' % name)
     if from_env or not clients:
         def connect():
-            if not os.environ.get('DOCKER_HOST'):
-                os.environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
-            return docker.from_env()
+            environment = os.environ.copy()
+            if not environment.get('DOCKER_HOST'):
+                environment['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
+            return docker.from_env(environment=environment)
         return connect
     settings = copy.deepcopy(clients[name or next(iter(clients))]['config'])
 
