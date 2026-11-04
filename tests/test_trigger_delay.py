@@ -208,13 +208,15 @@ class TriggerCliTests(unittest.TestCase):
 
     def test_recovery_then_new_streak(self):
         obj = self.client.containers.list.return_value[0]
-        self.cycle(100)
+        self.assertEqual(self.cycle(100), (0, ['pending']))
         obj.status = 'paused'
         self.assertEqual(self.cycle(160), (0, []))
         obj.status = 'running'
         self.assertEqual(self.cycle(220), (0, ['pending']))
         self.assertEqual(self.cycle(280), (0, ['pending']))
+        obj.restart.assert_not_called()
         self.assertEqual(self.cycle(340), (0, ['executed']))
+        obj.restart.assert_called_once_with()
 
     def test_failed_or_unavailable_metric_clears_its_previous_observation(self):
         obj = self.client.containers.list.return_value[0]

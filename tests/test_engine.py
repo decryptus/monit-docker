@@ -192,7 +192,10 @@ class EngineTests(unittest.TestCase):
         engine, _, client = self.make_engine(first, second)
         parser = RuleParser()
         rules = tuple(parser.parse(s) for s in ('restart', 'mem_percent > 60 ? pause', 'mem_percent > 60 ? kill'))
-        self.assert_code(116, engine.run_once, rules=rules)
+        with self.assertRaises(MonitoringError) as error:
+            engine.run_once(rules=rules)
+        self.assertEqual(error.exception.code, 116)
+        self.assertEqual(error.exception.failed_action, {'action': 'pause', 'container_name': 'first'})
         first.restart.assert_called_once_with()
         first.kill.assert_not_called()
         second.restart.assert_not_called()
@@ -207,6 +210,7 @@ class EngineTests(unittest.TestCase):
             engine.run_once(rules=(RuleParser().parse('(probe)'),))
         self.assertEqual(error.exception.code, 116)
         self.assertEqual(error.exception.exit_code, 42)
+        self.assertEqual(error.exception.failed_action, {'action': 'exec', 'container_name': obj.name})
         client.api.close.assert_called_once_with()
 
     def test_metadata_rules_run_before_metrics_regardless_of_argument_order(self):

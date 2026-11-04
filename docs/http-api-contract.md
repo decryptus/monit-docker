@@ -69,6 +69,8 @@ are covered by regression tests; JSON object ordering is not an interface.
 | `cycles_total`, `errors_total` | integers | Completed cycles / failed cycles since process startup |
 | `actions` | object | Automatic decision counters, described below |
 | `containers` | array | Complete fresh snapshot, or `[]` when not ready |
+| `last_complete_snapshot` | optional object | After failure following a successful cycle, historical `collected_at` (Unix seconds) and `containers`. Omitted on recovery or before the first success. |
+| `failed_action` | object or null | Failed automatic action label and container name (`action`, `container_name`). Exec uses the label `exec`. |
 | `manual_actions` | object | Always present in this baseline; `{"enabled":false}` when disabled |
 | `audit_enabled` | boolean | Whether the authenticated journal reader is available, not merely whether audit writing is configured |
 
@@ -81,7 +83,7 @@ before a later failure remain counted; failed actions are not counted as
 Starting a new cycle does not immediately invalidate a still-fresh previous
 success: `running:true` and `ready:true` may coexist. At startup, after a failed
 cycle or after staleness, status and metrics remain HTTP 200 while readiness is
-503 and container measurements are withheld. Staleness alone does not increment
+503 and current container measurements are withheld. Staleness alone does not increment
 errors or create a failure code. A failed cycle clears the exposed containers;
 its prior success timestamp and age can still be present. A manual execution
 invalidates freshness before calling Docker, including if the attempt fails.

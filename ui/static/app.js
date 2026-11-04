@@ -112,7 +112,11 @@ function newRow(container) {
   return row;
 }
 function renderContainers() {
-  const items = connected && data?.ready ? data.containers : [];
+  const history = connected && !data.ready && data.last_complete_snapshot;
+  const items = history ? history.containers : connected && data.ready ? data.containers : [];
+  $('snapshot-caption').textContent = history
+    ? `Historical snapshot · ${new Date(history.collected_at * 1000).toLocaleString()} · read only`
+    : 'Latest completed collection';
   const ids = new Set(items.map(item => item.id));
   for (const [id, row] of rows) {
     if (!ids.has(id)) { row.article.remove(); rows.delete(id); }
@@ -138,9 +142,9 @@ function renderContainers() {
     row.cpuValue.textContent = percent(container.cpu_percent);
     row.memoryValue.textContent = bytes(container.mem_usage);
     row.memoryDetail.textContent = `${percent(container.mem_percent)} · limit ${bytes(container.mem_limit)}`;
-    row.readonly.hidden = actions().enabled;
+    row.readonly.hidden = actions().enabled && !history;
     for (const [action, button] of Object.entries(row.buttons)) {
-      button.hidden = !actions().enabled || !(actions().allowed_states?.[action] || []).includes(container.status)
+      button.hidden = Boolean(history) || !actions().enabled || !(actions().allowed_states?.[action] || []).includes(container.status)
         || (action === 'maintenance-off' && !container.maintenance_active)
         || (action === 'restart-reset' && !hasRestartBudget(container));
       button.disabled = !canAct(container, action);
@@ -153,7 +157,7 @@ function renderContainers() {
   $('shown').textContent = String(shown);
   $('empty').hidden = shown > 0;
   $('empty').textContent = !connected ? 'Measurements unavailable until the connection returns.'
-    : !data.ready ? 'No fresh measurements. Waiting for a successful collection.'
+    : !data.ready && !history ? 'No fresh measurements. Waiting for a successful collection.'
     : items.length ? 'No containers match your filter.' : 'No containers in the latest snapshot.';
 }
 function render() {
@@ -173,7 +177,11 @@ function render() {
   $('mode').textContent = actions().enabled ? 'Manual controls enabled · one request at a time · automatic actions pause during maintenance.' : 'Read-only access. No action can be triggered from this page.';
   let notice = message;
   if (!connected) notice = 'Connection lost. Measurements and controls are unavailable. Reconnecting does not repeat an action.';
-  else if (!ready) notice = data.last_error_code ? `Collection failed (code ${data.last_error_code}). Old measurements are hidden.` : 'Waiting for fresh data. The agent may be starting, collecting, or refreshing after an action.';
+  else if (!ready && data.last_error_code != null) {
+    const failure = data.failed_action;
+    const cause = failure ? `${failure.action} failed on ${failure.container_name}` : 'Collection failed';
+    notice = `${cause} at ${date(data.last_cycle_finished_at)} (code ${data.last_error_code}).`;
+  } else if (!ready) notice = 'Waiting for fresh data. The agent may be starting, collecting, or refreshing after an action.';
   if (unresolved) notice = 'Action receipt is unconfirmed. Controls are paused: refresh to check recent requests before trying anything else.';
   $('notice').textContent = notice;
   $('notice').hidden = !notice;

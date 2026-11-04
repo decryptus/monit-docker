@@ -204,6 +204,8 @@ class MonitoringEngine(object):
                     raise MonitoringError(116, 'command failed on %s: %r' %
                                           (snapshot.name, action.command))
             except Exception as error:
+                # Only expose the action label and container, never exec arguments or SDK text.
+                error.failed_action = dict(action=fields['action'], container_name=snapshot.name)
                 if self.audit:
                     self.audit.finish('action', 'completed', result='failed',
                                       reason=type(error).__name__, error_code=getattr(error, 'code', None),

@@ -163,6 +163,17 @@ async function main() {
     await page.locator('#refresh').click();
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Not ready');
     assert.equal(await page.locator('.container-row').count(), 0);
+    const previous = state.containers;
+    state.last_complete_snapshot = {collected_at: state.last_success_at, containers: previous};
+    state.containers = [];
+    state.failed_action = {action: 'restart', container_name: 'api-service'};
+    await page.evaluate(() => refresh());
+    assert.match(await page.locator('#notice').textContent(), /restart failed on api-service/);
+    assert.match(await page.locator('#snapshot-caption').textContent(), /Historical snapshot.*read only/);
+    assert.equal(await page.locator('.container-row').count(), previous.length);
+    assert.equal(await page.locator('.container-row button:visible').count(), 0);
+    delete state.last_complete_snapshot;
+    state.containers = previous;
     state.ready = true; state.last_error_code = null;
     offline = true;
     await page.locator('#refresh').click();
