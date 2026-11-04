@@ -11,7 +11,7 @@ import textwrap
 
 PACKAGE_ROOT = Path(monit_docker.__file__).resolve().parent
 ROOT = PACKAGE_ROOT.parent
-INTERFACES = frozenset(('cli.py', '__main__.py'))
+INTERFACES = frozenset(('cli.py', 'cli_audit.py', '__main__.py'))
 
 
 def check_package(root):
@@ -28,7 +28,7 @@ def check_package(root):
                 names = [node.module or '']
                 names += [(node.module + '.' if node.module else 'monit_docker.') + alias.name
                           for alias in node.names]
-            assert not any(name == 'monit_docker.cli' or name.startswith('monit_docker.cli.')
+            assert not any(name in ('monit_docker.cli', 'monit_docker.cli_audit') or name.startswith('monit_docker.cli.')
                            for name in names), (str(path), node.lineno)
 
 
@@ -51,7 +51,7 @@ class ApplicationArchitectureTests(unittest.TestCase):
             import sys
             class BlockInterfaces(importlib.abc.MetaPathFinder):
                 def find_spec(self, fullname, path=None, target=None):
-                    if fullname in ('monit_docker.cli', 'monit_docker.__main__', 'curses'):
+                    if fullname in ('monit_docker.cli', 'monit_docker.cli_audit', 'monit_docker.__main__', 'curses'):
                         raise AssertionError('Interface imported: ' + fullname)
             sys.meta_path.insert(0, BlockInterfaces())
 

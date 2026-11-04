@@ -109,7 +109,9 @@ lock and reserves the same persistent cooldowns as [cron](cron.md). The lock is
 released between cycles. Using the same file lets cron and serve coordinate;
 separate files do not coordinate actions. Lock contention (117), state failures
 (118), Docker errors or action failures mark that cycle as failed. The process
-remains alive and retries on the next cycle. The successful actions of a partial
+remains alive and retries on the next cycle. The first failed action stops evaluation
+of the remaining containers. Until a complete cycle succeeds, `/readyz` returns
+503 and `/v1/status` exposes an empty container list. The successful actions of a partial
 cycle are not rolled back, and their reservations remain on disk.
 
 Automatic Docker restarts default to three attempts per container ID across all

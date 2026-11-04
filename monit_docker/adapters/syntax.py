@@ -43,7 +43,7 @@ PRE_COND_RE             = (r'(?:\s*(?P<pre_value>[0-9]+(?:\.[0-9]+)?\s*(?P<pre_v
                            r'(?P<pre_op>[\!\<\>=]=|[\<\>])\s+)?\s*')
 DATATYPE_RE             = r'(?P<datatype>[a-z_]+(?:\[[a-zA-Z][a-zA-Z0-9_.-]{0,64}\])?)\s*'
 OP_RE                   = r'(?P<op>[\!\<\>=]=|[\<\>]|\s+in\s+|\s+not in\s+)\s*'
-VALUE_RE                = r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?\s*(?P<value_unit>[a-zA-Z]+)?|[a-z]+|\((?:[a-z]+\,?){1,64}\)))'
+VALUE_RE                = r'(?P<value>(?:[0-9]+(?:\.[0-9]+)?\s*(?P<value_unit>[a-zA-Z]+)?|[a-z]+|\([a-z]+(?:[ \t]*,[ \t]*[a-z]+){0,63},?\)))'
 CMD_RE                  = r'(?P<cmd>[^@].{2,})'
 CMD_ALIAS_RE            = r'@(?P<cmd_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})'
 COND_ALIAS_RE           = r'@(?P<cond_alias>[a-zA-Z][a-zA-Z0-9_\-\.]{0,64})'

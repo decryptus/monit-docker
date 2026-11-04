@@ -14,6 +14,19 @@ from monit_docker.domain.models import ContainerSnapshot
 
 
 class RuleLiteralTests(unittest.TestCase):
+    def test_membership_spacing_in_rules_and_configured_conditions(self):
+        parser = RuleParser(conditions={'available': {'expr': ['status in (paused, running)']}})
+        evaluator = RuleEvaluator()
+        snapshot = ContainerSnapshot(status='running', health='healthy')
+        for expression, matches in (('status in (paused, running) ? restart', True),
+                                    ('status not in (paused , running) ? restart', False),
+                                    ('@available ? restart', True),
+                                    ('health in (starting, healthy) ? restart', True)):
+            with self.subTest(expression=expression):
+                self.assertEqual(evaluator.matches(parser.parse(expression), snapshot), matches)
+        with self.assertRaises(RuleSyntaxError):
+            parser.parse('health in (healthy, madeup) ? restart')
+
     def test_unsupported_unit_is_a_rule_syntax_error(self):
         for expression in ('mem_usage > 100 mb ? restart',
                            'mem_limit > 100 KB ? restart',
