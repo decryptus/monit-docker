@@ -156,3 +156,20 @@ add explicit rules, a persistent state-directory mount and `--state-file`, and
 start with `--dry-run`. Prometheus alerts only report conditions; they do not
 execute agent actions. Notification delivery requires a separately configured
 Alertmanager; [email and Slack examples](notifications.md) are included.
+
+## Optional authentication for metrics
+
+By default Prometheus can scrape `/metrics` without credentials. To protect
+this endpoint, create a dedicated secret file with `(umask 077; openssl rand -hex 32 > metrics-token)` in a private directory. Mount
+the resulting file read-only in both containers and pass
+`--metrics-token-file /run/secrets/metrics` after `monit-docker serve`.
+Add the following to the matching Prometheus scrape job:
+
+```yaml
+authorization:
+  type: Bearer
+  credentials_file: /run/secrets/metrics
+```
+
+Use HTTPS when scraping across an untrusted network. The token only grants
+access to metrics. Configure access to `/v1/status` separately at your proxy.
