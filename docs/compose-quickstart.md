@@ -11,6 +11,25 @@ stack. None of these installations enables automatic container actions by defaul
 | Agent and web UI | Base plus `docker-compose.ui.yml` | `https://localhost:8443` |
 | Metrics history and dashboards | `examples/monitoring/compose.yaml` | Grafana on `http://127.0.0.1:3000` |
 
+## Guided installation
+
+On Linux amd64, install Git, Docker Engine, its Compose v2 plugin with
+`up --wait` support, and curl. For the web dashboard, install Python 3 and OpenSSL.
+
+```sh
+git clone https://github.com/decryptus/monit-docker.git
+cd monit-docker
+./install.sh
+```
+
+Press Enter to include the local dashboard. On first use, choose a username and
+a password of at least 12 characters. The script checks collection and the HTTPS
+login challenge, then prints the container count and address. The self-signed
+local certificate lasts seven days. Over SSH, run the displayed tunnel example
+on your workstation. Rerun `./install.sh --ui` in the same directory to reuse
+credentials and the existing volume. Use `./install.sh --agent-only` for the API
+alone. To remove an existing UI, follow the shutdown procedure below.
+
 ## Prerequisites
 
 Use Linux Docker Engine, a local Unix Docker socket and a current Docker Compose

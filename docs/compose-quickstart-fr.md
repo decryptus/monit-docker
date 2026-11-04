@@ -11,6 +11,26 @@ automatique des conteneurs surveillés.
 | Agent et interface web | Base et `docker-compose.ui.yml` | `https://localhost:8443` |
 | Historique et graphiques | `examples/monitoring/compose.yaml` | Grafana sur le port 3000 |
 
+## Installation guidée
+
+Sur Linux amd64, installer Git, Docker Engine, son plugin Compose v2 avec
+`up --wait` et curl. Pour le tableau de bord, prévoir Python 3 et OpenSSL.
+
+```sh
+git clone https://github.com/decryptus/monit-docker.git
+cd monit-docker
+./install.sh
+```
+
+Appuyer sur Entrée pour ajouter le tableau de bord local. Au premier lancement,
+choisir un identifiant et un mot de passe de 12 caractères minimum. Le script
+vérifie la collecte et la demande d’authentification HTTPS, puis affiche le nombre
+de conteneurs et l’adresse. Le certificat local autosigné est valable sept jours.
+Après une connexion SSH, suivre l’exemple de tunnel affiché depuis son poste.
+Relancer `./install.sh --ui` dans le même dossier réutilise les identifiants et le
+volume existants. Pour l’API seule, utiliser `./install.sh --agent-only`.
+Pour retirer une interface déjà installée, suivre la procédure d’arrêt ci-dessous.
+
 ## Préparer la machine
 
 Utiliser Docker Engine sous Linux, son socket Unix local et une version récente
