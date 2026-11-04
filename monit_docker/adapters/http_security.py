@@ -24,6 +24,8 @@ def load_security(*, action_token_file=None, action_origin=None, trust_actor=Fal
     read_token = read_proxy_token(audit_read_token_file) if audit_read_token_file else None
     if read_token and read_token in (action_token, notification_token):
         raise MonitoringError(110, 'audit read secret must differ from action and notification secrets')
+    if action_token and action_token == notification_token:
+        raise MonitoringError(110, 'notification secret must differ from action secret')
     return HttpSecurity(action_token=action_token, action_origin=action_origin,
                         trust_actor=trust_actor, notification_token=notification_token,
                         audit_token=read_token)
