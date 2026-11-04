@@ -48,10 +48,6 @@ def main():
     if secret_dir.exists():
         raise RuntimeError('Use a clean disposable checkout; secrets.local already exists')
     password = secrets.token_hex(24)
-    subprocess.run(['python3', 'examples/ui/prepare.py', '--self-signed'],
-                   input='compose-ci\n' + password + '\n' + password + '\n',
-                   text=True, cwd=ROOT, check=True)
-    tls = ssl.create_default_context(cafile=str(secret_dir / 'tls.crt'))
     auth = 'Basic ' + base64.b64encode(('compose-ci:' + password).encode()).decode()
 
     def request(path='/v1/status', browser=False, authenticated=True):
@@ -66,10 +62,18 @@ def main():
                                         '{{.State.StartedAt}}', WORKER], text=True).strip()
 
     try:
-        compose(BASE_FILES, 'up', '-d', '--wait', '--wait-timeout', '180')
+        subprocess.run(['./install.sh', '--agent-only'], stdin=subprocess.DEVNULL, cwd=ROOT, env=ENV, check=True)
         wait_for(lambda: request()['ready'], 'minimal agent collects actual containers')
         assert not request()['manual_actions']['enabled']
-        compose(BASE_FILES, 'down')
+        # Choose the default dashboard in a clean checkout, then repeat without credentials.
+        subprocess.run(['./install.sh'], input='\ncompose-ci\n' + password + '\n' + password + '\n',
+                       text=True, cwd=ROOT, env=ENV, check=True)
+        preserved = {p: p.read_bytes() for p in secret_dir.iterdir()}
+        subprocess.run(['./install.sh', '--ui'], stdin=subprocess.DEVNULL, cwd=ROOT, env=ENV, check=True)
+        assert all(p.read_bytes() == data for p, data in preserved.items())
+        tls = ssl.create_default_context(cafile=str(secret_dir / 'tls.crt'))
+        assert request(browser=True)['ready']
+        compose(BASE_FILES + ['docker-compose.ui.yml'], 'down')
 
         compose(LAB_FILES, 'up', '-d', '--wait', '--wait-timeout', '180')
         try:

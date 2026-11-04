@@ -24,15 +24,18 @@ monit-docker is a free, open-source tool for checking Docker containers and
 optionally taking action when a condition matches, such as restarting a stopped
 container or reloading PHP-FPM when memory usage is high.
 
-**Start monitoring with Docker Compose.** With Docker and Compose installed,
-run these three commands. The default configuration observes containers without
-executing action rules.
+**Start monitoring with the guided installer.** On Linux amd64 with Docker Engine,
+Compose v2 and curl, run:
 
 ```sh
 git clone https://github.com/decryptus/monit-docker.git
 cd monit-docker
-docker compose up -d --wait
+./install.sh
 ```
+
+Press Enter for the local HTTPS dashboard (Python 3 and OpenSSL for first-time
+setup), or use `./install.sh --agent-only` for just the API. The installer
+checks the first collection and prints the detected container count and address.
 
 [Compose setup and prerequisites](docs/compose-quickstart.md) ·
 [Guide en français](docs/compose-quickstart-fr.md) · [Python installation](#installation)
