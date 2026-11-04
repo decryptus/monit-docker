@@ -12,6 +12,10 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
+## 1.1.4 guided installation
+
+The [1.1.4 release](release-1.1.4.md) includes the local Compose installer and repeat-installation checks.
+
 ## 1.1.3 maintenance update
 
 The [1.1.3 release notes](release-1.1.3.md) cover historical snapshots in the dashboard and spaced membership lists in rules.

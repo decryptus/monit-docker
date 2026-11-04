@@ -17,7 +17,7 @@ On Linux amd64, install Git, Docker Engine, its Compose v2 plugin with
 `up --wait` support, and curl. For the web dashboard, install Python 3 and OpenSSL.
 
 ```sh
-git clone https://github.com/decryptus/monit-docker.git
+git clone --branch v1.1.4 --depth 1 https://github.com/decryptus/monit-docker.git
 cd monit-docker
 ./install.sh
 ```
@@ -116,7 +116,7 @@ host ports. The UI binds to loopback unless `UI_BIND` is explicitly changed.
 Changing a host port does not change internal agent addresses. Keep the same
 directory/project name so Compose reuses its named volume.
 
-The examples pin agent and UI to **1.1.3**. When updating versions, preserve your
+The examples pin agent and UI to **1.1.4**. When updating versions, preserve your
 configuration and state, choose matching agent/UI versions, then pull and recreate
 the selected stack. `docker compose pull` alone does not change a running container.
 
