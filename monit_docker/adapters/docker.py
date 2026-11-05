@@ -6,13 +6,18 @@ import logging
 import os
 import sys
 from collections import OrderedDict
+from concurrent.futures import Future, wait
+from threading import Thread
+from time import monotonic
+
+from urllib3.exceptions import ProtocolError, TimeoutError as TransportTimeout
 from numbers import Integral
 
 import docker
 from docker.errors import APIError
 
 from monit_docker.core.metrics import ResourceCalculator
-from monit_docker.domain.errors import CommandExecutionError, MonitoringError
+from monit_docker.domain.errors import CommandExecutionError, ExecOutcomeUnknown, MonitoringError
 from monit_docker.domain.models import ContainerSnapshot, STATE_RESOURCES
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.syntax import DOCKER_COMMANDS
@@ -25,6 +30,7 @@ from monit_docker.adapters.stats import read_stats, MAX_STATS_SAMPLES
 
 LOG = logging.getLogger('monit-docker')
 
+_EXEC_TIMEOUT_SECONDS = 60
 _MANUAL_PROTECTION_LABEL = 'monit-docker.protected'
 _UNPROTECTED_LABEL_VALUES = frozenset(('false', '0', 'no', 'off'))
 _DOCKER_HEALTH_STATES = frozenset(('healthy', 'unhealthy', 'starting'))
@@ -203,6 +209,41 @@ class DockerCollector(object):
 class DockerActionExecutor(object):
     def __init__(self, collector):
         self.collector = collector
+        self._pending_exec = None
+
+    def _exec(self, obj, command, args, kwargs):
+        if self._pending_exec is not None and self._pending_exec.is_alive():
+            raise MonitoringError(116, 'exec not submitted: previous Docker call is still pending')
+        self._pending_exec = None
+        timeout = kwargs.pop('exec_timeout', _EXEC_TIMEOUT_SECONDS)
+        deadline = monotonic() + timeout
+        completion = Future()
+
+        def run():
+            try:
+                if monotonic() >= deadline:
+                    raise MonitoringError(116, 'exec deadline expired before submission')
+                result = obj.exec_run(command, *args, **kwargs)
+                completion.set_result(result.exit_code)
+            except BaseException as error:
+                completion.set_exception(error)
+
+        worker = Thread(target=run, name='monit-docker-exec', daemon=True)
+        worker.start()
+        done, _ = wait((completion,), timeout=max(0, deadline - monotonic()))
+        if not done:
+            # The SDK still owns this cycle's connection. Transfer cleanup to
+            # the worker so the next observation can open a fresh client.
+            client, self.collector.client = self.collector.client, None
+            self._pending_exec = worker
+            completion.add_done_callback(lambda _: client.api.close())
+            raise ExecOutcomeUnknown('exec deadline expired on %s; outcome unknown' % obj.name)
+        try:
+            return completion.result()
+        except APIError:
+            raise
+        except (OSError, ProtocolError, TransportTimeout) as error:
+            raise ExecOutcomeUnknown('Docker connection interrupted on %s; exec outcome unknown' % obj.name) from error
 
     def execute(self, identifier, action):
         """Execute against this cycle's selected object, never a cached prior one."""
@@ -211,13 +252,11 @@ class DockerActionExecutor(object):
         try:
             LOG.info('execute %r on %s', action.command, obj.name)
             if action.kind == 'exec':
-                result = obj.exec_run(action.command, *args, **kwargs)
-                LOG.info('%r executed in %s: %r', action.command, obj.name, result)
-                exit_code = result.exit_code
+                exit_code = self._exec(obj, action.command, args, kwargs)
                 if isinstance(exit_code, bool) or not isinstance(exit_code, Integral) or not 0 <= exit_code <= 255:
                     # Detached/streaming execs have no completed status. Never
                     # propagate an unavailable or invalid status as success.
-                    return False
+                    raise ExecOutcomeUnknown('Docker returned no valid exit status on %s; exec outcome unknown' % obj.name)
                 if exit_code:
                     raise CommandExecutionError(exit_code, 'command failed on %s: %r (exit code %s)' %
                                                 (obj.name, action.command, exit_code))
