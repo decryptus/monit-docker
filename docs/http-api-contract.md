@@ -15,6 +15,14 @@ routes, adds authentication and may return its own error responses. In
 particular, the public demo does not forward `/metrics`, `/healthz`, `/readyz`
 or the notification receiver. Use the private agent address in the examples.
 
+The agent allows 5 seconds of inactivity per socket read. HTTPdis also limits
+the request line and headers together to 10 seconds, even if bytes keep
+arriving. It closes an incomplete request at that deadline. After authentication
+and size checks, the body has a separate budget of 10 seconds plus one second
+per 32 KiB of declared length (up to 12 seconds for the 64 KiB notification
+route). A body timeout returns HTTP 408 and closes the connection before the
+action or notification is submitted.
+
 Agent JSON responses use `application/json; charset=utf-8`, a trailing newline,
 and finite JSON numbers. Normal route responses and adapter errors include:
 
