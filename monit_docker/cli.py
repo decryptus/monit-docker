@@ -29,6 +29,7 @@ from monit_docker.observation import DEFAULT_REFRESH, MIN_REFRESH, MAX_REFRESH
 from monit_docker.job import JobOptions, validate_job
 from dataclasses import replace
 from monit_docker.audit import DEFAULT_MAX_BYTES
+from monit_docker.adapters.serve_config import SERVE_FIELDS
 from monit_docker.adapters.syntax import RESOURCE_CHOICES, DEFAULT_RESOURCE_CHOICES, STATUS_RC, HEALTH_RC
 from monit_docker.domain.runtime import DEFAULT_EVENT_WINDOW, valid_event_window
 from monit_docker.core.policy import DEFAULT_MAX_RESTARTS
@@ -230,7 +231,7 @@ class MonitDockerSubCmdStats(object):
     def __init__(self, options):
         self.options = options
         self.application = build_application(job_options(options),
-            config=getattr(options, '_scenario_config', None), inline=MONIT_DOCKER_CONFIG,
+            config=getattr(options, '_loaded_config', None), inline=MONIT_DOCKER_CONFIG,
             use_rules=self.USE_RULES, actor=getpass.getuser())
         self.engine, self.rules, self.audit = self.application.engine, self.application.rules, self.application.audit
 
@@ -362,7 +363,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
 
 def _add_policy_options(parser):
     parser.add_argument('--max-restarts', type=int, default=DEFAULT_MAX_RESTARTS,
-                        help='automatic restart attempts per container until explicit rearm (default: %(default)s)')
+                        help=f'automatic restart attempts per container until explicit rearm (default: {DEFAULT_MAX_RESTARTS})')
     parser.add_argument('--trigger-after', type=float, default=0,
                         help='seconds a condition must remain observed true before acting (default: 0)')
     parser.add_argument('--max-gap', type=float,
@@ -429,12 +430,12 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--state-file', help='persistent cooldown state; required with rules')
         parser.add_argument('--cooldown', type=float, default=300, help='seconds between attempts of the same rule (default: 300)')
         parser.add_argument('--dry-run', action='store_true', help='evaluate remediation rules without executing them')
-        parser.add_argument('--allow-maintenance', action='store_true',
+        parser.add_argument('--allow-maintenance', action=argparse.BooleanOptionalAction,
                             help='also enable authenticated per-container maintenance controls')
-        parser.add_argument('--allow-actions', action='store_true', help='enable the authenticated manual action API')
+        parser.add_argument('--allow-actions', action=argparse.BooleanOptionalAction, help='enable the authenticated manual action API')
         parser.add_argument('--action-origin', help='exact HTTPS browser origin allowed to submit actions')
         parser.add_argument('--action-token-file', help='file containing a 64-character hex proxy secret')
-        parser.add_argument('--trust-proxy-user', action='store_true',
+        parser.add_argument('--trust-proxy-user', action=argparse.BooleanOptionalAction,
                             help='require X-Monit-Actor supplied and overwritten by the authenticated proxy')
         parser.add_argument('--audit-read-token-file', help='enable private journal reads through an authenticated proxy with a separate secret')
         parser.add_argument('--status-token-file', help='require a dedicated Bearer secret to read /v1/status')
@@ -443,9 +444,34 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--action-cooldown', type=float, default=30,
                             help='minimum seconds between manual attempts per container (default: 30)')
         _add_policy_options(parser)
+        # Preserve which flags were actually supplied, even for values equal to defaults.
+        destinations = ['resource' if key == 'rsc' else key for key in SERVE_FIELDS]
+        parser.set_defaults(_serve_defaults={key: parser.get_default(key) for key in destinations})
+        parser.set_defaults(**dict.fromkeys(destinations))
+
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
+        from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError
+        try:
+            config = CheckedConfiguration(options.conffile, MONIT_DOCKER_CONFIG).load(allow_missing=True)
+        except ConfigurationCheckError as error:
+            parser.exit(110, '%s: %s\n' % (error.location, error))
+        options._loaded_config = config
+        section = config.get('serve', {})
+        if options.allow_actions is False:
+            # Ignore YAML defaults belonging solely to the disabled capability.
+            section = dict(section)
+            for key in ('action_origin', 'action_token_file', 'allow_maintenance'):
+                section.pop(key, None)
+            if not (options.audit_read_token_file or section.get('audit_read_token_file')):
+                section.pop('trust_proxy_user', None)
+        for dest, default in options._serve_defaults.items():
+            if getattr(options, dest) is None:
+                key = 'rsc' if dest == 'resource' else dest
+                setattr(options, dest, section.get(key, default))
+        del options._serve_defaults
+
         import ipaddress
         try:
             ipaddress.IPv4Address(options.bind)
@@ -488,6 +514,10 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
                 parser.error('--allow-actions cannot be combined with --dry-run')
         elif options.action_origin or options.action_token_file:
             parser.error('--action-origin and --action-token-file require --allow-actions')
+        for role in ('action', 'audit_read', 'status', 'metrics', 'notification'):
+            path = getattr(options, role + '_token_file')
+            if path is not None and not path.strip():
+                parser.error('token file path must not be empty')
         if not math.isfinite(options.action_cooldown) or options.action_cooldown < 1:
             parser.error('--action-cooldown must be finite and at least 1 second')
         if options.audit_read_token_file and not options.audit_file:

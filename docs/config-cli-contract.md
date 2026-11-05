@@ -40,6 +40,7 @@ is rendered once; runtime and offline checks use the same validation. See the
 | `dir-groups` | `NAME: {paths: [STRING, ...], access: MAPPING}` | Nonempty absolute container paths; `access` is optional unless an access probe is requested |
 | `conditions` | `NAME: {expr: [STRING, ...]}` | Nonempty list of conditions combined with AND |
 | `commands` | `NAME: {exec: [ACTION, ...]}` | Nonempty ordered action sequence |
+| `serve` | Mapping | Defaults for direct `serve`; explicit CLI options take precedence (see [serve](serve.md#configure-serve-in-yaml)) |
 | `scenarios` | `NAME: MAPPING` | A named `stats`, `cron` or `serve` job |
 
 Command/condition aliases and directory-group names use an ASCII letter followed
