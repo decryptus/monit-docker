@@ -270,7 +270,7 @@ execution do. Disk/inode/mount-mode resources do not require it.
 | 110 | Configuration, alias, scenario or value error handled as such |
 | 114 | No container selected |
 | 115 | Required observation unavailable |
-| 116 | Action failure; default for failed in-container exec |
+| 116 | Action failure or unknown exec outcome. See [exec wait limits](cron.md#exit-codes-and-limits) |
 | 117 | Persistent state lock busy |
 | 118 | State read/write/validation failure |
 | 119 | Audit error, or handled OS/value errors in local administration commands |
