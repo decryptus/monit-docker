@@ -1,3 +1,11 @@
+monit-docker (1.3.1) stable; urgency=medium
+
+  * Run the root Compose agent behind the filtered Docker socket proxy.
+  * Require explicit per-target grants for exec and lifecycle operations.
+  * Detect existing direct-socket agents before a guided installation.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 05 Nov 2026 08:35:00 +0100
+
 monit-docker (1.3.0) stable; urgency=medium
 
   * Read serve, cron, stats and monit defaults from their own YAML sections.

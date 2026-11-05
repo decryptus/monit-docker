@@ -55,6 +55,7 @@ For installation and the command reference, see the
    check-config
    configuration-validation
    textual
+   release-1.3.1
    release-1.3.0
    release-1.2.0
    release-1.1.4
