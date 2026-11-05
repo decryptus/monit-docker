@@ -207,6 +207,10 @@ class RuleParser(object):
             command = item['cmd'].strip()
             if command.startswith('(') and command.endswith(')'):
                 kind, command = 'exec', command[1:-1]
+                if 'exec_timeout' in item['kwargs']:
+                    timeout = item['kwargs']['exec_timeout']
+                    if type(timeout) is not int or not 1 <= timeout <= 86400:
+                        raise MonitoringError(110, 'exec_timeout must be an integer from 1 to 86400 seconds')
                 if not command.strip():
                     raise MonitoringError(110, 'missing command to execute: %r' % expression)
             elif command in DOCKER_COMMANDS:

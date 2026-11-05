@@ -56,6 +56,23 @@ class DockerIntegrationTests(unittest.TestCase):
         self.objects.append(obj)
         return obj
 
+    def test_timed_out_exec_can_finish_after_a_fresh_observation(self):
+        from monit_docker.domain.errors import ExecOutcomeUnknown
+        obj = self.create_container()
+        command = "(sh -c 'while [ ! -e /tmp/release ]; do sleep 0.1; done; touch /tmp/finished')"
+        parser = RuleParser(commands={'slow': {'exec': [{command: {'kwargs': {'exec_timeout': 1}}}]}})
+        with self.assertRaises(ExecOutcomeUnknown):
+            self.engine.run_once(rules=(parser.parse('@slow'),), resources=('status',))
+        observed = self.engine.run_once(resources=('status',))
+        self.assertEqual(observed.snapshots[0].id, obj.id)
+        self.assertEqual(obj.exec_run(['touch', '/tmp/release']).exit_code, 0)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if obj.exec_run(['test', '-f', '/tmp/finished']).exit_code == 0:
+                return
+            time.sleep(0.1)
+        self.fail('Remote exec did not finish after local wait expired')
+
     def test_connection_outage_clears_cache_and_recovers_next_cycle(self):
         from monit_docker.service import MonitorService
         self.create_container()

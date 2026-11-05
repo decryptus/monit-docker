@@ -9,6 +9,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+from threading import Event
 import unittest
 from unittest.mock import Mock, patch
 import urllib.error
@@ -16,7 +17,7 @@ import urllib.error
 from monit_docker.audit import AuditError, AuditJournal, FIELDS, event_record, export_events, notification_delivery, prepare_record
 from monit_docker.audit_forward import NoRedirect, send_events
 from monit_docker.notification_audit import NotificationAudit
-from monit_docker.domain.errors import ActionRejected, MonitoringError
+from monit_docker.domain.errors import ActionRejected, ExecOutcomeUnknown, MonitoringError
 from monit_docker.manual_actions import ManualActions
 from monit_docker.service import MonitorService
 from test_manual_actions import ID, TOKEN, ORIGIN, payload, snapshot
@@ -265,6 +266,33 @@ class ActionAuditTests(unittest.TestCase):
         actions.execute.assert_not_called()
         self.assertEqual(actions.status()['recent'][0]['error'], 'audit_unavailable')
 
+
+    def test_slow_exec_releases_cycle_and_reports_unknown(self):
+        obj = container()
+        engine, factory, client = engine_tests.EngineTests.make_engine(self, obj)
+        engine.audit = self.journal
+        release, closed = Event(), Event()
+        self.addCleanup(release.set)
+        obj.exec_run.side_effect = lambda *args: release.wait(5) and Mock(exit_code=0)
+        client.api.close.side_effect = closed.set
+        rule = RuleParser().parse('(probe)')
+        fresh = Mock()
+        fresh.containers.list.return_value = [container()]
+        factory.side_effect = [client, fresh, fresh]
+        with patch('monit_docker.adapters.docker._EXEC_TIMEOUT_SECONDS', 0.2):
+            with self.assertRaises(ExecOutcomeUnknown) as failure:
+                engine.run_once(rules=(rule, RuleParser().parse('restart')))
+        self.assertEqual(failure.exception.code, 116)
+        self.assertEqual(self.journal.read()[-1]['result'], 'unknown')
+        obj.restart.assert_not_called()
+        self.assertFalse(closed.is_set())
+        engine.run_once(resources=('status',))
+        with self.assertRaisesRegex(MonitoringError, 'not submitted'):
+            engine.run_once(rules=(rule,))
+        fresh.containers.list.return_value[0].exec_run.assert_not_called()
+        release.set()
+        self.assertTrue(closed.wait(2))
+        client.api.close.assert_called_once_with()
 
     def test_automatic_success_failure_simulation_and_write_before_execute(self):
         obj = container()

@@ -14,11 +14,12 @@ const ACTION_LABELS = {
   'restart-reset': 'Restart budget reset'
 };
 const FILTER_LABELS = {since: 'From', until: 'To', container: 'Container', source: 'Source', category: 'Category', result: 'Result'};
-const RESULT_LABELS = {pending: 'Pending (queued or in progress)', succeeded: 'Succeeded', failed: 'Failed', rejected: 'Rejected', skipped: 'Skipped', simulated: 'Simulation', accepted: 'Accepted', received: 'Received'};
+const RESULT_LABELS = {pending: 'Pending (queued or in progress)', succeeded: 'Succeeded', failed: 'Failed', unknown: 'Outcome unknown', rejected: 'Rejected', skipped: 'Skipped', simulated: 'Simulation', accepted: 'Accepted', received: 'Received'};
 const ACTION_ERRORS = {...ERRORS, 400: 'Invalid action filter or cursor. Try Refresh action.', 410: 'This action view expired. Choose Refresh action.'};
 function eventPresentation(record) {
   const outcome = record.result || record.event;
   const states = {
+    unknown: ['warning', 'Outcome unknown', 'unknown'],
     failed: ['danger', 'Failed', 'failed'], rejected: ['danger', 'Rejected', 'rejected'],
     succeeded: ['success', 'Succeeded', 'completed'], skipped: ['warning', 'Skipped', 'skipped'],
     simulated: ['secondary', 'Simulation', 'simulated'],

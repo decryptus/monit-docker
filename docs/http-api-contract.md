@@ -228,7 +228,7 @@ policy remains a separate roadmap item.
 | `container` | Case-insensitive substring of container name or ID, not a glob or regular expression |
 | `source` | `manual` or `automatic` |
 | `category` | `action` or `notification` |
-| `result` | `pending`, `succeeded`, `failed`, `rejected`, `skipped`, `simulated`, `accepted`, `received` |
+| `result` | `pending`, `succeeded`, `failed`, `unknown`, `rejected`, `skipped`, `simulated`, `accepted`, `received` |
 | `correlation_id` | Exact, case-sensitive ID |
 | `cursor` | Opaque signed continuation or page token |
 | `format` | `jsonl` (default) or `csv`; affects the export route, not the JSON page envelope |

@@ -222,6 +222,19 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual((Path(self.temp.name) / 'demo.pid').read_text(), '123\n')
         self.assertEqual(write.call_args.args[0], 'demo|pid:123\n')
 
+    def test_exec_alias_wait_limit_is_validated_and_consumed_locally(self):
+        for value, expected in [(120, 0), (0, 110), (True, 110)]:
+            with self.subTest(value=value):
+                self.conf.write_text('commands:\n  probe:\n    exec:\n      - "(probe)":\n'
+                                     '          kwargs: {exec_timeout: %s, user: nobody}\n' % value)
+                call = self.client.containers.list.return_value[0].exec_run
+                call.reset_mock()
+                self.assertEqual(self.invoke('monit', '--cmd', '@probe'), expected)
+                if expected:
+                    call.assert_not_called()
+                else:
+                    call.assert_called_once_with('probe', user='nobody')
+
     def test_exec_exit_codes_with_and_without_propagation(self):
         for propagate in (False, True):
             for code in (0, 1, 42, 116, 137, 255):

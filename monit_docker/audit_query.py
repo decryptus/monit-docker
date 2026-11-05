@@ -29,7 +29,7 @@ FILTER_KEYS       = ('since', 'until', 'container', 'source', 'category', 'resul
 _FILTER_KEY_SET   = frozenset(FILTER_KEYS)
 _SOURCE_VALUES    = ('manual', 'automatic')
 _CATEGORY_VALUES  = ('action', 'notification')
-_RESULT_VALUES    = ('pending', 'succeeded', 'failed', 'rejected', 'skipped', 'simulated', 'accepted', 'received')
+_RESULT_VALUES    = ('pending', 'succeeded', 'failed', 'unknown', 'rejected', 'skipped', 'simulated', 'accepted', 'received')
 _DATE_FILTERS     = ('since', 'until')
 _FILTER_CHOICES   = {'source': _SOURCE_VALUES, 'category': _CATEGORY_VALUES, 'result': _RESULT_VALUES}
 

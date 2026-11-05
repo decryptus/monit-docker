@@ -131,7 +131,7 @@ Leave the lock file in place.
 | 110 | Invalid configuration or action |
 | 114 | No matching container |
 | 115 | Incomplete statistics |
-| 116 | Action failed (existing default) |
+| 116 | Action failed or its outcome is unknown |
 | 117 | Another process holds this job's lock |
 | 118 | State cannot be safely loaded or saved |
 | 170 / 180 | Existing Docker connection / API errors |
@@ -140,6 +140,17 @@ Leave the lock file in place.
 can return its own code instead of 116, including values that overlap agent
 codes. Check diagnostics to distinguish them. Other existing exit codes retain
 their meaning.
+
+An exec action waits up to 60 seconds for a Docker exit status. For a long
+command, set `kwargs.exec_timeout` on its YAML command alias (integer seconds,
+1 to 86400). This limit also applies to rule execs in `monit` and `serve`.
+
+On expiry the cycle stops, releases its state lock, and records `result=unknown`
+in the audit journal. An interrupted connection or unavailable exit status
+also produces an unknown result. Check the container before retrying: the
+command may still run. Later observation cycles can proceed. The same live
+executor refuses further execs while its outstanding SDK call is pending.
+A separate cron process or a later rule evaluation can submit the command again.
 
 There is no background scheduler or HTTP listener. The optional [trigger delay](trigger-delay.md) tracks sustained conditions.
 There is no cycle-wide deadline or hysteresis. Existing Docker client timeouts still apply; a hung cycle can hold its
