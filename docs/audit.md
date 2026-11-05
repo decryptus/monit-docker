@@ -232,8 +232,7 @@ Quick filters use the applied view and replace unsubmitted form edits.
 When upgrading the agent from 1.1.4, add `--trust-proxy-user` to the new agent's
 `serve` options to preserve per-user journal cursors behind the authenticated
 proxy, including in read-only mode. Without this option all holders of the read
-secret share the `anonymous` reader identity. Keep the journal overlay's original
-command while using the pinned 1.1.4 image.
+secret share the `anonymous` reader identity. The 1.2.0 journal overlay sets this option.
 
 The API is disabled by default. Enable `serve --audit-read-token-file FILE` and
 supply an explicit global `--audit-file PATH`. Use a separate 64-character hex
