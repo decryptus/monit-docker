@@ -11,6 +11,37 @@ stack. None of these installations enables automatic container actions by defaul
 | Agent and web UI | Base plus `docker-compose.ui.yml` | `https://localhost:8443` |
 | Metrics history and dashboards | `examples/monitoring/compose.yaml` | Grafana on `http://127.0.0.1:3000` |
 
+## Optional filtered Docker socket
+
+With Compose **2.24.4 or newer**, run these commands at the repository root:
+
+```sh
+export DOCKER_SOCKET_GID=$(stat -c %g "${DOCKER_SOCKET_PATH:-/var/run/docker.sock}")
+docker compose -f docker-compose.yml -f docker-compose.socket-proxy.yml up -d --build --wait
+```
+
+Only the proxy mounts the host socket. The agent reaches it on a private network;
+the proxy publishes no host port. Observation permits version discovery, container
+listing, inspection, stats, events and image inspection by digest. Inspection can
+reveal environment variables and mounts. Keep the proxy network private.
+
+To grant additional operations, export either variable and repeat the Compose
+command. Each value is a space-separated list of **full container IDs**. Get an
+ID with `docker inspect -f '{{.Id}}' NAME`. Update the list after a target is recreated.
+Unset the variable and reapply the command to revoke new requests.
+
+| Variable | Grants on the listed targets |
+| --- | --- |
+| `MONIT_PROXY_EXEC_TARGETS` | Filesystem probes and arbitrary non-privileged Docker execs, including commands as root inside the target |
+| `MONIT_PROXY_LIFECYCLE_TARGETS` | Start, stop and restart |
+
+Choose trusted workload containers only. An exec into a privileged container or
+one with a host filesystem or Docker socket mount can grant host access. The
+allowlist limits the Docker API available to the agent; the proxy process itself
+holds the real socket. These settings grant transport access. Configure any
+monitoring rules or manual action credentials separately. Use the same pair of
+Compose files for `down`.
+
 ## Guided installation
 
 On Linux amd64, install Git, Docker Engine, its Compose v2 plugin with
