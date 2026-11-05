@@ -1,5 +1,6 @@
 """Observable configuration and target-selection behavior for the 1.0 inventory."""
 import io
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -84,8 +85,16 @@ class CliContractTests(unittest.TestCase):
             client_factory(config, 'first')()
             configured.assert_called_with(base_url='unix:///first.sock')
             configured.reset_mock()
-            client_factory(config, 'first', from_env=True)()
-            environment.assert_called_once_with()
+            for host in (None, '', 'tcp://remote:2376'):
+                values = {'DOCKER_TLS_VERIFY': '1', 'DOCKER_CERT_PATH': '/certs'}
+                if host is not None:
+                    values['DOCKER_HOST'] = host
+                with self.subTest(host=host), patch.dict(os.environ, values, clear=True):
+                    environment.reset_mock()
+                    client_factory(config, 'first', from_env=True)()
+                    expected = dict(values, DOCKER_HOST=host or 'unix:///var/run/docker.sock')
+                    environment.assert_called_once_with(environment=expected)
+                    self.assertEqual(dict(os.environ), values)
             configured.assert_not_called()
 
     def test_global_options_followed_by_subcommand_options_and_invalid_placement(self):
