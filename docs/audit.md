@@ -229,6 +229,12 @@ retains its existing case-insensitive substring matching. Queued and In progress
 both select Pending. Exports follow the applied filters and current page.
 Quick filters use the applied view and replace unsubmitted form edits.
 
+When upgrading the agent from 1.1.4, add `--trust-proxy-user` to the new agent's
+`serve` options to preserve per-user journal cursors behind the authenticated
+proxy, including in read-only mode. Without this option all holders of the read
+secret share the `anonymous` reader identity. Keep the journal overlay's original
+command while using the pinned 1.1.4 image.
+
 The API is disabled by default. Enable `serve --audit-read-token-file FILE` and
 supply an explicit global `--audit-file PATH`. Use a separate 64-character hex
 secret, never the action or notification secret. An authenticated proxy must
@@ -258,8 +264,8 @@ directory (the preparation script refuses to overwrite an existing directory).
 Add global `--audit-file /var/lib/monit-docker/audit/events.jsonl` **before**
 `serve`, then append `--audit-read-token-file /run/secrets/audit-token` to the
 serve options. Reuse the token and proxy-include mounts from
-`compose.journal.yaml`. Add `--trust-proxy-user` if manual action attribution
-should use the authenticated username. Compose replaces `command` lists: do not
+`compose.journal.yaml`. Add `--trust-proxy-user` to bind journal cursors and attribute manual actions
+to the authenticated username. Compose replaces `command` lists: do not
 stack the journal and actions overlays without combining their command options.
 
 Since 0.0.75, **View action** opens a separate **Action history** dialog for
