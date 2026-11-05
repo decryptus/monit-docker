@@ -1,3 +1,12 @@
+monit-docker (1.2.0) stable; urgency=medium
+
+  * Separate API credentials and add optional authentication for Prometheus.
+  * Require explicit trust of the proxy for per-user read-only journal cursors.
+  * Bound the wait for Docker exec and isolate Docker endpoint configuration.
+  * Add an optional socket proxy and harden the agent and dashboard images.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 05 Nov 2026 08:00:00 +0100
+
 monit-docker (1.1.4) stable; urgency=medium
 
   * Add a guided local Compose installer for the agent and optional HTTPS dashboard.

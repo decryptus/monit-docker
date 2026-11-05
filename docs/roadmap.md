@@ -12,6 +12,10 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
+## 1.2.0 security and reliability
+
+See the [upgrade notes](release-1.2.0.md) before updating API credentials or the journal proxy.
+
 ## 1.1.4 guided installation
 
 The [1.1.4 release](release-1.1.4.md) includes the local Compose installer and repeat-installation checks.
