@@ -191,3 +191,23 @@ conteneur et la sélection exacte évitent de prendre un service existant comme 
 La [pile Prometheus et Grafana](compose.md) reste une installation distincte pour
 l’historique. Arrêter la pile minimale ou modifier ses ports avant de la lancer.
 Les notifications demandent une [configuration supplémentaire](notifications.md).
+
+## Réglages de cron, stats et monit
+
+La prochaine version après 1.2.0 permet de placer les valeurs habituelles dans
+trois sections de `monit-docker.yml`. Exemple pour une lecture de métriques :
+
+```yaml
+stats:
+  rsc: [cpu_percent, mem_usage]
+  output: json
+monit:
+  rsc: [status]
+```
+
+`monit-docker stats --output text` utilise les ressources du fichier et affiche
+du texte. Avec `monit --rsc status`, seules les mesures demandées sont lues,
+même si le YAML définit une commande. Pour programmer une règle, renseignez
+`cron.cmd` et `cron.state_file`, puis testez avec
+`monit-docker --name web cron --dry-run`. Le [guide cron](cron.md) contient
+un exemple complet.

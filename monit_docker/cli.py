@@ -29,7 +29,7 @@ from monit_docker.observation import DEFAULT_REFRESH, MIN_REFRESH, MAX_REFRESH
 from monit_docker.job import JobOptions, validate_job
 from dataclasses import replace
 from monit_docker.audit import DEFAULT_MAX_BYTES
-from monit_docker.adapters.serve_config import SERVE_FIELDS
+from monit_docker.adapters.command_config import COMMAND_FIELDS
 from monit_docker.adapters.syntax import RESOURCE_CHOICES, DEFAULT_RESOURCE_CHOICES, STATUS_RC, HEALTH_RC
 from monit_docker.domain.runtime import DEFAULT_EVENT_WINDOW, valid_event_window
 from monit_docker.core.policy import DEFAULT_MAX_RESTARTS
@@ -62,6 +62,39 @@ def _resource_argument(value):
     if value not in RESOURCE_CHOICES and not filesystem_resource(value):
         raise argparse.ArgumentTypeError('unknown resource; filesystem resources use disk_percent[group] or inode_percent[group]')
     return value
+
+def _register_command_defaults(parser, mode):
+    destinations = ['resource' if key == 'rsc' else key for key in COMMAND_FIELDS[mode]]
+    parser.set_defaults(_command_defaults={key: parser.get_default(key) for key in destinations})
+    parser.set_defaults(**dict.fromkeys(destinations))
+
+
+def _apply_command_defaults(parser, options):
+    from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError
+    try:
+        config = CheckedConfiguration(options.conffile, MONIT_DOCKER_CONFIG).load(allow_missing=True)
+    except ConfigurationCheckError as error:
+        parser.exit(110, '%s: %s\n' % (error.location, error))
+    options._loaded_config = config
+    section = dict(config.get(options.subcommand, {}))
+    if options.subcommand == 'serve' and options.allow_actions is False:
+        for key in ('action_origin', 'action_token_file', 'allow_maintenance'):
+            section.pop(key, None)
+        if not (options.audit_read_token_file or section.get('audit_read_token_file')):
+            section.pop('trust_proxy_user', None)
+    if options.subcommand == 'monit':
+        # A caller explicitly choosing observation must never inherit a YAML action.
+        if options.resource is not None:
+            section.pop('cmd', None)
+            section.pop('propagate_exit_code', None)
+        if options.cmd is not None:
+            section.pop('rsc', None)
+    for dest, default in options._command_defaults.items():
+        if getattr(options, dest) is None:
+            key = 'rsc' if dest == 'resource' else dest
+            setattr(options, dest, section.get(key, default))
+    del options._command_defaults
+
 
 def argv_parse_check(argv=None, parser_class=argparse.ArgumentParser):
     """
@@ -137,7 +170,9 @@ def argv_parse_check(argv=None, parser_class=argparse.ArgumentParser):
                                           help = "choice sub-command")
 
     for subcmd in six.itervalues(_SUBCMDS):
-        subcmd.load_subcmd_parser(subparsers)
+        subparser = subcmd.load_subcmd_parser(subparsers)
+        if subcmd.CMD_NAME in COMMAND_FIELDS:
+            _register_command_defaults(subparser, subcmd.CMD_NAME)
 
     options, args = parser.parse_known_args(argv)
 
@@ -154,6 +189,8 @@ def argv_parse_check(argv=None, parser_class=argparse.ArgumentParser):
 
     if getattr(options, 'subcommand') \
        and options.subcommand in _SUBCMDS:
+        if options.subcommand in COMMAND_FIELDS:
+            _apply_command_defaults(parser, options)
         _SUBCMDS[options.subcommand].valid_subcmd_parser(parser, options)
     else:
         parser.error("too few arguments - use option --help to get an help screen")
@@ -251,6 +288,7 @@ class MonitDockerSubCmdStats(object):
                             default = [],
                             type    = _resource_argument,
                             help    = "resource information")
+        return parser
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
@@ -307,7 +345,7 @@ class MonitDockerSubCmdMonit(MonitDockerSubCmdStats):
                             default = [],
                             help    = "run docker command or execute command inside containers")
         parser.add_argument("--propagate-exit-code",
-                            action  = 'store_true',
+                            action  = argparse.BooleanOptionalAction,
                             default = False,
                             help    = "return the first failed container exec's exit code instead of 116")
         parser.add_argument('--dry-run', action='store_true',
@@ -392,18 +430,19 @@ class MonitDockerSubCmdCron(MonitDockerSubCmdMonit):
     @classmethod
     def load_subcmd_parser(cls, subparsers):
         parser = super(MonitDockerSubCmdCron, cls).load_subcmd_parser(subparsers)
-        parser.add_argument('--state-file', required=True,
+        parser.add_argument('--state-file',
                             help='persistent JSON state; use one file per Docker host and job')
         parser.add_argument('--cooldown', type=float, default=300,
                             help='minimum seconds between attempts of the same rule (default: 300)')
         _add_policy_options(parser)
+        return parser
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
         super(MonitDockerSubCmdCron, cls).valid_subcmd_parser(parser, options)
         if not options.cmd:
             parser.error('cron requires --cmd or --cmd-if')
-        if not options.state_file.strip():
+        if not options.state_file or not options.state_file.strip():
             parser.error('--state-file must not be empty')
         if not math.isfinite(options.cooldown) or options.cooldown < 0:
             parser.error('--cooldown must be a finite non-negative number')
@@ -444,34 +483,10 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--action-cooldown', type=float, default=30,
                             help='minimum seconds between manual attempts per container (default: 30)')
         _add_policy_options(parser)
-        # Preserve which flags were actually supplied, even for values equal to defaults.
-        destinations = ['resource' if key == 'rsc' else key for key in SERVE_FIELDS]
-        parser.set_defaults(_serve_defaults={key: parser.get_default(key) for key in destinations})
-        parser.set_defaults(**dict.fromkeys(destinations))
-
+        return parser
 
     @classmethod
     def valid_subcmd_parser(cls, parser, options):
-        from monit_docker.adapters.validation import CheckedConfiguration, ConfigurationCheckError
-        try:
-            config = CheckedConfiguration(options.conffile, MONIT_DOCKER_CONFIG).load(allow_missing=True)
-        except ConfigurationCheckError as error:
-            parser.exit(110, '%s: %s\n' % (error.location, error))
-        options._loaded_config = config
-        section = config.get('serve', {})
-        if options.allow_actions is False:
-            # Ignore YAML defaults belonging solely to the disabled capability.
-            section = dict(section)
-            for key in ('action_origin', 'action_token_file', 'allow_maintenance'):
-                section.pop(key, None)
-            if not (options.audit_read_token_file or section.get('audit_read_token_file')):
-                section.pop('trust_proxy_user', None)
-        for dest, default in options._serve_defaults.items():
-            if getattr(options, dest) is None:
-                key = 'rsc' if dest == 'resource' else dest
-                setattr(options, dest, section.get(key, default))
-        del options._serve_defaults
-
         import ipaddress
         try:
             ipaddress.IPv4Address(options.bind)

@@ -10,11 +10,11 @@ from monit_docker.adapters.rules import RuleParser
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.filesystems import directory_groups
 from monit_docker.adapters.validation_rules import (ConfigurationCheckError, require, mapping, string_list, checked, _validate_action_list, _validate_rule)
-from monit_docker.adapters.serve_config import validate_serve_section
+from monit_docker.adapters.command_config import COMMAND_FIELDS, validate_command_section
 from monit_docker.adapters.scenarios import SCENARIO_FIELDS, SCENARIO_NAME, validate_scenario
 
 _CONFIG_FIELDS = frozenset(('general', 'vars', 'clients', 'ctn-groups', 'dir-groups',
-                            'conditions', 'commands', 'scenarios', 'serve'))
+                            'conditions', 'commands', 'scenarios')) | COMMAND_FIELDS.keys()
 _ENTRY_REQUIRED = {'client': 'config', 'ctn-group': 'match', 'dir-group': 'paths',
                    'condition': 'expr', 'command': 'exec', 'scenario': None}
 _VALIDATED_SECTIONS = (('clients', 'client'), ('ctn-groups', 'ctn-group'),
@@ -23,6 +23,9 @@ _VALIDATED_SECTIONS = (('clients', 'client'), ('ctn-groups', 'ctn-group'),
 _ALIAS_NAME = re.compile(r'[a-zA-Z][a-zA-Z0-9_.-]{0,64}')
 _ENTRY_VARIABLES = frozenset(('vars', '@import_vars'))
 CONFIG_SCHEMA = xys.load('''
+stats?: !~~callback(monit_docker.config.mapping) null
+monit?: !~~callback(monit_docker.config.mapping) null
+cron?: !~~callback(monit_docker.config.mapping) null
 serve?: !~~callback(monit_docker.config.mapping) null
 general?: !~~callback(monit_docker.config.mapping) null
 vars?: !~~callback(monit_docker.config.mapping) null
@@ -55,8 +58,8 @@ class CheckedConfiguration(Configuration):
             require(not set(result) - _CONFIG_FIELDS, self.source, 'unknown top-level section')
             for name, value in result.items():
                 mapping(value, '%s: %s' % (self.source, name))
-            if 'serve' in result:
-                validate_serve_section(result['serve'])
+            for mode in COMMAND_FIELDS.keys() & result.keys():
+                validate_command_section(mode, result[mode])
             require(xys.validate(result, CONFIG_SCHEMA), self.source, 'invalid configuration structure')
         return result
 
@@ -118,11 +121,11 @@ def check_configuration(conffile, inline=None, selectors=None, selected_groups=(
     loader = CheckedConfiguration(conffile, inline)
     config = loader.load()
     return validate_configuration(config, selectors, selected_groups, client, from_env, expressions,
-                                  check_serve_rules=True)
+                                  check_command_rules=True)
 
 
 def validate_configuration(config, selectors=None, selected_groups=(), client=None,
-                           from_env=False, expressions=(), check_serve_rules=False):
+                           from_env=False, expressions=(), check_command_rules=False):
     mapping(config, 'configuration')
     require(not set(config) - _CONFIG_FIELDS, 'configuration', 'unknown top-level section')
     for section, kind in _VALIDATED_SECTIONS:
@@ -155,9 +158,10 @@ def validate_configuration(config, selectors=None, selected_groups=(), client=No
         parser = checked(location, lambda: RuleParser(conditions={name: entry}, dir_groups=dir_groups))
         _validate_rule(parser, '@%s ? reload' % name, location)
     parser = RuleParser(commands, conditions, dir_groups)
-    if check_serve_rules:
-        for index, expression in enumerate(config.get('serve', {}).get('cmd', ())):
-            _validate_rule(parser, expression, 'serve.cmd[%s]' % index)
+    if check_command_rules:
+        for mode in COMMAND_FIELDS:
+            for index, expression in enumerate(config.get(mode, {}).get('cmd', ())):
+                _validate_rule(parser, expression, '%s.cmd[%s]' % (mode, index))
     for index, expression in enumerate(expressions):
         _validate_rule(parser, expression, '--cmd-if[%s]' % index)
     for name in config.get('scenarios', {}):

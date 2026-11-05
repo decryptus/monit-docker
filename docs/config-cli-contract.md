@@ -40,8 +40,21 @@ is rendered once; runtime and offline checks use the same validation. See the
 | `dir-groups` | `NAME: {paths: [STRING, ...], access: MAPPING}` | Nonempty absolute container paths; `access` is optional unless an access probe is requested |
 | `conditions` | `NAME: {expr: [STRING, ...]}` | Nonempty list of conditions combined with AND |
 | `commands` | `NAME: {exec: [ACTION, ...]}` | Nonempty ordered action sequence |
+| `stats` | Mapping | `rsc` (ordered list), `output` (`text` or `json`) |
+| `monit` | Mapping | `rsc` or `cmd` (ordered list), `propagate_exit_code` (boolean) |
+| `cron` | Mapping | `cmd`, `state_file`, `cooldown`, `trigger_after`, `max_gap`, `max_restarts`, `propagate_exit_code` |
 | `serve` | Mapping | Defaults for direct `serve`; explicit CLI options take precedence (see [serve](serve.md#configure-serve-in-yaml)) |
 | `scenarios` | `NAME: MAPPING` | A named `stats`, `cron` or `serve` job |
+
+These direct command sections are available on master after 1.2.0. Each command
+reads its own section. Explicit flags override individual YAML fields, even at
+their built-in default value. Repeating `--rsc` or `--cmd` / `--cmd-if` replaces
+the complete YAML list in argument order. For `monit`, choosing `--rsc` also
+discards configured commands and their exit-code policy for that invocation.
+Choosing `--cmd` discards configured resources. Use `--no-propagate-exit-code`
+to override `propagate_exit_code: true`. Simulation is requested with the
+`--dry-run` flag. Global selectors still go before the subcommand. Named
+scenarios keep their own settings.
 
 Command/condition aliases and directory-group names use an ASCII letter followed
 by at most 64 letters, digits, underscores, dots or hyphens. Scenario names match

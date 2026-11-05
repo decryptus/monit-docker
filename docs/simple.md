@@ -98,3 +98,21 @@ to switch modes to run simple checks or scheduled rules. Both modes use the
 same selectors and rule syntax.
 
 If a command fails, start with [troubleshooting](troubleshooting.md).
+
+## Defaults for direct stats and monit commands
+
+Starting with the next release after 1.2.0, add these optional sections to
+`monit-docker.yml`:
+
+```yaml
+stats:
+  rsc: [cpu_percent, mem_usage]
+  output: json
+monit:
+  rsc: [status]
+```
+
+Run `monit-docker stats` for JSON or `monit-docker stats --output text` for a
+one-time text report. Run `monit-docker --name web monit` to check the selected
+container's status. See the [configuration reference](config-cli-contract.md)
+for rule lists and exit codes.

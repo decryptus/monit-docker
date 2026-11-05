@@ -73,3 +73,15 @@ commands:
       - remove:
           kwargs:
             force: true
+
+# Direct command defaults (optional, after 1.2.0). CLI flags take precedence.
+# stats:
+#   output: json
+#   rsc: [cpu_percent, mem_usage]
+# monit:
+#   rsc: [status]
+# cron:
+#   state_file: /var/lib/monit-docker/web.json
+#   cmd: ['mem_percent > 90 ? restart']
+#   cooldown: 300
+# Preview with: monit-docker --name web cron --dry-run
