@@ -1,4 +1,4 @@
-# Optional defaults for the direct serve command (next release after 1.2.0).
+# Optional defaults for the direct serve command (since 1.3.0).
 # serve:
 #   interval: 60
 #   rsc: [status, health]
@@ -74,7 +74,7 @@ commands:
           kwargs:
             force: true
 
-# Direct command defaults (optional, after 1.2.0). CLI flags take precedence.
+# Direct command defaults (optional, since 1.3.0). CLI flags take precedence.
 # stats:
 #   output: json
 #   rsc: [cpu_percent, mem_usage]

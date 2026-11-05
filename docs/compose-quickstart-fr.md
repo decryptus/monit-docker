@@ -50,7 +50,7 @@ Sur Linux amd64, installer Git, Docker Engine, son plugin Compose v2 avec
 `up --wait` et curl. Pour le tableau de bord, prévoir Python 3 et OpenSSL.
 
 ```sh
-git clone --branch v1.2.0 --depth 1 https://github.com/decryptus/monit-docker.git
+git clone --branch v1.3.0 --depth 1 https://github.com/decryptus/monit-docker.git
 cd monit-docker
 ./install.sh
 ```
@@ -137,7 +137,7 @@ Définir `MONIT_DOCKER_PORT`, `UI_PORT` ou `DOCKER_SOCKET_PATH` dans le shell av
 Compose si nécessaire. `UI_BIND` vaut `127.0.0.1` par défaut. Garder le même nom
 de projet et le même répertoire pour réutiliser le volume.
 
-Les images de l’agent et de l’UI sont fixées à **1.2.0**. Pour une évolution,
+Les images de l’agent et de l’UI sont fixées à **1.3.0**. Pour une évolution,
 choisir des versions correspondantes, préserver la configuration et les données,
 puis utiliser `pull` et `up -d --wait` avec la même liste de fichiers. Un simple
 `pull` ne remplace pas les conteneurs en cours d’exécution.
@@ -154,7 +154,7 @@ nom de projet d’origine. Pour conserver des jobs, reprendre explicitement leur
 cibles et règles selon le [guide cron](cron.md), avec un état persistant et une
 simulation préalable. Aucune conversion automatique des règles n’est effectuée.
 
-À partir de la prochaine version après 1.2.0, la commande `monit-docker serve`
+À partir de la version 1.3.0, la commande `monit-docker serve`
 peut aussi lire ses réglages dans `monit-docker.yml`. Exemple :
 
 ```yaml
@@ -194,7 +194,7 @@ Les notifications demandent une [configuration supplémentaire](notifications.md
 
 ## Réglages de cron, stats et monit
 
-La prochaine version après 1.2.0 permet de placer les valeurs habituelles dans
+La version 1.3.0 permet de placer les valeurs habituelles dans
 trois sections de `monit-docker.yml`. Exemple pour une lecture de métriques :
 
 ```yaml

@@ -52,7 +52,7 @@ select a subset, for example `--rsc cpu_percent --rsc mem_usage`.
 
 ### Configure serve in YAML
 
-The next release after 1.2.0 accepts a top-level `serve` section in
+Version 1.3.0 accepts a top-level `serve` section in
 `monit-docker.yml`. For example:
 
 ```yaml

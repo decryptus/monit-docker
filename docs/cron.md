@@ -159,7 +159,7 @@ engine and cooldown policy for continuous monitoring.
 
 ## Defaults for the direct cron command
 
-Starting with the next release after 1.2.0, a top-level section can supply
+Starting with version 1.3.0, a top-level section can supply
 the rule list, persistent state and restart policy:
 
 ```yaml
