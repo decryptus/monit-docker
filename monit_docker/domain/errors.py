@@ -9,6 +9,13 @@ class MonitoringError(Exception):
         self.code = code
 
 
+class ExecOutcomeUnknown(MonitoringError):
+    """The command may have started, but no trustworthy exit status is available."""
+
+    def __init__(self, message):
+        super().__init__(116, message)
+
+
 class CommandExecutionError(MonitoringError):
     """A completed exec failed; preserve its status separately from agent code 116."""
 
