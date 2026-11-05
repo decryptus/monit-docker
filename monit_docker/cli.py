@@ -491,8 +491,8 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--action-cooldown must be finite and at least 1 second')
         if options.audit_read_token_file and not options.audit_file:
             parser.error('--audit-read-token-file requires an explicit --audit-file')
-        if options.trust_proxy_user and not options.allow_actions:
-            parser.error('--trust-proxy-user requires --allow-actions')
+        if options.trust_proxy_user and not (options.allow_actions or options.audit_read_token_file):
+            parser.error('--trust-proxy-user requires --allow-actions or --audit-read-token-file')
         _validate_policy_options(parser, options)
         if options.trigger_after and options.max_gap <= options.interval:
             parser.error('--max-gap must exceed --interval to allow time for collection')

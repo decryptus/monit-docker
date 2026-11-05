@@ -82,13 +82,10 @@ class StatusHandler(httpdis.HttpReqHandler):
             if reader is None:
                 raise self.req_error(404)
             tokens = self.headers.get_all('X-Monit-Audit-Token')
-            actors = self.headers.get_all('X-Monit-Actor')
             if (not security.audit_token or not tokens or len(tokens) != 1
-                    or not hmac.compare_digest(tokens[0].encode('utf-8'), security.audit_token.encode('ascii'))
-                    or not actors or len(actors) != 1 or not actors[0].strip() or len(actors[0]) > 128
-                    or any(ord(c) < 32 or ord(c) == 127 for c in actors[0])):
+                    or not hmac.compare_digest(tokens[0].encode('utf-8'), security.audit_token.encode('ascii'))):
                 raise self.req_error(403, 'forbidden')
-            self.audit_actor = actors[0]
+            self.audit_actor = self._proxy_actor()
             return
         if path == '/v1/notifications':
             receiver = self.server.monitor.notification_audit
@@ -108,13 +105,16 @@ class StatusHandler(httpdis.HttpReqHandler):
             raise self.req_error(403, 'forbidden')
         if not origins or len(origins) != 1 or origins[0] != security.action_origin:
             raise self.req_error(403, 'origin_rejected')
-        self.audit_actor = 'anonymous'
-        if security.trust_actor:
-            actors = self.headers.get_all('X-Monit-Actor')
-            if (not actors or len(actors) != 1 or not actors[0].strip() or len(actors[0]) > 128
-                    or any(ord(c) < 32 or ord(c) == 127 for c in actors[0])):
-                raise self.req_error(403, 'forbidden')
-            self.audit_actor = actors[0]
+        self.audit_actor = self._proxy_actor()
+
+    def _proxy_actor(self):
+        if not self.server.security.trust_actor:
+            return 'anonymous'
+        actors = self.headers.get_all('X-Monit-Actor')
+        if (not actors or len(actors) != 1 or not actors[0].strip() or len(actors[0]) > 128
+                or any(ord(c) < 32 or ord(c) == 127 for c in actors[0])):
+            raise self.req_error(403, 'forbidden')
+        return actors[0]
 
     def data_from_payload(self, cmd):
         # Tighten HTTPdis's general-purpose parser for this small JSON API.

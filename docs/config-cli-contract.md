@@ -222,7 +222,8 @@ a lock and audit simulated decisions while preserving durable policy state.
 | `--allow-actions` | `serve` | Off; requires state, action token and exact HTTPS origin |
 | `--action-origin`, `--action-token-file` | `serve` | Require `--allow-actions`; origin `https://host[:port]` without credentials/path/query/fragment; token file contains 64 lowercase hex characters with optional final newline |
 | `--action-cooldown` | `serve` | 30 seconds; finite and at least 1 |
-| `--allow-maintenance`, `--trust-proxy-user` | `serve` | Off; require `--allow-actions` |
+| `--allow-maintenance` | `serve` | Off; requires `--allow-actions` |
+| `--trust-proxy-user` | `serve` | Off; requires manual actions or an audit read token. Trust the authenticated proxy to supply the username. |
 | `--audit-read-token-file` | `serve` | Off; requires explicit audit path and a distinct read secret |
 | `--notification-token-file` | `serve` | Off; private notification ingestion secret |
 

@@ -201,8 +201,10 @@ exposed. Reasons and state names remain English machine-readable values.
 
 ## Journal pages and exports
 
-Both routes require exactly one `X-Monit-Audit-Token` and one valid
-`X-Monit-Actor`, with the same actor length/control restrictions as above.
+Both routes require exactly one `X-Monit-Audit-Token`. By default the server ignores
+`X-Monit-Actor` and binds cursors to a shared `anonymous` identity. With
+`--trust-proxy-user`, each request requires one valid `X-Monit-Actor` from the
+authenticated proxy and cursors are bound to that user.
 Authentication applies even to an empty journal. HTTP 200 returns:
 
 | Field | Type / meaning |
