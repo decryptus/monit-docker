@@ -6,6 +6,7 @@ from collections import OrderedDict
 import six
 import yaml
 from mako.template import Template
+from monit_docker.adapters.command_config import COMMAND_FIELDS
 from monit_docker.domain.errors import MonitoringError
 
 try:
@@ -135,7 +136,7 @@ class Configuration(object):
         for key in ('general', 'vars'):
             if conf.get(key):
                 self._common_conf[key] = dict(conf[key])
-        result = {'serve': conf['serve']} if 'serve' in conf else {}
+        result = {mode: conf[mode] for mode in COMMAND_FIELDS if mode in conf}
         for key, kind, section in _CONFIG_SECTIONS:
             if not include_rules and key in ('conditions', 'commands'):
                 continue

@@ -156,3 +156,20 @@ There is no background scheduler or HTTP listener. The optional [trigger delay](
 There is no cycle-wide deadline or hysteresis. Existing Docker client timeouts still apply; a hung cycle can hold its
 lock until it exits or is terminated. [Serve mode](serve.md) reuses the same
 engine and cooldown policy for continuous monitoring.
+
+## Defaults for the direct cron command
+
+Starting with the next release after 1.2.0, a top-level section can supply
+the rule list, persistent state and restart policy:
+
+```yaml
+cron:
+  state_file: /var/lib/monit-docker/web.json
+  cmd: ['mem_percent > 90 ? restart']
+  cooldown: 300
+  max_restarts: 2
+```
+
+Preview with `monit-docker --name web cron --dry-run`. A scheduled invocation of
+`monit-docker --name web cron` executes one cycle. Add `--cooldown 600` to
+override just that value. Keep the same selector and state file for the job.
