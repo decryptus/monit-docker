@@ -2,6 +2,7 @@
 
 from monit_docker.adapters.http_security import HttpSecurity
 
+from dataclasses import replace
 import csv
 import http.client
 import io
@@ -118,6 +119,17 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(headers['content-type'], 'application/json; charset=utf-8')
         self.assertTrue(body.endswith(b'\n'))
         return code, json.loads(body)
+
+    def test_optional_metrics_token(self):
+        secret = 'c' * 64
+        for method in ('GET', 'HEAD'):
+            self.assertEqual(self.request('/metrics', method)[0], 200)
+        self.server.security = replace(self.server.security, metrics_token=secret)
+        for method in ('GET', 'HEAD'):
+            for headers, expected in (({}, 403), ({'Authorization': 'Bearer ' + _TOKEN}, 403),
+                                      ({'Authorization': 'Bearer ' + secret}, 200)):
+                self.assertEqual(self.request('/metrics', method, headers=headers)[0], expected)
+        self.assertEqual(self.request('/v1/status')[0], 200)
 
     def enable_actions(self):
         self.execute = Mock()

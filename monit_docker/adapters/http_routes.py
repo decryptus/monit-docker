@@ -101,7 +101,7 @@ _ROUTES = ({'name': 'v1/audit', 'op': _READ_METHODS, 'handler': audit_page, 'to_
            {'name': 'healthz',     'op': _READ_METHODS,  'handler': health},
            {'name': 'readyz',     'op': _READ_METHODS,  'handler': readiness},
            {'name': 'v1/status',  'op': _READ_METHODS,  'handler': status},
-           {'name': 'metrics',    'op': _READ_METHODS,  'handler': metrics},
+           {'name': 'metrics',    'op': _READ_METHODS,  'handler': metrics, 'to_auth': True},
            {'name': 'v1/actions', 'op': _WRITE_METHODS, 'handler': submit_action,
             'to_auth': True, 'max_body_size': _ACTION_MAX_BODY_SIZE})
 

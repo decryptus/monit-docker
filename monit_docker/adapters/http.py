@@ -70,6 +70,13 @@ class StatusHandler(httpdis.HttpReqHandler):
     def authenticate(self, auth_users = None):
         path = self._path
         security = self.server.security
+        if path == '/metrics':
+            if security.metrics_token:
+                tokens = self.headers.get_all('Authorization') or []
+                expected = ('Bearer ' + security.metrics_token).encode('ascii')
+                if len(tokens) != 1 or not hmac.compare_digest(tokens[0].encode('utf-8'), expected):
+                    raise self.req_error(403, 'forbidden')
+            return
         if path in _AUDIT_READ_PATHS:
             reader = self.server.monitor.audit_reader
             if reader is None:
