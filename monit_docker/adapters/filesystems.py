@@ -126,7 +126,14 @@ def _exec_output(api, identifier, command, max_output=_MAX_OUTPUT, user=None):
         return bytes(output)
     finally:
         try:
-            connection.close()
+            # Close the response before its underlying SocketIO. Otherwise
+            # http.client can try to flush an already closed stream on GC.
+            response = getattr(connection, '_response', None)
+            try:
+                if response is not None:
+                    response.close()
+            finally:
+                connection.close()
         finally:
             # Docker may return SocketIO: closing the file wrapper alone does
             # not close its socket owner until garbage collection.
