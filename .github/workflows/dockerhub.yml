@@ -151,6 +151,21 @@ jobs:
           docker run --rm --entrypoint sh -v "$PWD/tests:/test/tests:ro" -w /test monit-docker:test -c 'mkdir -p /test/bin; ln -s "$(command -v monit-docker)" /test/bin/monit-docker; python -m unittest discover -s tests -v'
           docker run --rm --entrypoint python -e EXPECTED_VERSION="$(cat VERSION)" monit-docker:test -c 'import os; from importlib.metadata import version; assert version("monit-docker") == os.environ["EXPECTED_VERSION"]'
           docker run --rm --entrypoint monit-docker monit-docker:test --help
+      - name: Check runtime packages and run the legacy cron command
+        run: |
+          docker run --rm --entrypoint sh monit-docker:test -ec '
+            for pkg in gcc cargo rust musl-dev libffi-dev curl-dev python3-dev; do
+              if apk info -e "$pkg" >/dev/null; then echo "Unexpected runtime package: $pkg"; exit 1; fi
+            done'
+          cid=$(docker run -d -e 'MONIT_DOCKER_CRONS=* * * * * /opt/venv/bin/monit-docker --help > /tmp/cron-help' monit-docker:test)
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          for attempt in {1..90}; do
+            if docker exec "$cid" grep -qi 'usage:' /tmp/cron-help 2>/dev/null; then exit 0; fi
+            test "$(docker inspect -f '{{.State.Running}}' "$cid")" = true || break
+            sleep 1
+          done
+          docker logs "$cid"
+          exit 1
       - name: Save tested image
         if: github.event_name == 'push'
         run: docker save monit-docker:test | gzip > "$RUNNER_TEMP/monit-docker-image.tar.gz"
