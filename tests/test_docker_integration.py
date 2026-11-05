@@ -27,7 +27,7 @@ from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.state import LocalState
 from monit_docker.core import MonitoringEngine
 from monit_docker.core.policy import RestartPolicy
-from monit_docker.domain.errors import ActionRejected, ExecOutcomeUnknown, MonitoringError
+from monit_docker.domain.errors import ActionRejected, MonitoringError
 
 
 @unittest.skipUnless(os.environ.get('MONIT_DOCKER_INTEGRATION') == '1', 'requires opt-in Docker daemon')
@@ -57,6 +57,7 @@ class DockerIntegrationTests(unittest.TestCase):
         return obj
 
     def test_timed_out_exec_can_finish_after_a_fresh_observation(self):
+        from monit_docker.domain.errors import ExecOutcomeUnknown
         obj = self.create_container()
         command = "(sh -c 'while [ ! -e /tmp/release ]; do sleep 0.1; done; touch /tmp/finished')"
         parser = RuleParser(commands={'slow': {'exec': [{command: {'kwargs': {'exec_timeout': 1}}}]}})
