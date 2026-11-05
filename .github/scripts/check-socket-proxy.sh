@@ -55,7 +55,10 @@ export MONIT_PROXY_EXEC_TARGETS=$target
 "${stack[@]}" up -d --force-recreate --no-deps socket-proxy
 check_policy exec
 docker exec "$agent" sh -ec 'printf "dir-groups:\n  data:\n    paths: [/tmp]\n" > /tmp/probe.yml'
-docker exec "$agent" monit-docker -c /tmp/probe.yml --id "$target" stats --rsc 'fs_mode[data]' --rsc 'disk_percent[data]'
+probe_log=$(mktemp)
+docker exec "$agent" monit-docker -c /tmp/probe.yml --id "$target" stats --rsc 'fs_mode[data]' --rsc 'disk_percent[data]' 2>"$probe_log" || { cat "$probe_log"; exit 1; }
+if grep -q 'Exception ignored while finalizing' "$probe_log"; then cat "$probe_log"; exit 1; fi
+rm -f "$probe_log"
 docker exec "$agent" monit-docker --id "$target" monit --cmd '(touch /tmp/proxy-probe)'
 docker exec "$target" test -f /tmp/proxy-probe
 
