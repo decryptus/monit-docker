@@ -11,6 +11,39 @@ automatique des conteneurs surveillés.
 | Agent et interface web | Base et `docker-compose.ui.yml` | `https://localhost:8443` |
 | Historique et graphiques | `examples/monitoring/compose.yaml` | Grafana sur le port 3000 |
 
+## Socket Docker filtré en option
+
+Avec Compose **2.24.4 ou ultérieur**, depuis la racine du dépôt :
+
+```sh
+export DOCKER_SOCKET_GID=$(stat -c %g "${DOCKER_SOCKET_PATH:-/var/run/docker.sock}")
+docker compose -f docker-compose.yml -f docker-compose.socket-proxy.yml up -d --build --wait
+```
+
+Seul le proxy monte le socket de l’hôte. L’agent le joint sur un réseau privé et
+le proxy ne publie aucun port hôte. Par défaut, l’agent peut lire la version,
+la liste et les détails des conteneurs, leurs statistiques, les événements et
+les détails d’une image par son empreinte. L’inspection peut révéler les
+variables d’environnement et les montages. Gardez ce réseau privé.
+
+Pour autoriser d’autres opérations, exportez la variable voulue, puis relancez
+la commande Compose. Chaque valeur est une liste d’**identifiants complets**
+séparés par des espaces. Obtenez un identifiant avec
+`docker inspect -f '{{.Id}}' NOM`. Actualisez la liste après toute recréation
+du conteneur. Pour révoquer les nouvelles requêtes, supprimez la variable avec
+`unset` et réappliquez la configuration.
+
+| Variable | Droits sur les conteneurs désignés |
+| --- | --- |
+| `MONIT_PROXY_EXEC_TARGETS` | Sondes de fichiers et commandes Docker exec sans le mode privilégié, y compris en tant que root dans le conteneur |
+| `MONIT_PROXY_LIFECYCLE_TARGETS` | Démarrage, arrêt et redémarrage |
+
+Choisissez uniquement des conteneurs de confiance. Une commande dans un
+conteneur privilégié ou disposant du socket Docker ou du système de fichiers
+hôte peut donner accès à l’hôte. Le proxy lui-même conserve le vrai socket.
+Les règles de supervision et les jetons pour les actions manuelles se
+configurent séparément. Utilisez les deux mêmes fichiers Compose pour `down`.
+
 ## Installation guidée
 
 Sur Linux amd64, installer Git, Docker Engine, son plugin Compose v2 avec

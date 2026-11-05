@@ -185,6 +185,10 @@ jobs:
           persist-credentials: false
       - name: Build candidate agent for the versioned monitoring examples
         run: docker build -t "decryptus/monit-docker:$(cat VERSION)" .
+      - name: Validate optional socket proxy against the Docker daemon
+        run: |
+          test -z "$(gofmt -l examples/socket-proxy/main.go)"
+          bash .github/scripts/check-socket-proxy.sh
       - name: Start the documented stack
         run: |
           docker run -d --name "$MONIT_COMPOSE_FIXTURE" alpine:3.20 sleep 900
