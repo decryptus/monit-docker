@@ -7,6 +7,7 @@ from pathlib import Path
 import secrets
 import ssl
 import subprocess
+import tempfile
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -26,6 +27,28 @@ def compose(files, *args):
     for filename in files:
         command.extend(['-f', filename])
     return subprocess.check_output(command + list(args), cwd=ROOT, env=ENV, text=True)
+
+
+def check_existing_agent():
+    # Simulate a deployment using the old direct socket before running the installer.
+    version = (ROOT / 'VERSION').read_text().strip()
+    with tempfile.TemporaryDirectory() as directory:
+        legacy = Path(directory) / 'compose.yaml'
+        legacy.write_text(json.dumps({'services': {'monit-docker': {
+            'image': 'decryptus/monit-docker:' + version,
+            'command': ['sleep', '300'],
+            'volumes': ['/var/run/docker.sock:/var/run/docker.sock:ro'],
+        }}}))
+        files = [str(legacy)]
+        try:
+            compose(files, 'up', '-d')
+            original = compose(files, 'ps', '-q', 'monit-docker').strip()
+            result = subprocess.run(['./install.sh', '--agent-only'], cwd=ROOT, env=ENV,
+                                    stdin=subprocess.DEVNULL, capture_output=True, text=True)
+            assert result.returncode and 'socket migration' in result.stderr, result.stderr
+            assert original and compose(files, 'ps', '-q', 'monit-docker').strip() == original
+        finally:
+            compose(files, 'down')
 
 
 def wait_for(check, description, timeout=150):
@@ -61,7 +84,9 @@ def main():
         return subprocess.check_output(['docker', 'inspect', '--format',
                                         '{{.State.StartedAt}}', WORKER], text=True).strip()
 
+    ENV['DOCKER_SOCKET_GID'] = str(os.stat('/var/run/docker.sock').st_gid)
     try:
+        check_existing_agent()
         subprocess.run(['./install.sh', '--agent-only'], stdin=subprocess.DEVNULL, cwd=ROOT, env=ENV, check=True)
         wait_for(lambda: request()['ready'], 'minimal agent collects actual containers')
         assert not request()['manual_actions']['enabled']
@@ -95,6 +120,8 @@ def main():
         assert 'dry-run' in preview
         assert started() == original_start, 'Observation or preview restarted the worker'
 
+        ENV['MONIT_PROXY_LIFECYCLE_TARGETS'] = compose(LAB_FILES, 'ps', '-q', 'demo-worker').strip()
+        compose(LAB_FILES, 'up', '-d', '--no-deps', 'socket-proxy')
         ENV['DEMO_SCENARIO'] = 'demo-guard'
         compose(LAB_FILES, 'up', '-d', '--no-deps', '--wait', '--wait-timeout', '180', 'monit-docker')
         compose(LAB_FILES, 'restart', 'ui')
@@ -114,6 +141,8 @@ def main():
                  'second incident is blocked by the restart budget', timeout=180)
         assert started() == recovered_start
 
+        del ENV['MONIT_PROXY_LIFECYCLE_TARGETS']
+        compose(LAB_FILES, 'up', '-d', '--no-deps', 'socket-proxy')
         ENV['DEMO_SCENARIO'] = 'demo-observe'
         compose(LAB_FILES, 'up', '-d', '--no-deps', '--wait', '--wait-timeout', '180', 'monit-docker')
         compose(LAB_FILES, 'restart', 'ui')

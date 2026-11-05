@@ -11,13 +11,15 @@ automatique des conteneurs surveillés.
 | Agent et interface web | Base et `docker-compose.ui.yml` | `https://localhost:8443` |
 | Historique et graphiques | `examples/monitoring/compose.yaml` | Grafana sur le port 3000 |
 
-## Socket Docker filtré en option
+## Socket Docker filtré par défaut
 
-Avec Compose **2.24.4 ou ultérieur**, depuis la racine du dépôt :
+L’installateur détecte le groupe du socket et construit le proxy. Pour utiliser
+Compose manuellement, exportez le groupe dans chaque nouveau shell, ou inscrivez
+sa valeur numérique dans le fichier local `.env` du projet. Depuis la racine :
 
 ```sh
 export DOCKER_SOCKET_GID=$(stat -c %g "${DOCKER_SOCKET_PATH:-/var/run/docker.sock}")
-docker compose -f docker-compose.yml -f docker-compose.socket-proxy.yml up -d --build --wait
+docker compose up -d --build --wait
 ```
 
 Seul le proxy monte le socket de l’hôte. L’agent le joint sur un réseau privé et
@@ -42,7 +44,27 @@ Choisissez uniquement des conteneurs de confiance. Une commande dans un
 conteneur privilégié ou disposant du socket Docker ou du système de fichiers
 hôte peut donner accès à l’hôte. Le proxy lui-même conserve le vrai socket.
 Les règles de supervision et les jetons pour les actions manuelles se
-configurent séparément. Utilisez les deux mêmes fichiers Compose pour `down`.
+configurent séparément. L’ancien fichier
+`docker-compose.socket-proxy.yml` reste accepté pour les commandes existantes.
+
+## Migrer un agent existant
+
+Conservez votre installation actuelle jusqu’à la migration. L’installateur
+s’arrête s’il détecte un agent existant qui utilise directement le socket.
+
+1. Sauvegardez les fichiers Compose, la configuration et l’état. Gardez le nom
+   de projet et son volume. Relevez les règles et sondes qui nécessitent un exec
+   ou une action sur un conteneur.
+2. Renseignez le GID du socket et les identifiants complets des cibles comme
+   indiqué plus haut. Conservez ces valeurs pour les prochains appels à Compose.
+3. Dans le nouveau dépôt, reprenez le nom de projet et vos fichiers de surcharge.
+   Vérifiez avec `docker compose config` que seul le proxy monte le socket.
+   Retirez de l’agent tout ancien montage du socket et toute surcharge de `DOCKER_HOST`.
+4. Appliquez la configuration vérifiée avec `docker compose up -d --build --wait`
+   et les fichiers choisis. Vérifiez `/readyz`, puis testez vos sondes et actions
+   sur une cible jetable autorisée. Pour revenir en arrière, reprenez les anciens
+   fichiers et le même nom de projet. Utilisez `up -d --remove-orphans` après
+   vérification des services qui seront retirés. Conservez le volume d’état.
 
 ## Installation guidée
 
@@ -50,7 +72,7 @@ Sur Linux amd64, installer Git, Docker Engine, son plugin Compose v2 avec
 `up --wait` et curl. Pour le tableau de bord, prévoir Python 3 et OpenSSL.
 
 ```sh
-git clone --branch v1.3.0 --depth 1 https://github.com/decryptus/monit-docker.git
+git clone --branch master --depth 1 https://github.com/decryptus/monit-docker.git
 cd monit-docker
 ./install.sh
 ```
@@ -97,9 +119,7 @@ La collecte tourne toutes les 30 secondes après la fin du cycle précédent.
 En cas d’erreur, consulter `docker compose ps` et
 `docker compose logs --tail=100 monit-docker`.
 
-L’API reste accessible uniquement en local. L’agent reçoit seulement le socket
-Docker, mais ce socket permet de contrôler Docker même si le montage est marqué
-`read_only`. L’observation seule vient de l’absence de règles, pas du montage.
+L’API de l’agent écoute sur la boucle locale. Seul le proxy monte le socket Docker.
 
 ## Ajouter l’interface web
 

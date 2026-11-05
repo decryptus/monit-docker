@@ -8,15 +8,12 @@ services:
     stop_grace_period: 60s
     ports:
       - '127.0.0.1:${MONIT_DOCKER_PORT:-9808}:9808'
-    networks: [agent]
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      NO_PROXY: socket-proxy,localhost,127.0.0.1
+    networks: [agent, docker-api]
+    depends_on: [socket-proxy]
     volumes:
-      # A read-only socket mount still grants Docker API control.
-      - type: bind
-        source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
-        target: /var/run/docker.sock
-        read_only: true
-        bind:
-          create_host_path: false
       - state:/var/lib/monit-docker
     healthcheck:
       test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:9808/readyz", timeout=3).read()']
@@ -25,7 +22,28 @@ services:
       retries: 12
       start_period: 30s
 
+  socket-proxy:
+    build: ./examples/socket-proxy
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    group_add: ["${DOCKER_SOCKET_GID:?Set DOCKER_SOCKET_GID to the socket group ID}"]
+    networks: [docker-api]
+    environment:
+      EXEC_TARGETS: ${MONIT_PROXY_EXEC_TARGETS:-}
+      LIFECYCLE_TARGETS: ${MONIT_PROXY_LIFECYCLE_TARGETS:-}
+    volumes:
+      - type: bind
+        source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
+
 networks:
+  docker-api:
+    internal: true
   agent:
     # Use a normal bridge for the loopback-published API port. The standalone
     # UI example instead uses an internal network and publishes no agent port.

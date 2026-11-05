@@ -4,7 +4,8 @@ set -euo pipefail
 export COMPOSE_PROJECT_NAME=monit-proxy-ci
 export DOCKER_SOCKET_GID
 DOCKER_SOCKET_GID=$(stat -c %g /var/run/docker.sock)
-stack=(docker compose -f docker-compose.yml -f docker-compose.socket-proxy.yml)
+stack=(docker compose -f docker-compose.yml)
+diff <("${stack[@]}" config) <("${stack[@]}" -f docker-compose.socket-proxy.yml config)
 target=$(docker run -d alpine:3.20 sleep 600)
 cleanup() {
     "${stack[@]}" down -v

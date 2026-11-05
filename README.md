@@ -28,7 +28,7 @@ container or reloading PHP-FPM when memory usage is high.
 Compose v2 and curl, run:
 
 ```sh
-git clone --branch v1.3.0 --depth 1 https://github.com/decryptus/monit-docker.git
+git clone --branch master --depth 1 https://github.com/decryptus/monit-docker.git
 cd monit-docker
 ./install.sh
 ```
@@ -119,7 +119,7 @@ the release workflow does not update `latest`.
 
 | Installation | Files | What runs |
 | --- | --- | --- |
-| Minimal | `docker-compose.yml` | Agent only, observation by default |
+| Minimal | `docker-compose.yml` | Agent and filtered Docker socket proxy, observation by default |
 | With web UI | Add `docker-compose.ui.yml` | Same agent plus authenticated HTTPS UI |
 | Prometheus and Grafana | `examples/monitoring/compose.yaml` | Separate optional history and dashboards stack |
 
@@ -127,6 +127,10 @@ Read the [Compose quickstart](docs/compose-quickstart.md) ([français](docs/comp
 for prerequisites, the UI, upgrades and stopping the stack. The
 [reproducible memory tutorial](docs/tutorial-memory.md) adds a bounded test worker,
 then explicitly enables one automatic restart. The default installation has no action rules.
+
+The current Compose checkout builds the socket proxy locally and runs the published
+1.3.0 agent and UI images. Before switching an existing direct-socket agent,
+follow the [socket migration](docs/compose-quickstart.md#migrate-an-existing-agent).
 
 **Existing root Compose users:** the old cron/PHP-FPM example is replaced by
 observation-only `serve`. Preserve and review your old configuration before
