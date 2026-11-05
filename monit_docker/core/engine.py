@@ -18,7 +18,7 @@ from monit_docker.core.policy import ActionPolicy
 from monit_docker.core.rules import RuleEvaluator
 from monit_docker.core.manual import ALLOWED_STATES
 from monit_docker.domain.maintenance import MAINTENANCE_COMMANDS
-from monit_docker.domain.errors import ActionRejected, MonitoringError
+from monit_docker.domain.errors import ActionRejected, ExecOutcomeUnknown, MonitoringError
 from monit_docker.domain.models import ContainerSnapshot, DEFAULT_RESOURCES
 from monit_docker.domain.filesystems import filesystem_resource
 from monit_docker.domain.rules import Action, ActionDecision, ActionResult, CycleResult
@@ -207,7 +207,8 @@ class MonitoringEngine(object):
                 # Only expose the action label and container, never exec arguments or SDK text.
                 error.failed_action = dict(action=fields['action'], container_name=snapshot.name)
                 if self.audit:
-                    self.audit.finish('action', 'completed', result='failed',
+                    outcome = 'unknown' if isinstance(error, ExecOutcomeUnknown) else 'failed'
+                    self.audit.finish('action', 'completed', result=outcome,
                                       reason=type(error).__name__, error_code=getattr(error, 'code', None),
                                       exit_code=getattr(error, 'exit_code', None),
                                       duration_ms=round((time.monotonic() - started) * 1000), **fields)
