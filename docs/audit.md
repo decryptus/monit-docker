@@ -14,7 +14,7 @@ stderr for collection by Docker logging drivers or an external log collector.
 | Operation | Events and results | Actor |
 | --- | --- | --- |
 | CLI `monit` invocation | Started; succeeded or failed | Local operating-system username |
-| Automatic rule action | Started; succeeded or failed, duration and error/exec exit code when known | `rule-engine` (`cron` for the cron subcommand) |
+| Automatic rule action | Started, then succeeded, failed, or unknown when Docker did not confirm the exec outcome. Includes duration and the exit code when known | `rule-engine` (`cron` for the cron subcommand) |
 | Matched rule delayed, in cooldown or dry-run | Skipped or simulated, with reason | `rule-engine` |
 | Authenticated manual request | Queued, started, completed or rejected, including protection/cooldown/expiry | Trusted proxy username, otherwise `anonymous` |
 | Alertmanager audit webhook | Each firing/resolved alert received; delivery `not_reported` | `alertmanager` |
