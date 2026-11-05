@@ -29,14 +29,25 @@ fi
 export DOCKER_SOCKET_PATH=${DOCKER_SOCKET_PATH:-${endpoint#unix://}}
 [[ $DOCKER_SOCKET_PATH == /* && -S $DOCKER_SOCKET_PATH ]] || fail 'Set DOCKER_SOCKET_PATH to an existing local Docker socket.'
 engine=(docker --host "unix://$DOCKER_SOCKET_PATH")
+DOCKER_SOCKET_GID=$(stat -c %g "$DOCKER_SOCKET_PATH")
+export DOCKER_SOCKET_GID
 platform=$("${engine[@]}" info --format '{{.OSType}}/{{.Architecture}}') || fail 'Check that Docker is running and your account can access its socket.'
 case "$platform" in linux/x86_64|linux/amd64) ;; *) fail "Published images require Linux amd64 (found $platform).";; esac
+
+compose=("${engine[@]}" compose -f docker-compose.yml)
+existing=$("${compose[@]}" ps --all --quiet monit-docker)
+if [[ -n $existing ]]; then
+    # Refuse to silently replace a direct-socket or custom Docker endpoint.
+    endpoint_env=$("${engine[@]}" inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$existing")
+    if ! grep -Fxq 'DOCKER_HOST=tcp://socket-proxy:2375' <<< "$endpoint_env"; then
+        fail 'Existing agent found. Follow the socket migration in docs/compose-quickstart.md before recreating it.'
+    fi
+fi
 
 if [[ $ui == ask ]]; then
     read -r -p 'Install the local web dashboard too? [Y/n] ' answer || fail 'Choose --ui or --agent-only.'
     case "$answer" in ''|[Yy]|[Yy][Ee][Ss]|[Oo]|[Oo][Uu][Ii]) ui=yes ;; [Nn]|[Nn][Oo]|[Nn][Oo][Nn]) ui=no ;; *) fail 'Answer yes or no.' ;; esac
 fi
-compose=("${engine[@]}" compose -f docker-compose.yml)
 if [[ $ui == yes ]]; then
     export UI_BIND=127.0.0.1
     compose+=(-f docker-compose.ui.yml)
@@ -54,7 +65,7 @@ fi
 
 "${compose[@]}" config --quiet
 echo 'Starting local monitoring with the root Compose configuration.'
-"${compose[@]}" up -d --wait --wait-timeout 180
+"${compose[@]}" up -d --build --wait --wait-timeout 180
 binding=$("${compose[@]}" port monit-docker 9808)
 curl --noproxy '*' --fail --silent --show-error --max-time 10 "http://$binding/readyz" >/dev/null
 count=$("${compose[@]}" exec -T monit-docker python -c '

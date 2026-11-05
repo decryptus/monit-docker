@@ -20,6 +20,7 @@ dc() {
   docker compose -f docker-compose.yml -f docker-compose.ui.yml \
     -f examples/tutorial-memory/compose.yaml "$@"
 }
+export DOCKER_SOCKET_GID=$(stat -c %g "${DOCKER_SOCKET_PATH:-/var/run/docker.sock}")
 export DEMO_SCENARIO=demo-observe
 dc config --quiet
 dc up -d --wait --wait-timeout 180
@@ -87,6 +88,8 @@ longer observation windows for production. A restart is only appropriate when
 the workload can tolerate it; it does not diagnose or repair a memory leak.
 
 ```sh
+export MONIT_PROXY_LIFECYCLE_TARGETS=$(docker inspect -f '{{.Id}}' monit-docker-tutorial-memory)
+dc up -d --no-deps socket-proxy
 export DEMO_SCENARIO=demo-guard
 dc up -d --no-deps --wait --wait-timeout 180 monit-docker
 dc restart ui
@@ -141,6 +144,8 @@ for the lab's live measurements.
 Disable the automatic scenario before another take:
 
 ```sh
+unset MONIT_PROXY_LIFECYCLE_TARGETS
+dc up -d --no-deps socket-proxy
 export DEMO_SCENARIO=demo-observe
 dc up -d --no-deps --wait --wait-timeout 180 monit-docker
 dc restart ui

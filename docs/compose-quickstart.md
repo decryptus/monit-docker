@@ -11,13 +11,15 @@ stack. None of these installations enables automatic container actions by defaul
 | Agent and web UI | Base plus `docker-compose.ui.yml` | `https://localhost:8443` |
 | Metrics history and dashboards | `examples/monitoring/compose.yaml` | Grafana on `http://127.0.0.1:3000` |
 
-## Optional filtered Docker socket
+## Default filtered Docker socket
 
-With Compose **2.24.4 or newer**, run these commands at the repository root:
+The guided installer discovers the socket group and builds the proxy. For manual
+Compose commands, export the group in each new shell (or set its numeric value
+in the project’s local `.env`). From the repository root:
 
 ```sh
 export DOCKER_SOCKET_GID=$(stat -c %g "${DOCKER_SOCKET_PATH:-/var/run/docker.sock}")
-docker compose -f docker-compose.yml -f docker-compose.socket-proxy.yml up -d --build --wait
+docker compose up -d --build --wait
 ```
 
 Only the proxy mounts the host socket. The agent reaches it on a private network;
@@ -39,8 +41,26 @@ Choose trusted workload containers only. An exec into a privileged container or
 one with a host filesystem or Docker socket mount can grant host access. The
 allowlist limits the Docker API available to the agent; the proxy process itself
 holds the real socket. These settings grant transport access. Configure any
-monitoring rules or manual action credentials separately. Use the same pair of
-Compose files for `down`.
+monitoring rules or manual action credentials separately. The former
+`docker-compose.socket-proxy.yml` overlay is accepted for compatibility.
+
+## Migrate an existing agent
+
+Keep your current checkout and Compose files until ready to switch. The guided
+installer stops before replacing an existing direct-socket agent. To migrate:
+
+1. Back up the current Compose files, configuration and state. Keep your project
+   name and named volume. List rules and filesystem probes that need Docker writes.
+2. Set the socket GID and the required target IDs as described above. Keep these
+   settings in the deployment environment for subsequent Compose invocations.
+3. From the new checkout, use the same project name and UI/config overlays.
+   Inspect `docker compose config` for inherited direct socket mounts or a
+   custom `DOCKER_HOST`. Remove those overrides so only the proxy owns the socket.
+4. Apply the reviewed configuration with `docker compose up -d --build --wait`
+   and the chosen file list. Check `/readyz`, then verify any probes and actions
+   against a disposable authorized target. To roll back, reapply the saved
+   Compose files with the same project name and `up -d --remove-orphans` after
+   checking which services will be removed. Keep the state volume.
 
 ## Guided installation
 
@@ -48,7 +68,7 @@ On Linux amd64, install Git, Docker Engine, its Compose v2 plugin with
 `up --wait` support, and curl. For the web dashboard, install Python 3 and OpenSSL.
 
 ```sh
-git clone --branch v1.3.0 --depth 1 https://github.com/decryptus/monit-docker.git
+git clone --branch v1.3.1 --depth 1 https://github.com/decryptus/monit-docker.git
 cd monit-docker
 ./install.sh
 ```
@@ -101,9 +121,7 @@ docker compose logs --tail=100 monit-docker
 docker compose exec monit-docker monit-docker stats --output json
 ```
 
-Only the agent receives the Docker socket, and the host API port is on loopback.
-A socket bind marked `read_only` still grants Docker API control; it is not a
-read-only authorization boundary. Keep the daemon and the agent trusted.
+Only the proxy receives the Docker socket. The agent API binds to host loopback.
 
 ## Add the web UI
 
@@ -147,7 +165,7 @@ host ports. The UI binds to loopback unless `UI_BIND` is explicitly changed.
 Changing a host port does not change internal agent addresses. Keep the same
 directory/project name so Compose reuses its named volume.
 
-The examples pin agent and UI to **1.3.0**. When updating versions, preserve your
+The examples pin agent and UI to **1.3.1**. When updating versions, preserve your
 configuration and state, choose matching agent/UI versions, then pull and recreate
 the selected stack. `docker compose pull` alone does not change a running container.
 

@@ -12,6 +12,12 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
+## 1.3.1 filtered Docker socket by default
+
+The repository quickstart builds the filtered proxy for new installations.
+[Migration and per-target grants](compose-quickstart.md#migrate-an-existing-agent)
+cover existing deployments. The v1.3.0 tag retains its original Compose files.
+
 ## 1.3.0 configuration for direct commands
 
 The [1.3.0 release](release-1.3.0.md) adds per-command YAML settings and optional bearer authentication for status reads.
