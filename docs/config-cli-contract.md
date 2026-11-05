@@ -225,6 +225,8 @@ a lock and audit simulated decisions while preserving durable policy state.
 | `--allow-maintenance` | `serve` | Off; requires `--allow-actions` |
 | `--trust-proxy-user` | `serve` | Off; requires manual actions or an audit read token. Trust the authenticated proxy to supply the username. |
 | `--audit-read-token-file` | `serve` | Off; requires explicit audit path and a distinct read secret |
+| `--status-token-file` | `serve` | Optional dedicated bearer secret for GET and HEAD on `/v1/status` |
+| `--metrics-token-file` | `serve` | Optional dedicated bearer secret for GET and HEAD on `/metrics` |
 | `--notification-token-file` | `serve` | Off; private notification ingestion secret |
 
 Keep one persistent state path per Docker host/job. A busy state lock fails

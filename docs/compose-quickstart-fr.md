@@ -154,6 +154,14 @@ nom de projet d’origine. Pour conserver des jobs, reprendre explicitement leur
 cibles et règles selon le [guide cron](cron.md), avec un état persistant et une
 simulation préalable. Aucune conversion automatique des règles n’est effectuée.
 
+Pour protéger la lecture de `/v1/status`, montez un fichier secret dans
+l’agent et ajoutez `--status-token-file /run/secrets/status` après `serve`.
+Le fichier contient 64 caractères hexadécimaux minuscules. Utilisez un secret
+distinct pour chaque usage. Les clients envoient le jeton dans l’en-tête Bearer
+de la requête. Si vous utilisez le tableau de bord, configurez son proxy pour
+ajouter cet en-tête uniquement sur la route de statut. Voir le [guide de
+l’agent](serve.md).
+
 ## Continuer avec une démonstration
 
 Le [tutoriel mémoire](tutorial-memory.md) ajoute un conteneur jetable et permet

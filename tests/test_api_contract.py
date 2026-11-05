@@ -171,6 +171,26 @@ class ApiContractTests(unittest.TestCase):
                 self.assertEqual(self.request('/metrics', method, headers=headers)[0], expected)
         self.assertEqual(self.request('/v1/status')[0], 200)
 
+    def test_optional_status_token_is_scoped_to_status(self):
+        status_token = 'd' * 64
+        bearer = {'Authorization': 'Bearer ' + status_token}
+        for method in ('GET', 'HEAD'):
+            self.assertEqual(self.request('/v1/status', method)[0], 200)
+        self.server.security = replace(self.server.security, status_token=status_token)
+        self.assertEqual(self.request('/metrics')[0], 200)
+        self.assertEqual(self.request('/healthz')[0], 200)
+        self.assertEqual(self.request('/readyz')[0], 503)
+        metrics_token = 'c' * 64
+        self.server.security = replace(self.server.security, metrics_token=metrics_token)
+        for method in ('GET', 'HEAD'):
+            for path in ('/v1/status', '/v1/status?poll=1'):
+                with self.subTest(method=method, path=path):
+                    self.assertEqual(self.request(path, method)[0], 403)
+                    self.assertEqual(self.request(path, method, headers={
+                        'Authorization': 'Bearer ' + metrics_token})[0], 403)
+                    self.assertEqual(self.request(path, method, headers=bearer)[0], 200)
+            self.assertEqual(self.request('/metrics', method, headers=bearer)[0], 403)
+
     def enable_actions(self):
         self.execute = Mock()
         actions = ManualActions(self.execute, clock=self.clock,

@@ -172,4 +172,5 @@ authorization:
 ```
 
 Use HTTPS when scraping across an untrusted network. The token only grants
-access to metrics. Configure access to `/v1/status` separately at your proxy.
+access to metrics. For authenticated status reads, use the independent
+`--status-token-file` option described in [serve mode](serve.md).
