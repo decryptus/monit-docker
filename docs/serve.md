@@ -50,6 +50,43 @@ accepts 1–65535. Without `--cmd`, the process observes containers only and nee
 no state file. All resources are collected by default; repeated `--rsc` options
 select a subset, for example `--rsc cpu_percent --rsc mem_usage`.
 
+### Configure serve in YAML
+
+The next release after 1.2.0 accepts a top-level `serve` section in
+`monit-docker.yml`. For example:
+
+```yaml
+serve:
+  bind: 127.0.0.1
+  port: 9810
+  interval: 60
+  rsc: [status, health]
+  status_token_file: /run/secrets/status
+```
+
+Start this configuration with `monit-docker serve`, or select a file with
+`monit-docker -c /path/to/monit-docker.yml serve`. An explicit CLI option
+overrides that YAML field, even when the argument equals the built-in default.
+For example, `serve --port 9808 --rsc pid` uses port 9808, collects only PID,
+and keeps the configured interval and status token file.
+
+Use the long flag name with underscores in place of hyphens. Use YAML
+booleans for switches and ordered lists for `rsc` and `cmd` (including
+conditional rules). Each CLI list replaces the whole corresponding YAML
+list. To turn off a YAML switch for one launch, use `--no-allow-actions`,
+`--no-allow-maintenance` or `--no-trust-proxy-user`. Keep only file paths in the five token settings. `--dry-run` is
+CLI-only. Global options still precede the subcommand. Named scenarios
+(`monit-docker run NAME`) use their own configuration. The
+[configuration reference](config-cli-contract.md) lists the available settings.
+
+| Purpose | Keys under `serve:` |
+|---|---|
+| HTTP listener | `bind`, `port` |
+| Collection | `interval`, `stale_after`, `rsc` |
+| Automatic actions | `cmd`, `state_file`, `cooldown`, `trigger_after`, `max_gap`, `max_restarts` |
+| Manual actions and proxy identity | `allow_actions`, `allow_maintenance`, `action_origin`, `action_cooldown`, `trust_proxy_user` |
+| Secret file paths | `action_token_file`, `audit_read_token_file`, `notification_token_file`, `metrics_token_file`, `status_token_file` |
+
 To protect the cached status (container names, IDs and measurements), start the
 agent with `monit-docker serve --status-token-file /run/secrets/status`.
 Use a dedicated file containing 64 lowercase hexadecimal characters and an

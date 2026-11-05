@@ -154,6 +154,26 @@ nom de projet d’origine. Pour conserver des jobs, reprendre explicitement leur
 cibles et règles selon le [guide cron](cron.md), avec un état persistant et une
 simulation préalable. Aucune conversion automatique des règles n’est effectuée.
 
+À partir de la prochaine version après 1.2.0, la commande `monit-docker serve`
+peut aussi lire ses réglages dans `monit-docker.yml`. Exemple :
+
+```yaml
+serve:
+  port: 9810
+  interval: 60
+  rsc: [status, health]
+  status_token_file: /run/secrets/status
+```
+
+Une option explicite en ligne de commande est prioritaire. Avec cet exemple,
+`serve --port 9808 --rsc pid` écoute sur 9808, collecte uniquement le PID
+et conserve l’intervalle et le chemin du jeton définis dans le fichier.
+Les listes `rsc` et `cmd` sont remplacées en entier. Pour les noms de clés,
+remplacer les tirets des options longues par des traits de soulignement.
+La simulation ponctuelle utilise toujours `--dry-run`.
+Pour désactiver temporairement un booléen activé dans `serve:`, utilisez
+`--no-allow-actions`, `--no-allow-maintenance` ou `--no-trust-proxy-user`.
+
 Pour protéger la lecture de `/v1/status`, montez un fichier secret dans
 l’agent et ajoutez `--status-token-file /run/secrets/status` après `serve`.
 Le fichier contient 64 caractères hexadécimaux minuscules. Utilisez un secret

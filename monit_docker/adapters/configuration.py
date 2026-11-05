@@ -135,7 +135,7 @@ class Configuration(object):
         for key in ('general', 'vars'):
             if conf.get(key):
                 self._common_conf[key] = dict(conf[key])
-        result = {}
+        result = {'serve': conf['serve']} if 'serve' in conf else {}
         for key, kind, section in _CONFIG_SECTIONS:
             if not include_rules and key in ('conditions', 'commands'):
                 continue
