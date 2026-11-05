@@ -2,6 +2,7 @@
 
 from monit_docker.adapters.http_security import HttpSecurity
 from contextlib import redirect_stderr
+from dataclasses import replace
 import csv
 import fcntl
 import http.client
@@ -210,7 +211,27 @@ class AuditReadHttpTests(unittest.TestCase):
         finally:
             connection.close()
 
+    def test_read_only_proxy_can_enable_named_readers(self):
+        from monit_docker import cli
+        options = cli.argv_parse_check(['--audit-file', str(self.path), 'serve',
+                                        '--audit-read-token-file', 'audit-token', '--trust-proxy-user'])
+        self.assertTrue(options.trust_proxy_user)
+        self.assertFalse(options.allow_actions)
+
+    def test_untrusted_actor_header_is_ignored_for_pages_and_exports(self):
+        self.journal.record('action', 'completed')
+        token_only = {'X-Monit-Audit-Token': TOKEN}
+        with patch.object(self.reader, 'page', wraps=self.reader.page) as read:
+            code, body, _ = self.request(headers=HEADERS)
+            self.assertEqual(code, 200)
+            self.assertEqual(read.call_args.args[1], 'anonymous')
+            query = urlencode({'cursor': json.loads(body)['page_cursor']})
+            self.assertEqual(self.request('/v1/audit/export?' + query, token_only)[0], 200)
+            self.assertEqual(read.call_args.args[1], 'anonymous')
+        self.assertEqual(self.request(headers={'X-Monit-Actor': 'alice'})[0], 403)
+
     def test_disabled_anonymous_and_wrong_secret_access_are_denied(self):
+        self.server.security = replace(self.server.security, trust_actor=True)
         for path in ('/v1/audit', '/v1/audit/export'):
             self.assertEqual(self.request(path, {})[0], 403)
             self.assertEqual(self.request(path, {'X-Monit-Audit-Token': TOKEN})[0], 403)
