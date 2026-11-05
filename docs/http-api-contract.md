@@ -42,8 +42,8 @@ or explicitly starts a monitoring cycle. Reads never execute Docker actions.
 | --- | --- | --- | --- |
 | `/healthz` | GET, HEAD | Always, no agent credential | 200 `{"alive":true}` |
 | `/readyz` | GET, HEAD | Always, no agent credential | 200 `{"ready":true}` or 503 `{"ready":false}` |
-| `/v1/status` | GET, HEAD | Always, no agent credential | 200 cached status, including degraded states |
-| `/metrics` | GET, HEAD | Always, no agent credential | 200 Prometheus text, including degraded states |
+| `/v1/status` | GET, HEAD | Dedicated bearer token when `--status-token-file` is configured | 200 cached status, including degraded states |
+| `/metrics` | GET, HEAD | Dedicated bearer token when `--metrics-token-file` is configured | 200 Prometheus text, including degraded states |
 | `/v1/actions` | POST | Manual actions enabled; action token and exact Origin | 202 request record |
 | `/v1/audit` | GET, HEAD | Journal reader enabled; audit token and actor | 200 bounded event page |
 | `/v1/audit/export` | GET, HEAD | Same journal authentication | 200 JSONL or CSV attachment |

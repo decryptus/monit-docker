@@ -70,10 +70,11 @@ class StatusHandler(httpdis.HttpReqHandler):
     def authenticate(self, auth_users = None):
         path = self._path
         security = self.server.security
-        if path == '/metrics':
-            if security.metrics_token:
+        if path in ('/metrics', '/v1/status'):
+            token = security.metrics_token if path == '/metrics' else security.status_token
+            if token:
                 tokens = self.headers.get_all('Authorization') or []
-                expected = ('Bearer ' + security.metrics_token).encode('ascii')
+                expected = ('Bearer ' + token).encode('ascii')
                 if len(tokens) != 1 or not hmac.compare_digest(tokens[0].encode('utf-8'), expected):
                     raise self.req_error(403, 'forbidden')
             return

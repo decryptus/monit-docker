@@ -50,7 +50,28 @@ accepts 1–65535. Without `--cmd`, the process observes containers only and nee
 no state file. All resources are collected by default; repeated `--rsc` options
 select a subset, for example `--rsc cpu_percent --rsc mem_usage`.
 
-The agent has no read authentication, TLS or embedded UI. The optional
+To protect the cached status (container names, IDs and measurements), start the
+agent with `monit-docker serve --status-token-file /run/secrets/status`.
+Use a dedicated file containing 64 lowercase hexadecimal characters and an
+optional final newline. The agent loads the file at startup. GET and HEAD
+require a single `Authorization: Bearer TOKEN` header when enabled. Missing
+or incorrect credentials return HTTP 403. Health and readiness probes stay
+available; Prometheus uses its own `--metrics-token-file`.
+
+For example, read status through a local connection or a trusted HTTPS endpoint
+without passing the secret as a command-line argument:
+
+```sh
+{ printf 'Authorization: Bearer '; tr -d '\n' < /run/secrets/status; printf '\n'; } |
+  curl --fail --silent --show-error --header @- "$AGENT_URL/v1/status"
+```
+
+When using the web UI, configure its authenticated reverse proxy to inject the
+status bearer on the upstream `/v1/status` location. The stock Nginx
+configuration clears the upstream Authorization header. Replace that directive
+for this location only and keep the secret on the proxy, outside browser code.
+
+The optional
 [separate UI component](ui.md) supplies an authenticated Nginx frontend. Manual
 start/stop/restart is disabled by default; enabling its API requires explicit
 configuration, a proxy secret, an allowed HTTPS origin and persistent state.

@@ -437,6 +437,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--trust-proxy-user', action='store_true',
                             help='require X-Monit-Actor supplied and overwritten by the authenticated proxy')
         parser.add_argument('--audit-read-token-file', help='enable private journal reads through an authenticated proxy with a separate secret')
+        parser.add_argument('--status-token-file', help='require a dedicated Bearer secret to read /v1/status')
         parser.add_argument('--metrics-token-file', help='require a dedicated Bearer secret to scrape /metrics')
         parser.add_argument('--notification-token-file', help='enable private Alertmanager audit webhook with a separate Bearer secret')
         parser.add_argument('--action-cooldown', type=float, default=30,
@@ -511,6 +512,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             action_origin=self.options.action_origin, trust_actor=self.options.trust_proxy_user,
             notification_token_file=self.options.notification_token_file,
             audit_read_token_file=self.options.audit_read_token_file,
+            status_token_file=getattr(self.options, 'status_token_file', None),
             metrics_token_file=getattr(self.options, 'metrics_token_file', None))
         actions = (ManualActions(self.application.manual_action, audit=self.audit,
                                  allow_maintenance=self.options.allow_maintenance)
