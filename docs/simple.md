@@ -101,7 +101,7 @@ If a command fails, start with [troubleshooting](troubleshooting.md).
 
 ## Defaults for direct stats and monit commands
 
-Starting with the next release after 1.2.0, add these optional sections to
+Starting with version 1.3.0, add these optional sections to
 `monit-docker.yml`:
 
 ```yaml

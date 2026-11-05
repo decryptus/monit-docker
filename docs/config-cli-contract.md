@@ -46,7 +46,7 @@ is rendered once; runtime and offline checks use the same validation. See the
 | `serve` | Mapping | Defaults for direct `serve`; explicit CLI options take precedence (see [serve](serve.md#configure-serve-in-yaml)) |
 | `scenarios` | `NAME: MAPPING` | A named `stats`, `cron` or `serve` job |
 
-These direct command sections are available on master after 1.2.0. Each command
+These direct command sections are available since 1.3.0. Each command
 reads its own section. Explicit flags override individual YAML fields, even at
 their built-in default value. Repeating `--rsc` or `--cmd` / `--cmd-if` replaces
 the complete YAML list in argument order. For `monit`, choosing `--rsc` also
