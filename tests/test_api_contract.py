@@ -9,13 +9,14 @@ import io
 import json
 from pathlib import Path
 import re
+import socket
 import tempfile
 from threading import Event, Thread
 import unittest
 from unittest.mock import Mock, patch
 from urllib.parse import urlencode
 
-from monit_docker.adapters.http import StatusServer
+from monit_docker.adapters.http import StatusHandler, StatusServer
 from monit_docker.audit import AuditJournal
 from monit_docker.audit_query import AuditReader
 from monit_docker.domain.errors import MonitoringError
@@ -119,6 +120,45 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(headers['content-type'], 'application/json; charset=utf-8')
         self.assertTrue(body.endswith(b'\n'))
         return code, json.loads(body)
+
+    def test_total_read_deadlines_with_a_continuously_active_client(self):
+        self.monitor.notification_audit = Mock()
+        partial_post = (f'POST /v1/notifications HTTP/1.1\r\nHost: localhost\r\n'
+                        f'Authorization: Bearer {_TOKEN}\r\nContent-Type: application/json\r\n'
+                        'Content-Length: 1024\r\n\r\n').encode('ascii')
+        cases = (
+            ('headers', b'GET /healthz HTTP/1.1\r\nHost: localhost\r\nX-Slow: ', b'x'),
+            ('body', partial_post, b' '),
+        )
+        with patch.object(StatusHandler, 'header_read_seconds', 0.4), \
+                patch.object(StatusHandler, 'body_max_seconds', 0.4):
+            for phase, prefix, byte in cases:
+                with self.subTest(phase=phase), socket.create_connection(self.server.server_address, 3) as sock:
+                    sock.sendall(prefix)
+                    stop = Event()
+
+                    def trickle():
+                        while not stop.wait(0.04):
+                            try:
+                                sock.sendall(byte)
+                            except OSError:
+                                return
+
+                    sender = Thread(target=trickle)
+                    sender.start()
+                    try:
+                        with sock.makefile('rb') as stream:
+                            response = stream.read()
+                    finally:
+                        stop.set()
+                        sender.join()
+                    if phase == 'body':
+                        self.assertIn(b' 408 ', response.split(b'\r\n', 1)[0])
+                        self.assertIn(b'request_timeout', response)
+                    else:
+                        self.assertNotIn(b' 200 ', response)
+        self.monitor.notification_audit.receive.assert_not_called()
+        self.assertEqual(self.json_request('/healthz'), (200, {'alive': True}))
 
     def test_optional_metrics_token(self):
         secret = 'c' * 64
