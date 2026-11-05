@@ -187,7 +187,7 @@ jobs:
         run: docker build -t "decryptus/monit-docker:$(cat VERSION)" .
       - name: Validate optional socket proxy against the Docker daemon
         run: |
-          gofmt examples/socket-proxy/main.go
+          test -z "$(gofmt -l examples/socket-proxy/main.go)"
           bash .github/scripts/check-socket-proxy.sh
       - name: Start the documented stack
         run: |
