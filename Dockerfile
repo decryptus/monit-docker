@@ -1,7 +1,7 @@
 # Pinned to the Alpine image used by the agent's last successful build.
 FROM alpine@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS runtime-base
 
-RUN apk add --no-cache bash ca-certificates libcurl libffi libmagic libstdc++ python3
+RUN apk add --no-cache bash ca-certificates libcurl libffi libmagic libstdc++ libxcrypt python3
 
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
