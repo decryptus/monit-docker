@@ -1,8 +1,14 @@
+monit-docker (1.3.3) stable; urgency=medium
+
+  * Require HTTPdis 0.7.1 or later in the agent.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Sat, 07 Nov 2026 09:41:00 +0100
+
 monit-docker (1.3.2) stable; urgency=medium
 
   * Require HTTPdis 0.6.39 or newer in the agent package.
 
- -- Codex <codex@openai.com>  Sat, 07 Nov 2026 06:40:00 +0100
+ -- Adrien Delle Cave <pypi@doowan.net>  Sat, 07 Nov 2026 06:40:00 +0100
 
 monit-docker (1.3.1) stable; urgency=medium
 
@@ -65,7 +71,7 @@ monit-docker (1.1.0) unstable; urgency=medium
   * Preserve existing default interface and service authorization boundaries.
   * Include offline demo, separate UI tests and reproducible captures.
 
- -- Codex <codex@openai.com>  Wed, 07 Oct 2026 02:00:00 +0200
+ -- Adrien Delle Cave <pypi@doowan.net>  Wed, 07 Oct 2026 02:00:00 +0200
 
 monit-docker (1.0.1) stable; urgency=medium
 
@@ -74,7 +80,7 @@ monit-docker (1.0.1) stable; urgency=medium
   * Require Sonicprobe 0.3.57 and cover timeout ordering and invalid configuration regressions.
   * Refresh release notes and installation guidance without changing the HTTP or journal contracts.
 
- -- Codex <codex@openai.com>  Sun, 04 Oct 2026 07:00:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Sun, 04 Oct 2026 07:00:00 +0000
 
 monit-docker (1.0.0) stable; urgency=medium
 
@@ -86,7 +92,7 @@ monit-docker (1.0.0) stable; urgency=medium
   * Synchronize real child OOM evidence before testing automatic restart retention.
   * Document release evidence, pending field validation and known limits.
 
- -- Codex <codex@openai.com>  Mon, 28 Sep 2026 11:00:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Mon, 28 Sep 2026 11:00:00 +0000
 
 monit-docker (0.0.82) unstable; urgency=medium
 
@@ -96,14 +102,14 @@ monit-docker (0.0.82) unstable; urgency=medium
   * Clear stale export errors and cover manual UI recovery after audit contention.
   * Add sustained journal load, saturation and recovery measurements.
 
- -- Codex <codex@openai.com>  Mon, 28 Sep 2026 08:20:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Mon, 28 Sep 2026 08:20:00 +0000
 
 monit-docker (0.0.81) unstable; urgency=medium
 
   * Reuse DWho CLI JSON presentation while preserving output and exit-code contracts.
   * Require published DWho 0.3.63 and document the shared terminal boundary.
 
- -- Codex <codex@openai.com>  Mon, 28 Sep 2026 06:00:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Mon, 28 Sep 2026 06:00:00 +0000
 
 monit-docker (0.0.80) unstable; urgency=medium
 
@@ -116,7 +122,7 @@ monit-docker (0.0.80) unstable; urgency=medium
   * Add journal/HTTP performance baselines and crash, storage and concurrency checks.
   * Document transient audit_busy responses during concurrent writes and remaining limits.
 
- -- Codex <codex@openai.com>  Mon, 28 Sep 2026 00:45:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Mon, 28 Sep 2026 00:45:00 +0000
 
 monit-docker (0.0.79) unstable; urgency=medium
 
@@ -124,7 +130,7 @@ monit-docker (0.0.79) unstable; urgency=medium
   * Preserve CLI, monitoring, manual action and audit contracts after refactoring.
   * Add architecture regression coverage for service and interface boundaries.
 
- -- Codex <codex@openai.com>  Sun, 27 Sep 2026 19:04:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Sun, 27 Sep 2026 19:04:00 +0000
 
 monit-docker (0.0.78) unstable; urgency=medium
 
@@ -132,7 +138,7 @@ monit-docker (0.0.78) unstable; urgency=medium
   * Document supported environments and optional check prerequisites.
   * Correct Python package metadata to require Python 3.10 or later.
 
- -- Codex <codex@openai.com>  Fri, 25 Sep 2026 21:45:00 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Fri, 25 Sep 2026 21:45:00 -0000
 
 monit-docker (0.0.77) unstable; urgency=medium
 
@@ -140,7 +146,7 @@ monit-docker (0.0.77) unstable; urgency=medium
   * Reject scenario access resources without an identity during offline validation.
   * Cover selection, import and client precedence with contract regression tests.
 
- -- Codex <codex@openai.com>  Fri, 25 Sep 2026 03:45:00 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Fri, 25 Sep 2026 03:45:00 -0000
 
 monit-docker (0.0.76) unstable; urgency=medium
 
@@ -149,7 +155,7 @@ monit-docker (0.0.76) unstable; urgency=medium
   * Accelerate ordinary audit text validation without changing escaping rules.
   * Use compiled regular expressions for escape sequences and control runs.
 
- -- Codex <codex@openai.com>  Fri, 25 Sep 2026 01:35:50 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Fri, 25 Sep 2026 01:35:50 -0000
 
 monit-docker (0.0.75) unstable; urgency=medium
 
@@ -158,7 +164,7 @@ monit-docker (0.0.75) unstable; urgency=medium
   * Preserve journal filters while browsing action stages, reasons and durations.
   * Handle partial history, expired cursors and cancelled requests explicitly.
 
- -- Codex <codex@openai.com>  Fri, 25 Sep 2026 00:40:52 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Fri, 25 Sep 2026 00:40:52 -0000
 
 monit-docker (0.0.74) unstable; urgency=medium
 
@@ -166,7 +172,7 @@ monit-docker (0.0.74) unstable; urgency=medium
   * Show removable active filters and preserve filtering in page exports.
   * Keep keyboard navigation and compact mobile layouts.
 
- -- Codex <codex@openai.com>  Thu, 24 Sep 2026 23:19:20 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 24 Sep 2026 23:19:20 -0000
 
 monit-docker (0.0.73) unstable; urgency=medium
 
@@ -174,7 +180,7 @@ monit-docker (0.0.73) unstable; urgency=medium
   * Align event details to the right and keep container metadata visible below.
   * Preserve contextual colors, visible reasons and mobile wrapping.
 
- -- Codex <codex@openai.com>  Thu, 24 Sep 2026 22:45:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 24 Sep 2026 22:45:00 +0000
 
 monit-docker (0.0.72) unstable; urgency=medium
 
@@ -182,7 +188,7 @@ monit-docker (0.0.72) unstable; urgency=medium
   * Keep queued events blue and preserve explicit English status labels.
   * Separate manual/automatic sources and actor/host metadata into small alerts.
 
- -- Codex <codex@openai.com>  Thu, 24 Sep 2026 22:30:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 24 Sep 2026 22:30:00 +0000
 
 monit-docker (0.0.71) unstable; urgency=medium
 
@@ -191,7 +197,7 @@ monit-docker (0.0.71) unstable; urgency=medium
   * Preserve raw event fields, filtering and CSV/JSONL exports.
   * Verify readable mobile layouts and notification acceptance semantics.
 
- -- Codex <codex@openai.com>  Thu, 24 Sep 2026 22:00:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 24 Sep 2026 22:00:00 +0000
 
 monit-docker (0.0.70) unstable; urgency=medium
 
@@ -201,7 +207,7 @@ monit-docker (0.0.70) unstable; urgency=medium
   * Validate scenarios, aliases, selectors and access identities offline.
   * Document scenario configuration, scheduling and state migration.
 
- -- Codex <codex@openai.com>  Thu, 24 Sep 2026 21:35:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Thu, 24 Sep 2026 21:35:00 +0000
 
 monit-docker (0.0.66) unstable; urgency=medium
 
@@ -212,7 +218,7 @@ monit-docker (0.0.66) unstable; urgency=medium
   * Provide versioned Compose wiring and desktop/mobile regression coverage.
   * Preserve Python 3.10 support for unfiltered journal requests.
 
- -- Codex <codex@openai.com>  Wed, 23 Sep 2026 21:36:51 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Wed, 23 Sep 2026 21:36:51 -0000
 
 monit-docker (0.0.65) unstable; urgency=medium
 
@@ -224,7 +230,7 @@ monit-docker (0.0.65) unstable; urgency=medium
   * Use HTTPdis 0.6.28 native per-route request body limits.
   * Remove the offline demo and point users to the live public playground.
 
- -- Codex <codex@openai.com>  Wed, 23 Sep 2026 19:03:34 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Wed, 23 Sep 2026 19:03:34 -0000
 
 monit-docker (0.0.64) unstable; urgency=medium
 
@@ -234,7 +240,7 @@ monit-docker (0.0.64) unstable; urgency=medium
   * Display a lock and disable controls for protected containers in the UI.
   * Test direct API refusals, queued requests, real Docker and mobile layouts.
 
- -- Codex <codex@openai.com>  Wed, 23 Sep 2026 13:42:43 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Wed, 23 Sep 2026 13:42:43 +0000
 
 monit-docker (0.0.63) unstable; urgency=medium
 
@@ -247,7 +253,7 @@ monit-docker (0.0.63) unstable; urgency=medium
   * Test browser behavior, Nginx security boundaries and real Docker actions.
   * Publish a separate versioned monit-docker-ui image alongside the agent.
 
- -- Codex <codex@openai.com>  Wed, 23 Sep 2026 08:30:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Wed, 23 Sep 2026 08:30:00 +0000
 
 monit-docker (0.0.62) unstable; urgency=medium
 
@@ -258,7 +264,7 @@ monit-docker (0.0.62) unstable; urgency=medium
   * Require Sonicprobe 0.3.53 with the reviewed concurrency fixes.
   * Document timing, migration, dry runs and local-state process boundaries.
 
- -- Codex <codex@openai.com>  Wed, 23 Sep 2026 02:00:00 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Wed, 23 Sep 2026 02:00:00 +0000
 
 monit-docker (0.0.61) unstable; urgency=medium
 
@@ -269,7 +275,7 @@ monit-docker (0.0.61) unstable; urgency=medium
   * Document validation scope, exit codes and trusted-template requirements.
   * Cover dormant errors, malformed input, file precedence and side-effect guards.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 17:11:27 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 17:11:27 +0000
 
 monit-docker (0.0.60) unstable; urgency=medium
 
@@ -280,7 +286,7 @@ monit-docker (0.0.60) unstable; urgency=medium
   * Document activation, secrets, retention, persistence and delivery failures.
   * Test real delivery, authentication, outage recovery and notification packaging.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 16:31:23 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 16:31:23 +0000
 
 monit-docker (0.0.59) unstable; urgency=medium
 
@@ -291,7 +297,7 @@ monit-docker (0.0.59) unstable; urgency=medium
   * Cover alert behavior with 15 scenarios and 50 regression assertions.
   * Verify real rule evaluation and agent recovery in the Compose stack.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 14:36:20 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 14:36:20 -0000
 
 monit-docker (0.0.58) unstable; urgency=medium
 
@@ -302,7 +308,7 @@ monit-docker (0.0.58) unstable; urgency=medium
   * Document startup, customization, credentials and data lifecycle.
   * Exercise real collection, Grafana queries, failures and persistence in CI.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 11:45:50 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 11:45:50 +0000
 
 monit-docker (0.0.57) unstable; urgency=medium
 
@@ -314,7 +320,7 @@ monit-docker (0.0.57) unstable; urgency=medium
   * Include Grafana screenshots with explicitly synthetic demonstration data.
   * Add a reproducible Grafana screenshot workflow using the official renderer.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 11:19:21 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 11:19:21 +0000
 
 monit-docker (0.0.56) unstable; urgency=medium
 
@@ -326,7 +332,7 @@ monit-docker (0.0.56) unstable; urgency=medium
   * Ship a 14-panel Grafana dashboard and import instructions.
   * Validate PromQL and Grafana imports in CI; test serve with real Docker.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 10:42:54 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 10:42:54 +0000
 
 monit-docker (0.0.55) unstable; urgency=medium
 
@@ -338,7 +344,7 @@ monit-docker (0.0.55) unstable; urgency=medium
   * Document scheduling, recovery and cooldown semantics.
   * Add regression and real-Docker coverage for cron safeguards.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 10:14:27 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 10:14:27 +0000
 
 monit-docker (0.0.54) unstable; urgency=medium
 
@@ -347,7 +353,7 @@ monit-docker (0.0.54) unstable; urgency=medium
   * Validate archive metadata and test the installed wheel before release.
   * Document registry setup, automatic releases and publication retries.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 09:46:49 +0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 09:46:49 +0000
 
 monit-docker (0.0.53) unstable; urgency=medium
 
@@ -358,7 +364,7 @@ monit-docker (0.0.53) unstable; urgency=medium
   * Document aliases, multiple containers, unavailable statuses and error codes.
   * Test propagation, failure boundaries and real Docker CLI process exit codes.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 09:18:20 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 09:18:20 -0000
 
 monit-docker (0.0.52) unstable; urgency=medium
 
@@ -373,7 +379,7 @@ monit-docker (0.0.52) unstable; urgency=medium
   * Document the engine contract and PHP-FPM graceful reload with SIGUSR2.
   * Automate version tags and Docker Hub publication after release validation.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 08:57:02 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 08:57:02 -0000
 
 monit-docker (0.0.51) unstable; urgency=medium
 
@@ -387,7 +393,7 @@ monit-docker (0.0.51) unstable; urgency=medium
   * Build the Docker image from the checked-out source in a virtual environment.
   * Add regression tests and Docker Hub publishing for validated version tags.
 
- -- Codex <codex@openai.com>  Tue, 22 Sep 2026 06:06:06 -0000
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 06:06:06 -0000
 
 monit-docker (0.0.50) unstable; urgency=medium
 
