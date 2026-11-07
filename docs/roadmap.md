@@ -12,6 +12,10 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
+## 1.3.3
+
+The agent requires HTTPdis 0.7.1 or later.
+
 ## 1.3.2 HTTP transport dependency
 
 The agent requires HTTPdis 0.6.39 or later.
