@@ -12,6 +12,10 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
+## 1.3.2 HTTP transport dependency
+
+The agent requires HTTPdis 0.6.39 or later.
+
 ## 1.3.1 filtered Docker socket by default
 
 The repository quickstart builds the filtered proxy for new installations.
