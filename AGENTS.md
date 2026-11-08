@@ -161,3 +161,9 @@ Current project runner: `unittest` for `tests`. CI helper tests use
   handoff, distinguish merged code from registry publication and deployment,
   report checks performed, and list any required surface still not updated with
   its concrete blocker. Never imply that a planned publication already happened.
+
+## Shared component placement
+
+- Before adding a dependency, implementing a local component or preparing a release, inspect the current capabilities of DWho, HTTPdis and Sonicprobe and reuse applicable functionality.
+- For a new generic capability, assess whether it belongs in one of these shared libraries and record the placement decision in the contribution. Keep product-specific business rules in this repository.
+- When a shared-library change is needed, validate it in its own repository against its contracts, supported versions and existing consumers. Then update this project's dependency and verify the integration before delivery. Follow each repository's release procedures and existing authorization scope.
