@@ -235,6 +235,26 @@ a competing generic `!include` mechanism or impose Auton's client schema.
 This item records planned verification/hardening, not completed enforcement.
 Auton remains the current development priority.
 
+### Basic open-source AI assistance (planned)
+
+Planned scope approved on 18 November 2026; not implemented or released.
+
+- Add optional assistance for a standalone Monit-Docker installation, using the
+  user's own AI API key. API usage is billed directly by the chosen provider.
+  Allow a compatible local model where supported.
+- Start with a small read-only scope: explain an incident, summarize relevant
+  recent events, and suggest checks based on available measurements and rules.
+- Trigger analysis explicitly. Distinguish observed facts from hypotheses and
+  identify missing evidence; do not apply changes or run commands automatically.
+- Bound the context sent to the model, exclude credentials, and make transmitted
+  data and provider configuration clear to the operator. Keep API keys out of
+  logs and generated explanations.
+- Preserve normal monitoring, local YAML configuration and existing protections
+  when AI is disabled, unavailable or misconfigured.
+
+Provider compatibility and implementation details remain to be specified. This
+roadmap entry does not announce a release date.
+
 ## Design constraints
 
 Keep the DWho, HTTPdis and Sonicprobe foundations, global constants and a light
