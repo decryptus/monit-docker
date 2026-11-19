@@ -35,7 +35,8 @@ jobs:
 
   published-ui:
     name: Published 0.0.79 agent and UI
-    runs-on: ubuntu-latest
+    # Keep the pinned browser toolchain on its supported distribution.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

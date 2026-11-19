@@ -22,7 +22,8 @@ jobs:
 
   ui:
     name: Build and test optional UI image
-    runs-on: ubuntu-latest
+    # Playwright 1.55.0 supports this image; ubuntu-latest now resolves to 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
