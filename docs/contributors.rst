@@ -16,3 +16,4 @@ For installation and operation, return to :doc:`/index`.
    performance-resilience
    roadmap
    textual-review
+   incident-ai-review

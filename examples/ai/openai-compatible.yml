@@ -1,0 +1,8 @@
+# Development candidate; choose a model supporting JSON Chat Completions.
+provider: openai-compatible
+endpoint: https://api.openai.com/v1/chat/completions
+model: MODEL_ID
+allow_remote: true
+api_key_file: /run/secrets/monit-docker-ai-key
+timeout: 30
+max_output_tokens: 1024

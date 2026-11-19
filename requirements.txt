@@ -5,6 +5,7 @@ HTTPdis>=0.7.1
 Mako
 pyOpenSSL>=20.0.0
 PyYAML>=3.10
+pycurl>=7.43.0
 six>=1.13.0
 sonicprobe>=0.3.57
 regex>=2024.5.15

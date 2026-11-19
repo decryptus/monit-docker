@@ -72,3 +72,18 @@ class PackagingTests(unittest.TestCase):
         internal, metadata = json.loads(output)
         self.assertEqual(internal, metadata)
         self.assertEqual(internal, (self.source / 'VERSION').read_text().strip())
+        # Exercise the new offline command from the installed distribution,
+        # with no model credentials, Docker daemon or source imports.
+        from incident_fixtures import IDENTIFIER, status
+        snapshot = self.work / 'status.json'
+        snapshot.write_text(json.dumps(status()))
+        output = self.run_command(sys.executable, '-c',
+                         'import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); '
+                         'entry = sys.argv.pop(1); sys.argv[0] = entry; '
+                         'runpy.run_path(entry, run_name="__main__")',
+                         str(installed), str(installed / 'bin' / 'monit-docker'),
+                         'explain', '--status-file', str(snapshot), '--container-id', IDENTIFIER,
+                         '--preview', '--output', 'json', cwd=self.work)
+        report = json.loads(output)
+        self.assertEqual(report['status'], 'preview')
+        self.assertIsNone(report['analysis'])

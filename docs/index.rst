@@ -67,6 +67,8 @@ For installation and the command reference, see the
    release-1.1.0
    config-cli-contract
    terminal
+   incident-ai
+   incident-ai-fr
    supported-environments
    installation-upgrades
    deprecation-policy

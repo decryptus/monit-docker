@@ -1,0 +1,6 @@
+# Development candidate; replace MODEL_ID with an installed model.
+provider: ollama
+endpoint: http://127.0.0.1:11434/api/chat
+model: MODEL_ID
+timeout: 30
+max_output_tokens: 1024

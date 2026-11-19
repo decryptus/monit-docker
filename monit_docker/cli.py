@@ -24,6 +24,7 @@ from sonicprobe import helpers
 
 from monit_docker.cli_audit import (MonitDockerSubCmdAudit, MonitDockerSubCmdAuditSend,
                                     MonitDockerSubCmdAuditMigrate)
+from monit_docker.cli_incident import MonitDockerSubCmdExplain
 from monit_docker.composition import build_application, audit_journal as _audit_journal
 from monit_docker.observation import DEFAULT_REFRESH, MIN_REFRESH, MAX_REFRESH
 from monit_docker.job import JobOptions, validate_job
@@ -695,6 +696,7 @@ class MonitDockerSubCmdTui:
 
 
 _SUBCMDS['tui'] = MonitDockerSubCmdTui
+_SUBCMDS['explain'] = MonitDockerSubCmdExplain
 _SUBCMDS['run'] = MonitDockerSubCmdRun
 _SUBCMDS['scenario'] = MonitDockerSubCmdScenario
 _SUBCMDS['audit-export'] = MonitDockerSubCmdAudit
@@ -714,7 +716,7 @@ def main(options):
     Main function
     """
     # Resolve named jobs before setup; offline commands need no logging or Docker.
-    if options.subcommand in ('tui', 'check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
+    if options.subcommand in ('explain', 'tui', 'check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
         try:
             return _SUBCMDS[options.subcommand](options)()
         except (MonitoringError, OSError, ValueError) as error:
