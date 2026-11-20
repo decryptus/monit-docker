@@ -1,6 +1,6 @@
 # Incident assistance: implementation and qualification
 
-Development candidate, 19 November 2026. Not a release announcement.
+Development candidate, 20 November 2026. Not a release announcement.
 User instructions are in the [English](incident-ai.md) and
 [French](incident-ai-fr.md) guides.
 
@@ -55,6 +55,72 @@ entry point without a model.
 
 ## Remaining qualification before release
 
+### Reproducible synthetic evaluation
+
+From a source checkout with the candidate installed, generate an offline preview:
+
+```sh
+python .github/scripts/qualify-incident-ai.py --output /tmp/incident-preview.json
+```
+
+This previews eight synthetic cases without loading credentials or contacting a
+provider. The report contains the exact redacted contexts, context/prompt/service
+and tool hashes, and review expectations. Names, IDs and hostile free-text canaries
+must be absent before any request. No Docker daemon, monitoring engine or demo
+server is involved. The script is contributor tooling, not an installed CLI command.
+
+Select a provider, endpoint and model using the existing configuration examples.
+For a remote provider, use HTTPS with `allow_remote: true`; put its dedicated key
+in the configured private regular file, owned by the invoking account with mode
+`0600`. Do not put the key in a command, report, repository or chat. Preview does
+not verify connectivity, credentials or model compatibility.
+
+Start with one explicitly selected case:
+
+```sh
+python .github/scripts/qualify-incident-ai.py --live \
+  --ai-config /private/incident-ai.yml --case memory-pressure --max-calls 1 \
+  --output /tmp/incident-one-case.json
+```
+
+After inspecting that result, run all eight cases with an explicit call budget:
+
+```sh
+python .github/scripts/qualify-incident-ai.py --live \
+  --ai-config /private/incident-ai.yml --max-calls 8 \
+  --output /tmp/incident-full-review.json
+```
+
+Each output must be a new path; existing files and symlinks are rejected before
+loading credentials. Reports are created with mode `0600` and checkpointed before
+each request and after each result. The first provider error stops subsequent
+calls. There are no retries or fallback providers. An interrupted or failed request
+may still be billed; do not assume it did not reach the provider.
+
+Live reports record the configured model, request bounds, validated responses,
+elapsed milliseconds and provider-reported tokens. The configured model may be
+an alias: record its actual revision and deployment separately when available.
+Use a fresh report for each provider/model and compare the same scenarios.
+Wall-clock evidence timestamps differ between runs; preserve each exact context
+and its hash when reviewing differences.
+
+Optional `--input-usd-per-million` and `--output-usd-per-million` accept the
+operator's current USD rates, supplied together. Estimates require both reported
+token counts and are not verified billing: caching, discounts, additional fees
+and uncertain requests require reconciliation with provider records. Missing
+usage stays unknown. No rates are hardcoded.
+
+A successful exit means requests and structural validation completed, not that
+the model passed qualification. Every report starts with human verdicts pending
+and qualification not established. Review every hypothesis and suggested check
+against the supplied evidence and expectations; retain that review separately.
+The timeout/refusal/schema failure paths are covered by automated synthetic
+transport tests; these eight live cases evaluate model behavior on incident data.
+The provider must be reachable directly: the adapter ignores proxy environment
+variables. No live-provider results have been established by adding this harness.
+
+### Model acceptance
+
 Transport and schema tests cannot establish model usefulness or factual accuracy.
 No real model/API credential was used for this candidate. Validate each proposed
 model/server combination explicitly; models must support the documented JSON
@@ -83,3 +149,27 @@ This candidate does not activate AI on the public demo, expose credentials to
 visitors, change stable package versions, or publish website claims of availability.
 Release selection, registries, bilingual website and demo qualification must be
 handled together after the remaining model checks.
+
+## Planned web integration contract
+
+This is a design for subsequent implementation; this candidate still has no AI
+HTTP route or web interface. Reuse the neutral `IncidentAssistant` service through
+an HTTP peer adapter after model qualification. Keep provider configuration and
+credentials on the server; browser requests must not supply arbitrary endpoints,
+models, keys or prompts. Preserve operator choice through server configuration.
+
+The interface should first display the redacted evidence and freshness for one
+exact container ID, then allow an explicit explanation request. The server must
+reject changed evidence between preview and submission instead of silently
+sending additional data. Integrate with existing HTTPdis authentication and
+server-side authorization; a public demo must not acquire paid inference access.
+Define and test AI permission, concurrency and request-rate limits before adding
+the route: read access alone must not implicitly authorize spending.
+
+Show observations, uncertain hypotheses, missing evidence and read-only checks
+separately, with evidence references, latency and available usage. Render model
+text as escaped text. Explicit loading, stale-evidence, unavailable-provider,
+refusal and timeout states must leave monitoring usable. No suggestion can invoke
+an action handler, command, restart or protection change. Reuse HTTPdis routing,
+authentication and request-size enforcement; do not duplicate the monitoring
+engine or provider logic in the browser.

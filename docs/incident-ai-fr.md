@@ -11,6 +11,12 @@ Cette première étape propose une commande CLI, sans bouton IA ni route HTTP IA
 La qualité des explications et la compatibilité des modèles restent à qualifier
 en conditions réelles. Les tests automatisés utilisent des réponses synthétiques.
 
+L'adresse de l'API, le modèle et le chemin du fichier privé contenant la clé sont
+configurables. Le fournisseur doit respecter le protocole Chat Completions
+compatible OpenAI ou celui d'Ollama ; un autre protocole nécessite un adaptateur.
+Chaque modèle reste à tester. Les contributeurs peuvent comparer les fournisseurs
+avec le [banc d'essai synthétique](incident-ai-review.md#reproducible-synthetic-evaluation).
+
 ## Vérifier les données avant l'envoi
 
 Depuis le dépôt contenant cette version de développement :

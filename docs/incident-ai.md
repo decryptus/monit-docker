@@ -10,6 +10,11 @@ The initial interface is the CLI. There is no AI button or AI HTTP route yet.
 Model quality and real-provider compatibility still need field qualification;
 automated tests use synthetic responses, not a production model.
 
+The endpoint, model and private key-file path are configurable. Providers must
+support the implemented OpenAI-compatible Chat Completions contract or Ollama;
+other protocols need an adapter. Compatibility is checked per model. Contributors
+can compare providers with the [synthetic evaluation harness](incident-ai-review.md#reproducible-synthetic-evaluation).
+
 ## Preview the evidence first
 
 Install the candidate from its source checkout in a virtual environment:
