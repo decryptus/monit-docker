@@ -56,7 +56,9 @@ class AuthTransport:
         self.lifecycle = AccountLifecycle(accounts)
         from monit_docker.adapters.mobile_push import PushDevices
         self.devices = PushDevices(accounts)
-        self.mobile_push = mobile_push
+        # CLI/YAML merging uses None for an unspecified optional flag. The API
+        # contract always exposes a boolean, including the default-off case.
+        self.mobile_push = bool(mobile_push)
         self.origin = origin
         self.browser = BrowserAuthProvider(accounts.service, origin, cookie_prefix='monit')
 
