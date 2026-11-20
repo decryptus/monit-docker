@@ -7,7 +7,7 @@ import sys
 
 from monit_docker.auth_policy import ROLES, ALL_SCOPES, username
 
-OPERATIONS = ('user-add', 'users', 'role', 'disable', 'token', 'migrate', 'rollback')
+OPERATIONS = ('user-add', 'users', 'role', 'disable', 'token', 'migrate', 'rollback', 'recovery-code')
 
 class MonitDockerSubCmdAuth:
     CMD_NAME = 'auth'
@@ -37,7 +37,7 @@ class MonitDockerSubCmdAuth:
     def valid_subcmd_parser(cls, parser, options):
         if not options.database.strip():
             parser.error('--database must not be empty')
-        if options.operation in ('user-add', 'role', 'disable', 'token'):
+        if options.operation in ('user-add', 'role', 'disable', 'token', 'recovery-code'):
             try:
                 username(options.username)
             except ValueError:
@@ -48,6 +48,8 @@ class MonitDockerSubCmdAuth:
             parser.error('--htpasswd and --roles-file are required')
         if options.operation == 'rollback' and not (options.backup_dir and options.writers_stopped):
             parser.error('--backup-dir and --writers-stopped are required')
+        if options.operation == 'recovery-code' and not options.output_file:
+            parser.error('recovery-code requires --output-file')
         if options.operation == 'token' and not (options.output_file and options.scope and 1 <= options.ttl <= 2592000):
             parser.error('token requires --output-file, --scope and --ttl between 1 and 2592000')
 
@@ -75,6 +77,16 @@ class MonitDockerSubCmdAuth:
                             raise ValueError('password confirmation differs')
                     accounts.provision(options.username, password, options.role)
                     result = {'updated': options.username, 'sessions_revoked': True}
+                elif options.operation == 'recovery-code':
+                    from monit_docker.account_lifecycle import AccountLifecycle, RECOVERY_TTL
+                    lifecycle = AccountLifecycle(accounts)
+                    secret = lifecycle.issue_recovery(options.username)
+                    try:
+                        private_write(options.output_file, (secret + '\n').encode())
+                    except Exception:
+                        lifecycle.discard_recovery(options.username)
+                        raise
+                    result = {'recovery_code_created': True, 'expires_in': RECOVERY_TTL}
                 elif options.operation == 'users':
                     result = {'users': accounts.list_users()}
                 elif options.operation == 'role':

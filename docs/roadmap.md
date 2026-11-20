@@ -298,3 +298,15 @@ The maintainer may revise the order and scope as evidence and user needs change.
 Implemented on the development branch: local accounts and global roles, durable sessions, scoped machine tokens, browser login/logout, native session API, offline htpasswd migration with explicit role mapping and non-destructive rollback. See the [engineering record](authentication-review.md) and [operator guide](authentication.md).
 
 Automated checks cover the supported Python suites, installed packages, real TLS proxy migration and browser authentication (see [PR #119](https://github.com/decryptus/monit-docker/pull/119) for revision-specific results). Pending delivery: matching APK session client, coordinated deployment cutover, package/image release and public website/manual synchronization. Existing 1.3.3 installations and Basic-auth demo configuration are unchanged. Do not mark this feature deployed from unit tests alone.
+
+## Account lifecycle and optional device delivery — implementation after 2.0.0
+
+- Implemented: own display name/language, current-password change, offline-admin
+  one-time recovery codes, credential revocation and bounded device registration.
+- Implemented: optional independent Expo delivery worker, episode deduplication,
+  persisted retry backoff, receipt checks and generic EN/FR payloads.
+- Existing sessions: secure native protocol, 8-hour absolute / 30-minute idle
+  lifetime, explicit reauthentication; no refresh credential or QR pairing.
+- Validation: isolated account/HTTP/device tests; native/provider acceptance still
+  requires configured Expo/FCM identities and a physical phone. Source work does
+  not imply published packages/images or live deployment. See mobile-accounts.md.

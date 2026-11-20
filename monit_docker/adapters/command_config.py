@@ -6,7 +6,7 @@ from monit_docker.adapters.syntax import RESOURCE_CHOICES
 from monit_docker.adapters.validation_rules import mapping, require, string_list
 from monit_docker.domain.filesystems import filesystem_resource
 
-_BOOL_FIELDS = frozenset(('allow_actions', 'allow_maintenance', 'trust_proxy_user', 'auth_audit', 'auth_notifications'))
+_BOOL_FIELDS = frozenset(('allow_actions', 'allow_maintenance', 'trust_proxy_user', 'auth_audit', 'auth_notifications', 'mobile_push'))
 _INTEGER_MIN = {'port': 1, 'max_restarts': 1}
 _NUMBER_MIN = {'interval': 0.1, 'stale_after': 0.1, 'cooldown': 0, 'action_cooldown': 1,
                'trigger_after': 0, 'max_gap': 0}

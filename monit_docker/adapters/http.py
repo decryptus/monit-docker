@@ -238,12 +238,20 @@ def run_server(monitor, bind, port, stop = None, security=None, auth=None):
     server   = StatusServer((bind, port), monitor, security, auth)
     thread   = Thread(target = server.serve_forever, name = 'monit-docker-http')
     previous = {}
+    push_thread = None
+    if auth is not None and auth.mobile_push:
+        from monit_docker.mobile_notifications import MobileNotifications
+        from monit_docker.adapters.mobile_push import ExpoSender
+        delivery = MobileNotifications(auth.devices, ExpoSender(), monitor.status, auth.origin)
+        push_thread = Thread(target=delivery.run, args=(stop,), name='monit-docker-push', daemon=True)
     thread.daemon = True
     try:
         if current_thread() is main_thread():
             for number in _SHUTDOWN_SIGNALS:
                 previous[number] = signal.signal(number, lambda *_: stop.set())
         thread.start()
+        if push_thread is not None:
+            push_thread.start()
         LOG.info('listening on http://%s:%s', *server.server_address)
         monitor.run(stop)
     finally:
@@ -252,6 +260,8 @@ def run_server(monitor, bind, port, stop = None, security=None, auth=None):
         if thread.is_alive():
             thread.join()
         server.server_close()
+        if push_thread is not None and push_thread.is_alive():
+            push_thread.join()
         for number, handler in previous.items():
             signal.signal(number, handler)
 

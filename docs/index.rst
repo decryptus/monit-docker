@@ -38,6 +38,8 @@ For installation and the command reference, see the
    http-api-contract
    authentication
    authentication-fr
+   mobile-accounts
+   mobile-accounts-fr
    ui
    compose
    metrics

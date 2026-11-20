@@ -75,6 +75,8 @@ class Accounts:
             if record is None:
                 raise ValueError('unknown account')
             record.update(scopes=sorted(scopes), revision=secrets.token_urlsafe(32))
+            record.pop('recovery', None)
+            record.pop('mobile_devices', None)
             tx.put('accounts', principal, record)
             for table in ('sessions', 'tokens'):
                 for key, item in tx.items(table):

@@ -7,3 +7,5 @@ prune ui
 
 recursive-include textual_tests *.py
 include scripts/capture_textual.py
+
+include monit_docker/adapters/mobile_push_messages.json

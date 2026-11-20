@@ -79,3 +79,5 @@ Pour les sauvegardes courantes, arrêter les écritures ou utiliser l'API de sau
 ## Langue de la connexion web
 
 Le formulaire avec le logo propose le français et l’anglais avant connexion et dans la barre du compte. La langue du navigateur sert de choix initial ; la préférence explicite est mémorisée localement, avec l’anglais en repli. Aucun mot de passe n’est enregistré par ce sélecteur. Ce choix pilote aussi les explications IA ; les autres vues du tableau de bord conservent leur langue actuelle. L’accès public de la démo se configure séparément des installations avec comptes.
+
+See [account lifecycle and remote notifications](mobile-accounts-fr.md).

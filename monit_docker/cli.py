@@ -482,6 +482,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--status-token-file', help='require a dedicated Bearer secret to read /v1/status')
         parser.add_argument('--metrics-token-file', help='require a dedicated Bearer secret to scrape /metrics')
         parser.add_argument('--notification-token-file', help='enable private Alertmanager audit webhook with a separate Bearer secret')
+        parser.add_argument('--mobile-push', action=argparse.BooleanOptionalAction, help='enable optional generic Expo push delivery for registered devices')
         parser.add_argument('--auth-db', help='explicit private SQLite account/session database; replaces proxy authentication')
         parser.add_argument('--auth-origin', help='public HTTPS origin for browser sessions')
         parser.add_argument('--auth-audit', action=argparse.BooleanOptionalAction, help='enable scoped audit reads with SQLite accounts')
@@ -536,7 +537,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
                 parser.error('actions require --state-file and cannot run in dry-run mode')
             if options.auth_audit and not options.audit_file:
                 parser.error('--auth-audit requires --audit-file')
-        elif options.auth_origin or options.auth_audit or options.auth_notifications:
+        elif options.auth_origin or options.auth_audit or options.auth_notifications or options.mobile_push:
             parser.error('authentication options require --auth-db')
         if options.allow_actions and not options.auth_db:
             from urllib.parse import urlsplit
@@ -614,7 +615,7 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
                                  manual_actions=actions, notification_audit=notifications, audit_reader=reader,
                                  incident_assistant=assistant)
         from monit_docker.composition import build_authentication
-        auth = build_authentication(self.options.auth_db, self.options.auth_origin)
+        auth = build_authentication(self.options.auth_db, self.options.auth_origin, self.options.mobile_push)
         try:
             run_server(monitor, self.options.bind, self.options.port, security=security, auth=auth)
         finally:
