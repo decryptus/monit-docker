@@ -293,11 +293,11 @@ improvements and documented behavior over adding infrastructure by default.
 Discuss priorities through [GitHub issues](https://github.com/decryptus/monit-docker/issues).
 The maintainer may revise the order and scope as evidence and user needs change.
 
-## SQLite authentication candidate
+## SQLite authentication — released in 2.0.0
 
-Implemented on the development branch: local accounts and global roles, durable sessions, scoped machine tokens, browser login/logout, native session API, offline htpasswd migration with explicit role mapping and non-destructive rollback. See the [engineering record](authentication-review.md) and [operator guide](authentication.md).
+Released in 2.0.0: local accounts and global roles, durable sessions, scoped machine tokens, browser login/logout, native session API, offline htpasswd migration with explicit role mapping and non-destructive rollback. See the [engineering record](authentication-review.md) and [operator guide](authentication.md).
 
-Automated checks cover the supported Python suites, installed packages, real TLS proxy migration and browser authentication (see [PR #119](https://github.com/decryptus/monit-docker/pull/119) for revision-specific results). Pending delivery: matching APK session client, coordinated deployment cutover, package/image release and public website/manual synchronization. Existing 1.3.3 installations and Basic-auth demo configuration are unchanged. Do not mark this feature deployed from unit tests alone.
+Automated checks cover the supported Python suites, installed packages, real TLS proxy migration and browser authentication (see [PR #119](https://github.com/decryptus/monit-docker/pull/119) for revision-specific results). The matching native session client exists in the mobile application. The 2.0.0 package/images and public demo have been delivered; anonymous demo status is read-only while private routes still require authentication. Physical mobile acceptance remains separate. Do not infer device acceptance from CI or server checks.
 
 ## Account lifecycle and optional device delivery — implementation after 2.0.0
 
@@ -307,6 +307,10 @@ Automated checks cover the supported Python suites, installed packages, real TLS
   persisted retry backoff, receipt checks and generic EN/FR payloads.
 - Existing sessions: secure native protocol, 8-hour absolute / 30-minute idle
   lifetime, explicit reauthentication; no refresh credential or QR pairing.
-- Validation: isolated account/HTTP/device tests; native/provider acceptance still
-  requires configured Expo/FCM identities and a physical phone. Source work does
-  not imply published packages/images or live deployment. See mobile-accounts.md.
+- Validation: full Python 3.10/3.12, package/image, Docker integration, proxy/browser
+  and documentation checks passed. Account lifecycle was also verified on the demo
+  with a disposable account, including recovery replay and session revocation.
+- Delivery: merged source and demo candidate deployment; the published 2.0.0
+  package/images remain immutable and do not include these subsequent endpoints.
+  Remote delivery still requires Expo/FCM configuration and physical-phone
+  acceptance. See mobile-accounts.md.
