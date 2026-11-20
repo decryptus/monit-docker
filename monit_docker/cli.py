@@ -25,6 +25,7 @@ from sonicprobe import helpers
 from monit_docker.cli_audit import (MonitDockerSubCmdAudit, MonitDockerSubCmdAuditSend,
                                     MonitDockerSubCmdAuditMigrate)
 from monit_docker.cli_incident import MonitDockerSubCmdExplain
+from monit_docker.cli_auth import MonitDockerSubCmdAuth
 from monit_docker.composition import build_application, audit_journal as _audit_journal
 from monit_docker.observation import DEFAULT_REFRESH, MIN_REFRESH, MAX_REFRESH
 from monit_docker.job import JobOptions, validate_job
@@ -54,8 +55,8 @@ _SUBCMDS = {}
 def job_options(options):
     from dataclasses import fields
     values = {field.name: getattr(options, field.name, field.default) for field in fields(JobOptions)}
-    values.update(notifications_enabled=bool(getattr(options, 'notification_token_file', None)),
-                  audit_read_enabled=bool(getattr(options, 'audit_read_token_file', None)))
+    values.update(notifications_enabled=bool(getattr(options, 'notification_token_file', None) or getattr(options, 'auth_notifications', False)),
+                  audit_read_enabled=bool(getattr(options, 'audit_read_token_file', None) or getattr(options, 'auth_audit', False)))
     return JobOptions(**values)
 
 
@@ -481,6 +482,10 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--status-token-file', help='require a dedicated Bearer secret to read /v1/status')
         parser.add_argument('--metrics-token-file', help='require a dedicated Bearer secret to scrape /metrics')
         parser.add_argument('--notification-token-file', help='enable private Alertmanager audit webhook with a separate Bearer secret')
+        parser.add_argument('--auth-db', help='explicit private SQLite account/session database; replaces proxy authentication')
+        parser.add_argument('--auth-origin', help='public HTTPS origin for browser sessions')
+        parser.add_argument('--auth-audit', action=argparse.BooleanOptionalAction, help='enable scoped audit reads with SQLite accounts')
+        parser.add_argument('--auth-notifications', action=argparse.BooleanOptionalAction, help='enable scoped notification ingestion with SQLite API tokens')
         parser.add_argument('--ai-config', help='enable optional incident assistance with a server-side provider YAML')
         parser.add_argument('--ai-token-file', help='dedicated 64-character hex AI proxy secret; distinct from read/action secrets')
         parser.add_argument('--ai-origin', help='exact HTTPS browser origin allowed to request AI explanations')
@@ -514,7 +519,26 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--dry-run requires --cmd or --cmd-if')
         if options.allow_maintenance and not options.allow_actions:
             parser.error('--allow-maintenance requires --allow-actions')
-        if options.allow_actions:
+        if options.auth_db:
+            from httpdis.auth_browser import browser_origin
+            try:
+                browser_origin(options.auth_origin)
+                if not options.auth_db.strip():
+                    raise ValueError()
+            except ValueError:
+                parser.error('--auth-db requires a valid --auth-origin')
+            legacy = (options.action_origin, options.action_token_file, options.audit_read_token_file,
+                      options.status_token_file, options.metrics_token_file, options.notification_token_file,
+                      options.ai_token_file, options.ai_origin, options.trust_proxy_user)
+            if any(legacy):
+                parser.error('SQLite authentication cannot be mixed with legacy proxy authentication')
+            if options.allow_actions and (not options.state_file or options.dry_run):
+                parser.error('actions require --state-file and cannot run in dry-run mode')
+            if options.auth_audit and not options.audit_file:
+                parser.error('--auth-audit requires --audit-file')
+        elif options.auth_origin or options.auth_audit or options.auth_notifications:
+            parser.error('authentication options require --auth-db')
+        if options.allow_actions and not options.auth_db:
             from urllib.parse import urlsplit
             try:
                 origin = urlsplit(options.action_origin or '')
@@ -531,10 +555,10 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
                 parser.error('--allow-actions requires --action-token-file and --state-file')
             if options.dry_run:
                 parser.error('--allow-actions cannot be combined with --dry-run')
-        elif options.action_origin or options.action_token_file:
+        elif not options.auth_db and (options.action_origin or options.action_token_file):
             parser.error('--action-origin and --action-token-file require --allow-actions')
         ai_options = (options.ai_config, options.ai_token_file, options.ai_origin)
-        if any(ai_options):
+        if any(ai_options) and not options.auth_db:
             from urllib.parse import urlsplit
             try:
                 origin = urlsplit(options.ai_origin or '')
@@ -582,14 +606,20 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         actions = (ManualActions(self.application.manual_action, audit=self.audit,
                                  allow_maintenance=self.options.allow_maintenance)
                    if self.options.allow_actions else None)
-        notifications = NotificationAudit(self.audit) if security.notification_token else None
-        reader = AuditReader(self.audit) if security.audit_token else None
+        notifications = NotificationAudit(self.audit) if security.notification_token or self.options.auth_notifications else None
+        reader = AuditReader(self.audit) if security.audit_token or self.options.auth_audit else None
         from monit_docker.composition import build_incident_assistant
         assistant = build_incident_assistant(getattr(self.options, 'ai_config', None), self.audit)
         monitor = MonitorService(self.application.cycle, self.options.interval, self.options.stale_after,
                                  manual_actions=actions, notification_audit=notifications, audit_reader=reader,
                                  incident_assistant=assistant)
-        run_server(monitor, self.options.bind, self.options.port, security=security)
+        from monit_docker.composition import build_authentication
+        auth = build_authentication(self.options.auth_db, self.options.auth_origin)
+        try:
+            run_server(monitor, self.options.bind, self.options.port, security=security, auth=auth)
+        finally:
+            if auth is not None:
+                auth.accounts.close()
 
 
 class MonitDockerSubCmdCheckConfig(object):
@@ -717,6 +747,7 @@ class MonitDockerSubCmdTui:
         return run(create_observation)
 
 
+_SUBCMDS['auth'] = MonitDockerSubCmdAuth
 _SUBCMDS['tui'] = MonitDockerSubCmdTui
 _SUBCMDS['explain'] = MonitDockerSubCmdExplain
 _SUBCMDS['run'] = MonitDockerSubCmdRun
@@ -738,7 +769,7 @@ def main(options):
     Main function
     """
     # Resolve named jobs before setup; offline commands need no logging or Docker.
-    if options.subcommand in ('explain', 'tui', 'check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
+    if options.subcommand in ('auth', 'explain', 'tui', 'check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
         try:
             return _SUBCMDS[options.subcommand](options)()
         except (MonitoringError, OSError, ValueError) as error:

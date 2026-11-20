@@ -11,7 +11,7 @@ const output = path.resolve(process.env.UI_SCREENSHOTS || 'ui/test-results');
 fs.mkdirSync(output, {recursive: true});
 const types = {'.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript'};
 const server = http.createServer((request, response) => {
-  const filename = {'/': 'index.html', '/app.css': 'app.css', '/app.js': 'app.js'}[request.url];
+  const filename = {'/': 'index.html', '/app.css': 'app.css', '/auth.js': 'auth.js', '/app.js': 'app.js'}[request.url];
   if (!filename) { response.writeHead(404).end(); return; }
   response.setHeader('Content-Type', types[path.extname(filename)]);
   response.end(fs.readFileSync(path.join(root, filename)));

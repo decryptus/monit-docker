@@ -375,3 +375,7 @@ encoding. Duplicate content-type headers are rejected with 415.
 The [beta notice](beta-decisions.md) records changes to status codes and selection.
 No `/v2`, extra HTTP methods or implicit path aliases are introduced by 1.0.
 Journal schemas remain independent of HTTP route and application versions.
+
+## Optional SQLite authentication candidate
+
+The opt-in [account/session API](authentication.md) requires `--auth-db` and an exact HTTPS origin. It replaces legacy proxy secrets for that instance. This development addition is not part of the 1.3.3 contract.

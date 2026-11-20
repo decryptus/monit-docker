@@ -7,6 +7,10 @@ Development candidate: optional [incident assistance](docs/incident-ai.md)
 ([guide français](docs/incident-ai-fr.md)) with a local model or your own API key.
 The CLI and opt-in web workflow are not included in 1.3.3; real-model qualification is pending.
 
+Development candidate: [SQLite accounts and migration](docs/authentication.md)
+([guide français](docs/authentication-fr.md)), with web login and a native-session API.
+Not included in 1.3.3; deployment and APK cutover are separate steps.
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
 </p>

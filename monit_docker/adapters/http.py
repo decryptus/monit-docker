@@ -27,7 +27,7 @@ _SERVER_OPTIONS        = {'max_workers':    8,
                           'max_body_size': 65536,
                           'max_requests':  0,
                           'max_life_time': 0}
-_ERROR_MESSAGES        = {400: 'invalid_request',
+_ERROR_MESSAGES        = {401: 'unauthorized', 503: 'authentication_unavailable', 400: 'invalid_request',
                           403: 'forbidden',
                           404: 'not_found',
                           405: 'method_not_allowed',
@@ -63,12 +63,26 @@ class StatusHandler(httpdis.HttpReqHandler):
     def send_api_error(self, code, message, headers = None):
         error = message if message in _API_ERRORS else _ERROR_MESSAGES.get(code, 'request_failed')
         response = json_response(dict(error = error), code)
+        if code == 401:
+            response.add_header('WWW-Authenticate', 'Session')
         if code == 405:
             response.add_header('Allow', allowed_methods(urlsplit(self.path).path))
         self.end_response(response)
 
     def authenticate(self, auth_users = None):
         path = self._path
+        if self.server.auth is not None:
+            from httpdis.authentication import AuthenticationDenied
+            try:
+                return self.server.auth.authenticate(self)
+            except AuthenticationDenied:
+                raise self.req_error(401, 'unauthorized')
+            except httpdis.HttpReqError:
+                raise
+            except Exception:
+                raise self.req_error(503, 'authentication_unavailable')
+        if path.startswith('/v1/auth/'):
+            return
         security = self.server.security
         if path in ('/metrics', '/v1/status'):
             token = security.metrics_token if path == '/metrics' else security.status_token
@@ -164,7 +178,8 @@ class StatusHandler(httpdis.HttpReqHandler):
         path = urlsplit(self.path).path
         methods = allowed_methods(path)
         monitor = self.server.monitor
-        hidden = ((path in _AI_PATHS and monitor.incident_assistant is None)
+        hidden = ((path.startswith('/v1/auth/') and path != '/v1/auth/info' and self.server.auth is None)
+                  or (path in _AI_PATHS and monitor.incident_assistant is None)
                   or (path in _AUDIT_READ_PATHS and monitor.audit_reader is None)
                   or (path == '/v1/actions' and monitor.manual_actions is None)
                   or (path == '/v1/notifications' and monitor.notification_audit is None))
@@ -197,8 +212,9 @@ class StatusHandler(httpdis.HttpReqHandler):
 
 
 class StatusServer(KillableThreadingHTTPServer):
-    def __init__(self, address, monitor, security=None):
+    def __init__(self, address, monitor, security=None, auth=None):
         _initialize_httpdis()
+        self.auth = auth
         self.monitor = monitor
         self.security = security or HttpSecurity()
         super(StatusServer, self).__init__(_SERVER_OPTIONS.copy(), address,
@@ -217,9 +233,9 @@ class StatusServer(KillableThreadingHTTPServer):
         super(StatusServer, self).server_close()
 
 
-def run_server(monitor, bind, port, stop = None, security=None):
+def run_server(monitor, bind, port, stop = None, security=None, auth=None):
     stop     = stop or Event()
-    server   = StatusServer((bind, port), monitor, security)
+    server   = StatusServer((bind, port), monitor, security, auth)
     thread   = Thread(target = server.serve_forever, name = 'monit-docker-http')
     previous = {}
     thread.daemon = True

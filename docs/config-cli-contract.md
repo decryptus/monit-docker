@@ -334,3 +334,7 @@ Existing `test_check_config.py`, `test_monit_docker.py`, `test_cron.py`,
 `test_trigger_delay.py` and `test_restart_limit.py` cover diagnostics, exit-code
 propagation and persistent policies. These tests support this inventory; they
 do not complete every milestone in the 1.0 roadmap.
+
+## Optional SQLite authentication (candidate)
+
+The opt-in `serve --auth-db PATH --auth-origin HTTPS_ORIGIN` configuration and offline `auth` administration/migration commands are described in the [authentication guide](authentication.md). They are not included in 1.3.3. Legacy authentication flags cannot be mixed with SQLite mode; omitted `--auth-db` preserves the current mode.

@@ -213,7 +213,7 @@ async function request(url, options = {}, timeoutMs = 8000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, {...options, credentials: 'same-origin', cache: 'no-store', signal: controller.signal});
+    const response = await (window.MonitAuth ? window.MonitAuth.fetch : fetch)(url, {...options, credentials: 'same-origin', cache: 'no-store', signal: controller.signal});
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       const error = new Error(body.error || `HTTP ${response.status}`);

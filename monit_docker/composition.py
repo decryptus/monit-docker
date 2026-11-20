@@ -74,3 +74,20 @@ def build_incident_assistant(config_path, audit=None):
             raise ExplanationError('ai_history_unavailable') from None
         return dict(records=page['records'], history_more=bool(page['next_cursor']))
     return IncidentSessions(lambda: load_provider(config_path), evidence_options=evidence_options)
+def build_authentication(database, origin):
+    """Explicit auth ownership; no anonymous or memory fallback on failure."""
+    if database is None:
+        return None
+    from monit_docker.adapters.local_auth import Accounts
+    from monit_docker.adapters.auth_http import AuthTransport
+    from monit_docker.domain.errors import MonitoringError
+    accounts = None
+    try:
+        accounts = Accounts(database)
+        if not any(user['enabled'] for user in accounts.list_users()):
+            raise ValueError('no enabled account')
+        return AuthTransport(accounts, origin)
+    except Exception:
+        if accounts is not None:
+            accounts.close()
+        raise MonitoringError(110, 'SQLite authentication unavailable; verify provisioning, permissions and origin') from None

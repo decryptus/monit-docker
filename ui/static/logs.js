@@ -186,7 +186,7 @@ async function load(cursor, index, reset = false) {
   if (cursor) params.set('cursor', cursor);
   const timeout = setTimeout(() => pending.abort(), 10000);
   try {
-    const response = await fetch('/v1/audit?' + params, {cache: 'no-store', credentials: 'same-origin', signal: pending.signal});
+    const response = await (window.MonitAuth ? window.MonitAuth.fetch : fetch)('/v1/audit?' + params, {cache: 'no-store', credentials: 'same-origin', signal: pending.signal});
     if (!response.ok) throw new Error(ERRORS[response.status] || 'Unable to load events. Check the filters and try again.');
     const result = await response.json();
     if (mine !== generation) return;
@@ -243,7 +243,7 @@ async function loadAction(reset = false, preview = []) {
   if (!reset && view.next) params.set('cursor', view.next);
   const timeout = setTimeout(() => pending.abort(), 10000);
   try {
-    const response = await fetch('/v1/audit?' + params, {cache: 'no-store', credentials: 'same-origin', signal: pending.signal});
+    const response = await (window.MonitAuth ? window.MonitAuth.fetch : fetch)('/v1/audit?' + params, {cache: 'no-store', credentials: 'same-origin', signal: pending.signal});
     if (!response.ok) throw new Error(ACTION_ERRORS[response.status] || 'Unable to load action events. Try Refresh action.');
     const result = await response.json();
     if (mine !== actionGeneration) return;
@@ -287,7 +287,7 @@ async function download(format) {
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 10000);
   try {
-    const response = await fetch('/v1/audit/export?' + params, {cache: 'no-store', credentials: 'same-origin', signal: abort.signal});
+    const response = await (window.MonitAuth ? window.MonitAuth.fetch : fetch)('/v1/audit/export?' + params, {cache: 'no-store', credentials: 'same-origin', signal: abort.signal});
     if (!response.ok) throw new Error(ERRORS[response.status] || 'Export failed. Refresh the journal and try again.');
     const url = URL.createObjectURL(await response.blob());
     const link = node('a'); link.href = url; link.download = `monit-docker-events.${format}`;
