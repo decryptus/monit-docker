@@ -121,3 +121,10 @@ class MigrationTests(unittest.TestCase):
                 self.apply()
         self.assertFalse(self.database.exists())
         self.assertEqual((self.backup / 'htpasswd.original').read_bytes(), self.original)
+
+    def test_backup_sync_failure_prevents_publication(self):
+        with patch('monit_docker.adapters.auth_migration.sync_directory', side_effect=OSError('disk error')):
+            with self.assertRaises(OSError):
+                self.apply()
+        self.assertFalse(self.database.exists())
+        self.assertEqual(self.source.read_bytes(), self.original)

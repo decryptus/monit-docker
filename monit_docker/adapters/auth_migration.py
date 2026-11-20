@@ -61,6 +61,13 @@ def private_write(path, content):
         stream.flush()
         os.fsync(stream.fileno())
 
+def sync_directory(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
 def migrate(htpasswd, roles_file, database, backup_dir=None, *, apply=False):
     source, roles_data, records, roles = plan(htpasswd, roles_file)
     database = Path(database).absolute()
@@ -84,6 +91,10 @@ def migrate(htpasswd, roles_file, database, backup_dir=None, *, apply=False):
                 'source_sha256': hashlib.sha256(source).hexdigest(),
                 'roles_sha256': hashlib.sha256(roles_data).hexdigest(), 'accounts': len(records)}
     private_write(backup / 'manifest.json', json.dumps(manifest, sort_keys=True).encode())
+    # Persist directory entries too: a completed backup must survive a crash
+    # before publishing the new database and reporting a successful migration.
+    sync_directory(backup)
+    sync_directory(backup.parent)
     fd, candidate = tempfile.mkstemp(prefix='.auth-migration-', dir=str(database.parent))
     os.close(fd)
     accounts = None
@@ -109,11 +120,7 @@ def migrate(htpasswd, roles_file, database, backup_dir=None, *, apply=False):
         # temporary hard link before a server opens the private single-link store.
         os.link(candidate, database)
         os.unlink(candidate)
-        descriptor = os.open(database.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
+        sync_directory(database.parent)
         result.update(applied=True, backup=str(backup))
         return result
     finally:
@@ -147,5 +154,6 @@ def rollback(database, backup_dir, *, writers_stopped=False):
     # the legacy source. Proxy/daemon configuration restoration is an operator step.
     destination = database.with_name(database.name + '.retired-' + secrets.token_hex(8))
     os.rename(database, destination)
+    sync_directory(database.parent)
     return {'retained_database': str(destination), 'legacy_source_unchanged': True,
             'next_step': 'restore the saved legacy proxy/daemon configuration before restarting'}

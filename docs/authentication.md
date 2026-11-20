@@ -83,7 +83,7 @@ monit-docker auth migrate --database /var/lib/monit-docker/auth/auth.db --htpass
 monit-docker auth migrate --database /var/lib/monit-docker/auth/auth.db --htpasswd /private/users.htpasswd --roles-file /private/roles.json --backup-dir /private/auth-backup-001 --apply
 ```
 
-The tool validates the whole input, backs it up at private permissions with SHA-256 checksums, imports into a temporary database in one transaction, checks counts/integrity and publishes without replacing an existing database. It rechecks inputs before publication. Original files remain unchanged. A failed run is not an invitation to delete an existing database; inspect the result and use a new backup directory for a new attempt.
+The tool validates the whole input, backs it up at private permissions with SHA-256 checksums, synchronizes backup files and directory entries to disk, imports into a temporary database in one transaction, checks counts/integrity and publishes without replacing an existing database. It rechecks inputs before publication. Original files remain unchanged. A failed run is not an invitation to delete an existing database; inspect the result and use a new backup directory for a new attempt.
 
 Supported imported hashes are SHA-256/512 crypt and bounded-cost bcrypt. APR1, SHA-1, DES, plaintext, malformed or excessive-cost hashes fail the entire migration. Reset unsupported accounts explicitly before import. Passwords are preserved and strengthened to Argon2id after successful login when they meet the new minimum length. Short legacy passwords require an explicit password reset. Basic authentication has no server session to import: users log in again; browser-cached Basic credentials are not migrated.
 

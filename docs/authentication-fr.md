@@ -50,7 +50,7 @@ monit-docker auth migrate --database /var/lib/monit-docker/auth/auth.db --htpass
 monit-docker auth migrate --database /var/lib/monit-docker/auth/auth.db --htpasswd /private/users.htpasswd --roles-file /private/roles.json --backup-dir /private/auth-backup-001 --apply
 ```
 
-L'import valide tout le fichier, crée des sauvegardes privées avec empreintes SHA-256, écrit dans une base temporaire en une transaction, vérifie le nombre de comptes et l'intégrité, puis publie la base sans écraser de fichier existant. Les sources sont revérifiées avant publication et restent inchangées. Après échec, examiner le résultat ; ne pas supprimer arbitrairement une base existante pour relancer.
+L'import valide tout le fichier, crée des sauvegardes privées avec empreintes SHA-256, synchronise leurs fichiers et entrées de dossiers sur disque, écrit dans une base temporaire en une transaction, vérifie le nombre de comptes et l'intégrité, puis publie la base sans écraser de fichier existant. Les sources sont revérifiées avant publication et restent inchangées. Après échec, examiner le résultat ; ne pas supprimer arbitrairement une base existante pour relancer.
 
 SHA-256/512 crypt et bcrypt à coût borné sont acceptés. APR1, SHA-1, DES, texte clair, empreinte invalide ou coût excessif font échouer l'import entier. Réinitialiser explicitement les comptes incompatibles avant migration. Un ancien mot de passe compatible est conservé ; son empreinte passe à Argon2id après connexion réussie s'il atteint la longueur minimale. Un mot de passe ancien trop court nécessite une réinitialisation. Basic n'a pas de session serveur à reprendre : les utilisateurs devront se reconnecter.
 

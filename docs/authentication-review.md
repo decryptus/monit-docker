@@ -10,9 +10,11 @@ Default legacy operation remains compatible. SQLite is opt-in, requires an exist
 
 ## Verification
 
-Run the collection guard before the root unittest suite. Added suites cover persistence/restart, expiry, password resets, role revocation, token scope subsets, store failures, explicit migration roles, unsupported hashes, non-overwrite publication, rollback, native/browser requests, CSRF and forged proxy actors. Existing serve test now checks the explicitly injected authentication adapter is absent by default.
+Run the collection guard before the root unittest suite. Added suites cover persistence/restart, expiry, password resets, role revocation, token scope subsets, store failures, explicit migration roles, unsupported hashes, non-overwrite publication, interrupted import, failed backup synchronization, rollback, native/browser requests, CSRF and forged proxy actors. Existing serve test now checks the explicitly injected authentication adapter is absent by default.
 
 `ui/tests/auth.cjs` exercises login, secure-store boundaries, failed and successful logout in a mobile viewport with synthetic API responses. Real cookie flags, server revocation, origin and scope checks are covered by HTTP wire tests. `.github/scripts/check-sqlite-proxy.py` adds real candidate Nginx/TLS acceptance in the existing CI UI job, importing a synthetic legacy account and making no Docker container actions. Existing UI acceptance tests remain enabled for legacy behavior.
+
+The [PR checks](https://github.com/decryptus/monit-docker/pull/119/checks) record results against the exact revision. Local root-suite execution encounters the pre-existing filesystem probe requirement for `/sys`, which is absent in the Work environment; that probe passes on the Linux CI runner. Docker integration cases are explicitly opt-in and run separately in CI. Installed-wheel tests additionally skip source-checkout-only cases.
 
 ## Delivery boundaries and remaining work
 
