@@ -2,7 +2,8 @@
 
 This optional, open-source feature is **not included in release 1.3.3**. The
 candidate adds `monit-docker explain`: an explicit explanation of one container
-from cached observations, with an Ollama model or an OpenAI-compatible endpoint.
+from cached observations, with Ollama, an OpenAI-compatible endpoint or Claude's
+native Anthropic Messages API.
 It requires no broker account or additional product licence. Remote API usage
 is billed by your provider. No model is contacted by normal monitoring.
 
@@ -11,7 +12,7 @@ Model quality and real-provider compatibility still need field qualification;
 automated tests use synthetic responses, not a production model.
 
 The endpoint, model and private key-file path are configurable. Providers must
-support the implemented OpenAI-compatible Chat Completions contract or Ollama;
+support the implemented OpenAI-compatible Chat Completions, Ollama or Anthropic contract;
 other protocols need an adapter. Compatibility is checked per model. Contributors
 can compare providers with the [synthetic evaluation harness](incident-ai-review.md#reproducible-synthetic-evaluation).
 
@@ -78,6 +79,30 @@ api_key_file: /run/secrets/monit-docker-ai-key
 timeout: 30
 max_output_tokens: 1024
 ```
+
+For Claude directly through Anthropic, use `examples/ai/anthropic.yml`:
+
+```yaml
+provider: anthropic
+endpoint: https://api.anthropic.com/v1/messages
+model: MODEL_ID
+allow_remote: true
+api_key_file: /run/secrets/monit-docker-anthropic-key
+timeout: 30
+max_output_tokens: 1024
+```
+
+This adapter uses the native Messages API with API version `2026-10-21`, bearer
+authentication and a required dedicated API key scoped to one workspace.
+Multi-workspace keys, cloud-provider authentication and OAuth are not supported.
+Select a Claude model available to your account. The adapter sends a system
+instruction requesting JSON and validates the result locally; it does not request
+provider-enforced structured output. Markdown-wrapped JSON, refusals, truncated
+answers, thinking/tool blocks and non-text content are rejected, without retry.
+Only one text block ending with `end_turn` is accepted. Real-model qualification
+is still required. No tools, prompt caching or extended thinking are requested.
+If the provider nevertheless reports cached input, input usage is withheld rather
+than presented as a complete count for the qualification cost estimate.
 
 Create the key file privately, owned by the account running the command, with
 mode `0600`. Store only the key in it. Do not put the key on the command line or

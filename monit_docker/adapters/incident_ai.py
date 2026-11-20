@@ -22,7 +22,10 @@ DEFAULT_TIMEOUT = 30
 MAX_TIMEOUT = 120
 DEFAULT_OUTPUT_TOKENS = 1024
 MAX_OUTPUT_TOKENS = 2048
-PROVIDER_ROUTES = {'openai-compatible': '/v1/chat/completions', 'ollama': '/api/chat'}
+PROVIDER_ROUTES = {'openai-compatible': '/v1/chat/completions', 'ollama': '/api/chat',
+                   'anthropic': '/v1/messages'}
+ANTHROPIC_VERSION = '2026-10-21'
+ANTHROPIC_CACHE_FIELDS = ('cache_creation_input_tokens', 'cache_read_input_tokens')
 CONFIG_FIELDS = frozenset(('provider', 'endpoint', 'model', 'api_key_file', 'allow_remote', 'timeout', 'max_output_tokens'))
 MODEL_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9_./:@-]{0,127}')
 USAGE_FIELDS = ('prompt_tokens', 'completion_tokens', 'total_tokens')
@@ -89,11 +92,14 @@ def validate_url(url, allow_remote=False):
         raise ExplanationError('invalid_endpoint') from None
 
 
-def request_json(url, *, payload=None, token=None, timeout=DEFAULT_TIMEOUT, limit=MAX_RESPONSE_BYTES):
+def request_json(url, *, payload=None, token=None, timeout=DEFAULT_TIMEOUT, limit=MAX_RESPONSE_BYTES,
+                 provider=None):
     """libcurl total deadline, bounded bytes, no redirects/retries/proxies/netrc."""
     import pycurl
     validate_url(url, allow_remote=True)
     validate_token(token)
+    if provider is not None and provider not in PROVIDER_ROUTES:
+        raise ExplanationError('invalid_provider_configuration')
     if not pycurl.version_info()[4] & pycurl.VERSION_ASYNCHDNS:
         raise ExplanationError('asynchronous_dns_required')
     received = bytearray()
@@ -119,6 +125,8 @@ def request_json(url, *, payload=None, token=None, timeout=DEFAULT_TIMEOUT, limi
     headers = ['Accept: application/json', 'Content-Type: application/json']
     if token:
         headers.append('Authorization: Bearer ' + token)
+    if provider == 'anthropic':
+        headers.append('anthropic-version: ' + ANTHROPIC_VERSION)
     with pycurl.Curl() as curl:
         curl.setopt(pycurl.URL, url)
         curl.setopt(pycurl.HTTPHEADER, headers)
@@ -204,21 +212,43 @@ class ChatProvider:
     def __init__(self, config, token=None, transport=request_json):
         validate_token(token)
         self.config, self._token, self.transport = validate_config(config), token, transport
+        if self.config['provider'] == 'anthropic' and token is None:
+            raise ExplanationError('api_key_required')
 
     def complete(self, prompt, context):
         messages = [dict(role='system', content=prompt), dict(role='user', content=json_bytes(context).decode())]
         request = dict(model=self.config['model'], messages=messages, stream=False)
         if self.config['provider'] == 'ollama':
             request.update(format='json', options=dict(num_predict=self.config['max_output_tokens']))
+        elif self.config['provider'] == 'anthropic':
+            request.update(system=prompt, messages=messages[1:], max_tokens=self.config['max_output_tokens'])
         else:
             request.update(response_format=dict(type='json_object'), max_completion_tokens=self.config['max_output_tokens'])
-        response = self.transport(self.config['endpoint'], payload=request, token=self._token, timeout=self.config['timeout'])
+        options = dict(provider='anthropic') if self.config['provider'] == 'anthropic' else {}
+        response = self.transport(self.config['endpoint'], payload=request, token=self._token,
+                                  timeout=self.config['timeout'], **options)
         try:
             if self.config['provider'] == 'ollama':
                 if response.get('done') is not True or response.get('done_reason') != 'stop':
                     raise ExplanationError('incomplete_model_output')
                 message = response['message']
                 usage = dict(prompt_tokens=response.get('prompt_eval_count'), completion_tokens=response.get('eval_count'))
+            elif self.config['provider'] == 'anthropic':
+                if response.get('stop_reason') != 'end_turn':
+                    raise ExplanationError('incomplete_model_output')
+                blocks = response['content']
+                if (response.get('type') != 'message' or response.get('role') != 'assistant'
+                        or not isinstance(blocks, list) or len(blocks) != 1
+                        or blocks[0].get('type') != 'text'):
+                    raise ExplanationError('invalid_model_output')
+                message = dict(role='assistant', content=blocks[0]['text'])
+                counts = response.get('usage') or {}
+                usage = dict(completion_tokens=counts.get('output_tokens'))
+                # Cached input has different pricing. Do not present partial
+                # input accounting as a complete count for cost estimation.
+                if all(type(counts.get(key, 0)) is int and counts.get(key, 0) == 0
+                       for key in ANTHROPIC_CACHE_FIELDS):
+                    usage['prompt_tokens'] = counts.get('input_tokens')
             else:
                 choices = response['choices']
                 if len(choices) != 1 or choices[0]['finish_reason'] != 'stop':

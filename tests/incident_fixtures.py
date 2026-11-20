@@ -29,6 +29,10 @@ def completion(value=None, provider='openai-compatible'):
     message = dict(role='assistant', content=json.dumps(analysis() if value is None else value))
     if provider == 'ollama':
         return dict(done=True, done_reason='stop', message=message, prompt_eval_count=200, eval_count=60)
+    if provider == 'anthropic':
+        return dict(type='message', role='assistant', stop_reason='end_turn',
+                    content=[dict(type='text', text=message['content'])],
+                    usage=dict(input_tokens=200, output_tokens=60))
     return dict(choices=[dict(finish_reason='stop', message=message)],
                 usage=dict(prompt_tokens=200, completion_tokens=60, total_tokens=260))
 
@@ -47,7 +51,8 @@ def provider_server(responder):
             self.respond(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
 
         def respond(self, payload):
-            requests.append(dict(path=self.path, payload=payload, authorization=self.headers.get('Authorization')))
+            requests.append(dict(path=self.path, payload=payload, authorization=self.headers.get('Authorization'),
+                                 anthropic_version=self.headers.get('anthropic-version')))
             try:
                 responder(self, payload)
             except (BrokenPipeError, ConnectionResetError):

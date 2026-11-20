@@ -1,0 +1,9 @@
+# Native Claude Messages API. Replace MODEL_ID with an enabled Claude model.
+# Use a dedicated, single-workspace Anthropic key in a private file (mode 0600).
+provider: anthropic
+endpoint: https://api.anthropic.com/v1/messages
+model: MODEL_ID
+allow_remote: true
+api_key_file: /run/secrets/monit-docker-anthropic-key
+timeout: 30
+max_output_tokens: 1024

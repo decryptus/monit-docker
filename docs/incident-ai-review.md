@@ -30,6 +30,25 @@ Protocol references:
 
 - [Ollama Chat API](https://docs.ollama.com/api/chat)
 - [OpenAI Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
+- [Anthropic Messages](https://platform.claude.com/docs/en/api/messages/create)
+- [Anthropic authentication](https://platform.claude.com/docs/en/manage-claude/authentication)
+- [Anthropic API versioning](https://platform.claude.com/docs/en/api/versioning)
+
+The Anthropic addition reuses the existing bounded PycURL transport and neutral
+service contract. A fresh inspection of the installed DWho, HTTPdis and Sonicprobe
+modules found no existing multi-provider inference adapter to reuse. No SDK or
+dependency is added. The native adapter maps system/messages, output limits,
+completion state and usage into the existing interface; evidence policy stays
+in the application service. It uses version `2026-10-21` and the documented bearer
+API-key authentication, with single-workspace keys only.
+
+[LiteLLM](https://docs.litellm.ai/docs/) is an existing unified SDK/gateway option,
+not a capability to reimplement here. Its optional gateway can be evaluated via
+the OpenAI-compatible adapter if the selected deployment supports this candidate's
+JSON and finish contract. No LiteLLM deployment or compatibility qualification is
+claimed. Keeping the direct Claude adapter avoids a mandatory gateway or a new
+SDK dependency for standalone agents; a shared multi-project integration remains
+a separate architecture decision.
 
 ## Boundaries verified by automated tests
 
@@ -39,9 +58,13 @@ Protocol references:
   maintenance, protection and restart limits remain explicit evidence.
 - Bounded journal history, closed action enums and normalized supplied rules;
   custom command text is excluded and rule activation is never asserted.
-- Real loopback HTTP exchanges with synthetic Ollama/OpenAI-compatible servers;
+- Real loopback HTTP exchanges with synthetic Ollama/OpenAI-compatible/Anthropic servers;
   one request, protocol fields, header-only key, usage allowlist, incomplete output,
   refusal, tool calls, malformed JSON and unknown evidence IDs.
+- Native Anthropic system/message mapping and version header, required private key,
+  `end_turn` plus exactly one text block, rejection of thinking/tool content and
+  refusal/truncation, bounded numeric usage, and incomplete accounting for cached
+  input. The same local JSON/evidence validation and no-action service apply.
 - HTTP errors, redirect rejection, response/header caps, total slow-transfer
   deadline, private regular secret files and invalid endpoint/configuration input.
 - Direct service invocation with interfaces/adapters blocked; provider failure
@@ -123,8 +146,11 @@ variables. No live-provider results have been established by adding this harness
 
 Transport and schema tests cannot establish model usefulness or factual accuracy.
 No real model/API credential was used for this candidate. Validate each proposed
-model/server combination explicitly; models must support the documented JSON
-mode and finish contract. Record model/version, hardware or provider, snapshot,
+model/server combination explicitly; models must support the documented response
+and finish contract. Native Claude is instructed to emit JSON without enabling
+provider-enforced structured output, tools, caching or extended thinking. Non-JSON
+answers fail local validation rather than triggering repair calls. Record
+model/version, hardware or provider, snapshot,
 latency, reported input/output tokens, actual provider cost and reviewer verdict.
 
 | Scenario | Acceptance expectation |

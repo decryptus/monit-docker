@@ -2,7 +2,8 @@
 
 Cette fonction facultative et open source **n'est pas incluse dans la version
 1.3.3**. La commande `monit-docker explain` explique la situation d'un conteneur
-à partir des observations disponibles, avec Ollama ou une API compatible OpenAI.
+à partir des observations disponibles, avec Ollama, une API compatible OpenAI
+ou l'API native Anthropic de Claude.
 Elle ne nécessite ni compte de courtage ni licence produit supplémentaire.
 L'utilisation d'une API distante est facturée par le fournisseur choisi.
 La surveillance normale ne déclenche aucun appel au modèle.
@@ -13,7 +14,8 @@ en conditions réelles. Les tests automatisés utilisent des réponses synthéti
 
 L'adresse de l'API, le modèle et le chemin du fichier privé contenant la clé sont
 configurables. Le fournisseur doit respecter le protocole Chat Completions
-compatible OpenAI ou celui d'Ollama ; un autre protocole nécessite un adaptateur.
+compatible OpenAI, celui d'Ollama ou l'API Messages d'Anthropic ; un autre
+protocole nécessite un adaptateur.
 Chaque modèle reste à tester. Les contributeurs peuvent comparer les fournisseurs
 avec le [banc d'essai synthétique](incident-ai-review.md#reproducible-synthetic-evaluation).
 
@@ -77,6 +79,31 @@ Le modèle doit accepter Chat Completions sans streaming, le mode JSON
 `response_format: {type: json_object}` et `max_completion_tokens`.
 Une URL distante nécessite HTTPS et `allow_remote: true`. HTTP est limité aux
 adresses IP de boucle locale : utiliser `127.0.0.1` ou `::1`, pas `localhost`.
+
+Pour Claude directement chez Anthropic, utiliser `examples/ai/anthropic.yml` :
+
+```yaml
+provider: anthropic
+endpoint: https://api.anthropic.com/v1/messages
+model: MODEL_ID
+allow_remote: true
+api_key_file: /run/secrets/monit-docker-anthropic-key
+timeout: 30
+max_output_tokens: 1024
+```
+
+L'adaptateur utilise l'API Messages native, version `2026-10-21`, une
+authentification Bearer et une clé API dédiée obligatoire, limitée à un seul
+espace de travail. Les clés multi-espaces, l'authentification des plateformes
+cloud et OAuth ne sont pas pris en charge. Choisir un modèle Claude accessible
+au compte. Une instruction système demande du JSON, validé localement ; aucun
+format structuré imposé par le fournisseur n'est demandé. Les réponses entourées
+de Markdown, refus, sorties tronquées et blocs de réflexion ou d'outils sont
+rejetés sans nouvelle tentative. Seul un bloc texte terminé par `end_turn` est
+accepté. Le modèle réel reste à qualifier. Aucun outil, cache de prompt ni mode
+de réflexion étendue n'est demandé. Si le fournisseur déclare malgré tout une
+entrée mise en cache, son décompte est laissé inconnu pour éviter une estimation
+de coût fondée sur un nombre incomplet de jetons.
 
 Créer un fichier de clé privé, appartenant au compte exécutant la commande, avec
 les permissions `0600`. Il contient uniquement la clé. Ne pas mettre la clé dans

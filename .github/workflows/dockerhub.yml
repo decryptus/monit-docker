@@ -104,8 +104,9 @@ jobs:
         run: |
           python -m venv "$RUNNER_TEMP/pypi-test"
           "$RUNNER_TEMP/pypi-test/bin/python" -m pip install dist/*.whl
-          mkdir -p "$RUNNER_TEMP/pypi-tests"
+          mkdir -p "$RUNNER_TEMP/pypi-tests/scripts"
           cp -R tests "$RUNNER_TEMP/pypi-tests/tests"
+          cp .github/scripts/qualify-incident-ai.py "$RUNNER_TEMP/pypi-tests/scripts/"
           cd "$RUNNER_TEMP/pypi-tests"
           "$RUNNER_TEMP/pypi-test/bin/python" -c 'import os; from pathlib import Path; from importlib.metadata import version; import monit_docker; expected = Path(os.environ["EXPECTED_VERSION"]).read_text().strip(); assert monit_docker.__version__ == version("monit-docker") == expected'
           "$RUNNER_TEMP/pypi-test/bin/python" "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest tests
@@ -149,7 +150,7 @@ jobs:
       - name: Test the built image
         run: |
           docker run --rm --entrypoint python -v "$PWD/tests:/test/tests:ro" -v "$PWD/.github/scripts:/test/scripts:ro" -w /test monit-docker:test /test/scripts/check-test-collection.py --runner unittest tests
-          docker run --rm --entrypoint sh -v "$PWD/tests:/test/tests:ro" -w /test monit-docker:test -c 'mkdir -p /test/bin; ln -s "$(command -v monit-docker)" /test/bin/monit-docker; python -m unittest discover -s tests -v'
+          docker run --rm --entrypoint sh -v "$PWD/tests:/test/tests:ro" -v "$PWD/.github/scripts:/test/scripts:ro" -w /test monit-docker:test -c 'mkdir -p /test/bin; ln -s "$(command -v monit-docker)" /test/bin/monit-docker; python -m unittest discover -s tests -v'
           docker run --rm --entrypoint python -e EXPECTED_VERSION="$(cat VERSION)" monit-docker:test -c 'import os; from importlib.metadata import version; assert version("monit-docker") == os.environ["EXPECTED_VERSION"]'
           docker run --rm --entrypoint monit-docker monit-docker:test --help
       - name: Check runtime packages and run the legacy cron command
