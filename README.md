@@ -5,7 +5,7 @@
 
 Development candidate: optional [incident assistance](docs/incident-ai.md)
 ([guide français](docs/incident-ai-fr.md)) with a local model or your own API key.
-The `explain` command is not included in 1.3.3; real-model qualification is pending.
+The CLI and opt-in web workflow are not included in 1.3.3; real-model qualification is pending.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">

@@ -81,3 +81,25 @@ class ServeConfigurationTests(unittest.TestCase):
                       'status_token_file: ""', 'interval: .inf', 'rsc: [unknown]', 'cmd: restart'):
             with self.subTest(entry=entry), self.assertRaises(ConfigurationCheckError):
                 check_configuration(str(self.config), 'serve: {' + entry + '}')
+
+    def test_ai_yaml_wires_separate_permission_and_defers_provider_loading(self):
+        token = self.config.with_name('ai-token')
+        token.write_text('f' * 64)
+        self.config.write_text(f'serve: {{ai_config: missing.yml, ai_token_file: "{token}", ai_origin: "https://test.local", trust_proxy_user: true}}')
+        with patch('monit_docker.adapters.http.run_server') as listen, patch('monit_docker.adapters.incident_ai.load_provider') as loader:
+            cli.MonitDockerSubCmdServe(self.parse())()
+        loader.assert_not_called()
+        monitor = listen.call_args.args[0]
+        self.assertTrue(monitor.status()['ai_enabled'])
+        self.assertIsNone(monitor.manual_actions)
+        security = listen.call_args.kwargs['security']
+        self.assertEqual(security.ai_token, 'f' * 64)
+        self.assertEqual(security.ai_origin, 'https://test.local')
+        self.assertTrue(security.trust_actor)
+
+    def test_ai_requires_complete_config_and_exact_https_origin(self):
+        for args in (['--ai-config', 'ai.yml'], ['--ai-token-file', 'token'],
+                     ['--ai-config', 'ai.yml', '--ai-token-file', 'token', '--ai-origin', 'http://test.local'],
+                     ['--ai-config', 'ai.yml', '--ai-token-file', 'token', '--ai-origin', 'https://test.local/path']):
+            with self.subTest(args=args), patch('sys.stderr', io.StringIO()), self.assertRaises(SystemExit):
+                self.parse(*args)

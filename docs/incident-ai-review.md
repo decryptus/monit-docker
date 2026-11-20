@@ -176,26 +176,51 @@ visitors, change stable package versions, or publish website claims of availabil
 Release selection, registries, bilingual website and demo qualification must be
 handled together after the remaining model checks.
 
-## Planned web integration contract
+## Implemented web integration and delivery status
 
-This is a design for subsequent implementation; this candidate still has no AI
-HTTP route or web interface. Reuse the neutral `IncidentAssistant` service through
-an HTTP peer adapter after model qualification. Keep provider configuration and
-credentials on the server; browser requests must not supply arbitrary endpoints,
-models, keys or prompts. Preserve operator choice through server configuration.
+The HTTP peer adapter calls `IncidentSessions`, which uses `IncidentAssistant`
+without an action callback. The neutral composition module lazily loads the
+configured provider only after explicit consent. A missing or invalid provider
+file therefore does not stop monitoring or prevent an evidence preview.
 
-The interface should first display the redacted evidence and freshness for one
-exact container ID, then allow an explicit explanation request. The server must
-reject changed evidence between preview and submission instead of silently
-sending additional data. Integrate with existing HTTPdis authentication and
-server-side authorization; a public demo must not acquire paid inference access.
-Define and test AI permission, concurrency and request-rate limits before adding
-the route: read access alone must not implicitly authorize spending.
+Re-inspected installed DWho 0.3.69, HTTPdis 0.7.1 and Sonicprobe 0.3.65 before this
+addition: reuse HTTPdis's route authentication/body limits, Sonicprobe's existing
+eight-worker server and the existing `AuditReader` bounded journal pages. Consent,
+freshness and spending admission are product policy and remain in the neutral
+incident session service; no dependency or shared-library release is needed.
 
-Show observations, uncertain hypotheses, missing evidence and read-only checks
-separately, with evidence references, latency and available usage. Render model
-text as escaped text. Explicit loading, stale-evidence, unavailable-provider,
-refusal and timeout states must leave monitoring usable. No suggestion can invoke
-an action handler, command, restart or protection change. Reuse HTTPdis routing,
-authentication and request-size enforcement; do not duplicate the monitoring
-engine or provider logic in the browser.
+The two POST routes use a dedicated, distinct AI proxy secret and exact HTTPS
+origin. The optional Nginx include adds a separate AI-operator password file;
+the shipped default has no AI proxy locations. Provider endpoints, models, keys,
+prompts and evidence cannot be supplied in browser requests. Server previews are
+actor/container bound, expire after 60 seconds, and are capped at 32 entries.
+One request may be in flight and starts are limited to one per minute per process,
+including failures. These in-memory limits reset on agent restart, so external
+provider budgets remain useful. Slow inference occupies at most one HTTP worker
+and never acquires the monitoring/action mutex.
+
+Before sending, all redacted evidence, capture timestamp and freshness must still
+match. Only elapsed age may differ; the ORIGINAL preview is sent unchanged.
+A new monitoring snapshot or journal change requires a fresh preview. Consent is
+consumed before loading the provider and is never retried, including ambiguous
+network outcomes. The bounded journal page contains matching recent actions;
+raw logs and active rule definitions are not included by this web workflow.
+The CLI retains its explicit rule-context option.
+
+The UI separates observations, possible explanations, missing evidence and
+read-only checks, renders all model text with textContent, and displays latency
+and available usage. Closing the dialog does not cancel or repeat a server-side
+request. Errors and stale previews leave status polling usable. No analysis
+button is connected to manual actions.
+
+Validation includes session admission/replay/concurrency tests, real HTTPdis
+requests, config wiring, core isolation with CLI/HTTP/Docker imports blocked,
+and synthetic desktop/mobile browser scenarios registered in CI. The latter
+check explicit consent, text escaping, stale/timeout states and absence of
+retries or Docker action requests. Real model usefulness remains unqualified.
+
+This is source delivery for the development candidate, not a stable release.
+VERSION/RELEASE, PyPI, Docker Hub, GHCR and registry descriptions remain 1.3.3.
+The public demo and bilingual product website continue to describe that stable
+version; they must not advertise this unreleased capability. Stable publication
+and demo/website updates remain pending model qualification and release selection.

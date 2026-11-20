@@ -236,6 +236,11 @@ class IncidentAssistant:
                       limitations=['Model hypotheses and checks require human review; references do not prove correctness.'])
         if preview:
             return report
+        return self.analyze(report)
+
+    def analyze(self, report):
+        """Analyze a server-owned preview; never accept a client-supplied report."""
+        context = report['context']
         if self.provider is None:
             raise ExplanationError('provider_not_configured')
         started = self.timer()

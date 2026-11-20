@@ -182,6 +182,11 @@ class Provider:
 report = IncidentAssistant(Provider(), clock=lambda: 100).explain(
  {'api_version':1,'containers':[{'id':'a'*64}]}, 'a'*64)
 assert report['status'] == 'completed'
+from monit_docker.incident_session import IncidentSessions
+sessions = IncidentSessions(lambda: Provider(), clock=lambda: 100)
+data = {'api_version':1,'containers':[{'id':'a'*64}]}
+preview = sessions.preview(data, 'a'*64, 'operator')
+assert sessions.explain(data, 'a'*64, preview['preview_id'], 'operator')['status'] == 'completed'
 '''
         result = subprocess.run([sys.executable, '-c', program], cwd=root, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)

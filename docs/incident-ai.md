@@ -7,7 +7,7 @@ native Anthropic Messages API.
 It requires no broker account or additional product licence. Remote API usage
 is billed by your provider. No model is contacted by normal monitoring.
 
-The initial interface is the CLI. There is no AI button or AI HTTP route yet.
+The candidate includes the CLI and an opt-in HTTP/web preview-and-explain workflow.
 Model quality and real-provider compatibility still need field qualification;
 automated tests use synthetic responses, not a production model.
 
@@ -171,3 +171,82 @@ invalid JSON are rejected. libcurl must support asynchronous DNS for the total
 deadline. Slow local models may time out; there is no automatic fallback or retry.
 
 [Guide en français](incident-ai-fr.md) · [Contributor review](incident-ai-review.md)
+
+## Optional web workflow
+
+Use matching **candidate source builds** of agent and UI; the published 1.3.3
+images do not contain this feature. AI remains disabled unless all three server
+options are configured (CLI flags or the corresponding `serve:` YAML keys):
+
+```yaml
+serve:
+  ai_config: /private/incident-ai.yml
+  ai_token_file: /private/ai-proxy-token
+  ai_origin: https://monitor.example
+  trust_proxy_user: true
+```
+
+`ai_config` is the same provider YAML used by the CLI. Keep it and its private
+key file on the agent. `ai_token_file` contains a new 64-character hex proxy
+secret, distinct from status, metrics, journal, notification and action secrets.
+Generate it locally, for example with `openssl rand -hex 32`, under `umask 077`.
+Do not put either secret into browser JavaScript or a URL. The AI permission does
+not require enabling manual Docker actions or granting journal HTTP access.
+
+For the optional Nginx UI, mount the repository's `examples/ai/nginx.conf` at
+`/etc/nginx/monit-ai.conf` (read-only). Also mount:
+
+- `/run/secrets/ai-htpasswd`: a separate HTTP Basic password file containing only
+  authorized AI operators. Operators also need normal dashboard access; using
+  the same username/password in both files avoids repeated browser prompts.
+- `/run/secrets/proxy-ai.conf`: one directive containing the same dedicated AI
+  proxy secret: `proxy_set_header X-Monit-AI-Token "<64-character-hex-secret>";`.
+
+Use the exact external HTTPS origin in `ai_origin`. The proxy overwrites the
+caller identity and AI secret, rejects non-POST requests and never retries an
+inference upstream. Its 130-second read timeout covers the provider's maximum
+120-second timeout. The default shipped UI has no AI proxy locations. Keep the
+agent port private. For container deployments, explicitly provide the agent a
+route to the chosen provider: the example `agent` network is internal and has no
+Internet egress; loopback Ollama refers to the agent's own network namespace.
+No public demo inference access is enabled by these source changes.
+
+Click **Explain incident** for a container. Review the redacted observations,
+then click **Request explanation**. A preview makes no model call and does not
+load the provider key. The web context includes a bounded page of recent matching
+action events when the agent journal is available, with incomplete history
+labelled explicitly. It excludes raw logs and active rule definitions. Journal
+read failure blocks the request instead of silently sending a different context.
+
+The server retains up to 32 previews for 60 seconds, bound to the authenticated
+operator and exact container ID. A new snapshot, changed journal or changed
+freshness requires **Refresh preview**. The exact preview is sent, with its age
+at preview time. One AI request may run at a time, with at least 60 seconds
+between starts across operators, including failed calls. These limits are per
+agent process and reset on restart; they are not a provider billing quota.
+
+Observations, possible explanations, missing evidence and read-only checks are
+shown separately. Model text is escaped; none of it can invoke a Docker action.
+Latency and reported input/output tokens are shown; absent usage remains unknown.
+Closing the dialog does not cancel a request already admitted by the server.
+An error or lost response may still be billed, and no retry happens automatically.
+Monitoring and manual-action scheduling continue independently.
+
+### HTTP contract
+
+Both endpoints require JSON, the dedicated `X-Monit-AI-Token`, matching `Origin`,
+and (with `trust_proxy_user`) the proxy-overwritten `X-Monit-Actor`. Bodies are
+limited to 1 KiB and unknown fields are rejected. Browser-supplied model names,
+endpoints, prompts, keys or evidence are never accepted.
+
+| Endpoint | Exact request fields | Result |
+| --- | --- | --- |
+| `POST /v1/ai/preview` | `container_id` | Preview report, opaque `preview_id`, `expires_in` |
+| `POST /v1/ai/explain` | `container_id`, `preview_id` | Completed report with context, analysis, latency and usage |
+
+`/v1/status` adds `ai_enabled` for capability discovery; it is not authorization.
+Disabled AI routes return 404. Authentication/origin rejection returns 403;
+invalid request fields return 400; expired, consumed or changed previews return
+409; busy/rate/capacity limits return 429; provider timeout returns 504; other
+provider or journal failures return 503 with a stable `error` reason. Every
+attempt that reaches provider loading consumes its preview, including errors.

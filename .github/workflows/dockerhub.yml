@@ -64,6 +64,7 @@ jobs:
           "$RUNNER_TEMP/ui-browser/node_modules/.bin/playwright" install --with-deps chromium
           node ui/tests/browser.cjs
           node ui/tests/journal.cjs
+          node ui/tests/incident.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

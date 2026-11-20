@@ -16,12 +16,14 @@ class HttpSecurity:
     notification_token: str = field(default=None, repr=False)
     audit_token: str = field(default=None, repr=False)
     metrics_token: str = field(default=None, repr=False)
+    ai_token: str = field(default=None, repr=False)
+    ai_origin: str = None
     status_token: str = field(default=None, repr=False)
 
 
 def load_security(*, action_token_file=None, action_origin=None, trust_actor=False,
                   notification_token_file=None, audit_read_token_file=None, metrics_token_file=None,
-                  status_token_file=None):
+                  status_token_file=None, ai_token_file=None, ai_origin=None):
     action_token = read_proxy_token(action_token_file, 'action') if action_token_file else None
     notification_token = read_proxy_token(notification_token_file) if notification_token_file else None
     read_token = read_proxy_token(audit_read_token_file) if audit_read_token_file else None
@@ -35,7 +37,10 @@ def load_security(*, action_token_file=None, action_origin=None, trust_actor=Fal
     status_token = read_proxy_token(status_token_file, 'status') if status_token_file else None
     if status_token and status_token in (action_token, notification_token, read_token, metrics_token):
         raise MonitoringError(110, 'status secret must differ from action, notification, audit and metrics secrets')
-    return HttpSecurity(action_token=action_token, action_origin=action_origin,
+    ai_token = read_proxy_token(ai_token_file, 'AI') if ai_token_file else None
+    if ai_token and ai_token in (action_token, notification_token, read_token, metrics_token, status_token):
+        raise MonitoringError(110, 'AI secret must differ from all other HTTP secrets')
+    return HttpSecurity(ai_token=ai_token, ai_origin=ai_origin, action_token=action_token, action_origin=action_origin,
                         trust_actor=trust_actor, notification_token=notification_token,
                         audit_token=read_token, metrics_token=metrics_token, status_token=status_token)
 

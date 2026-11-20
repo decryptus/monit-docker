@@ -239,8 +239,9 @@ Scope approved on 18 November 2026. The 20 November candidate implements a
 standalone `explain` command, with explicit preview, bounded evidence and optional
 Ollama, OpenAI-compatible or native Anthropic/Claude configuration. An opt-in
 eight-scenario synthetic evaluation harness records latency and available usage
-for human review. Real-model quality remains unqualified; the HTTP/UI integration
-is designed but not implemented. This is not included in published 1.3.3.
+for human review. The opt-in HTTP/UI integration now includes explicit preview
+and consent, dedicated AI authorization, bounded admission and escaped results.
+Real-model quality remains unqualified. This is not included in published 1.3.3.
 
 - Add optional assistance for a standalone Monit-Docker installation, using the
   user's own AI API key. API usage is billed directly by the chosen provider.

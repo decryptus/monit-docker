@@ -12,7 +12,7 @@ from monit_docker.adapters.http_security import HttpSecurity
 from httpdis import httpdis
 from sonicprobe.libs.threading_tcp_server import KillableThreadingHTTPServer
 
-from monit_docker.adapters.http_routes import (_AUDIT_READ_PATHS, allowed_methods,
+from monit_docker.adapters.http_routes import (_AUDIT_READ_PATHS, _AI_PATHS, allowed_methods,
                                                json_response,
                                                register_routes)
 
@@ -77,6 +77,16 @@ class StatusHandler(httpdis.HttpReqHandler):
                 expected = ('Bearer ' + token).encode('ascii')
                 if len(tokens) != 1 or not hmac.compare_digest(tokens[0].encode('utf-8'), expected):
                     raise self.req_error(403, 'forbidden')
+            return
+        if path in _AI_PATHS:
+            tokens = self.headers.get_all('X-Monit-AI-Token') or []
+            origins = self.headers.get_all('Origin') or []
+            if (not security.ai_token or len(tokens) != 1
+                    or not hmac.compare_digest(tokens[0].encode('utf-8'), security.ai_token.encode('ascii'))):
+                raise self.req_error(403, 'forbidden')
+            if len(origins) != 1 or not security.ai_origin or origins[0] != security.ai_origin:
+                raise self.req_error(403, 'origin_rejected')
+            self.audit_actor = self._proxy_actor()
             return
         if path in _AUDIT_READ_PATHS:
             reader = self.server.monitor.audit_reader
@@ -154,7 +164,8 @@ class StatusHandler(httpdis.HttpReqHandler):
         path = urlsplit(self.path).path
         methods = allowed_methods(path)
         monitor = self.server.monitor
-        hidden = ((path in _AUDIT_READ_PATHS and monitor.audit_reader is None)
+        hidden = ((path in _AI_PATHS and monitor.incident_assistant is None)
+                  or (path in _AUDIT_READ_PATHS and monitor.audit_reader is None)
                   or (path == '/v1/actions' and monitor.manual_actions is None)
                   or (path == '/v1/notifications' and monitor.notification_audit is None))
         if methods is None or hidden:

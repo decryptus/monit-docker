@@ -12,7 +12,7 @@ LOG = logging.getLogger('monit-docker')
 
 class MonitorService(object):
     def __init__(self, cycle, interval=30, stale_after=90, clock=None, monotonic=None,
-                 manual_actions=None, notification_audit=None, audit_reader=None):
+                 manual_actions=None, notification_audit=None, audit_reader=None, incident_assistant=None):
         self.cycle = cycle
         self.interval = interval
         self.stale_after = stale_after
@@ -23,6 +23,7 @@ class MonitorService(object):
         self.manual_actions = manual_actions
         self.notification_audit = notification_audit
         self.audit_reader = audit_reader
+        self.incident_assistant = incident_assistant
         self._last_success_tick = None
         self._data = dict(api_version=1, running=False, last_cycle_success=False,
                           last_cycle_finished_at=None, last_success_at=None,
@@ -46,6 +47,7 @@ class MonitorService(object):
             data['containers'] = []
         data['manual_actions'] = (self.manual_actions.status() if self.manual_actions
                                 else {'enabled': False})
+        data['ai_enabled'] = self.incident_assistant is not None
         data['audit_enabled'] = self.audit_reader is not None
         return data
 

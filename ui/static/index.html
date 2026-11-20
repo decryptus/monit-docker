@@ -43,6 +43,14 @@
   <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-description confirm-note">
     <form method="dialog"><p class="eyebrow">CONTAINER ACTION</p><h2 id="confirm-title">Confirm action</h2><p id="confirm-description"></p><p id="confirm-note" class="dialog-note"></p><div class="dialog-buttons"><button value="cancel">Cancel</button><button id="confirm-action" value="confirm" class="primary">Confirm</button></div></form>
   </dialog>
+  <dialog id="ai-dialog" aria-labelledby="ai-title">
+    <p class="eyebrow">INCIDENT ASSISTANCE</p><h2 id="ai-title">Explain this container</h2>
+    <p>Review the exact filtered observations before requesting an explanation. Your configured provider may charge for the request. No commands are executed.</p>
+    <p id="ai-state" role="status"></p>
+    <div id="ai-results"></div>
+    <details id="ai-evidence"><summary>Observations sent to the model</summary><pre id="ai-context"></pre></details>
+    <div class="dialog-buttons"><button id="ai-close" type="button">Close</button><button id="ai-preview" type="button">Refresh preview</button><button id="ai-explain" type="button" class="primary" disabled>Request explanation</button></div>
+  </dialog>
   <noscript><p class="notice">JavaScript is required to read the agent API. No external scripts are loaded.</p></noscript>
 </body>
 </html>

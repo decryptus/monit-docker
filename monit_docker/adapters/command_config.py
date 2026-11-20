@@ -12,7 +12,7 @@ _NUMBER_MIN = {'interval': 0.1, 'stale_after': 0.1, 'cooldown': 0, 'action_coold
                'trigger_after': 0, 'max_gap': 0}
 _TEXT_FIELDS = frozenset(('bind', 'state_file', 'action_origin', 'action_token_file',
                           'audit_read_token_file', 'notification_token_file', 'metrics_token_file',
-                          'status_token_file'))
+                          'status_token_file', 'ai_config', 'ai_token_file', 'ai_origin'))
 _LIST_FIELDS = frozenset(('rsc', 'cmd'))
 _SERVE_FIELDS = _BOOL_FIELDS | _INTEGER_MIN.keys() | _NUMBER_MIN.keys() | _TEXT_FIELDS | _LIST_FIELDS
 

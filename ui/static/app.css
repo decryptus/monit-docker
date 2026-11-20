@@ -61,3 +61,9 @@ main{max-width:1288px;margin:auto;padding:46px 24px 0}.intro{display:flex;justif
 #action-events {padding:0}
 #action-notice:not([data-error="true"]) {background:#eaf2ff; border-color:#c9dafa; color:#245ca5}
 @media(max-width:420px) {#action-dialog {padding:14px}}
+
+#ai-dialog { width: min(760px, calc(100vw - 32px)); max-height: 85vh; overflow-y: auto; }
+#ai-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .78rem; }
+#ai-results { overflow-wrap: anywhere; }
+#ai-results section { margin-block: 1.2rem; }
+#ai-dialog .dialog-buttons { flex-wrap: wrap; }

@@ -8,7 +8,7 @@ Elle ne nécessite ni compte de courtage ni licence produit supplémentaire.
 L'utilisation d'une API distante est facturée par le fournisseur choisi.
 La surveillance normale ne déclenche aucun appel au modèle.
 
-Cette première étape propose une commande CLI, sans bouton IA ni route HTTP IA.
+Cette version de développement propose une commande CLI et un parcours HTTP/web facultatif.
 La qualité des explications et la compatibilité des modèles restent à qualifier
 en conditions réelles. Les tests automatisés utilisent des réponses synthétiques.
 
@@ -174,3 +174,81 @@ charge la résolution DNS asynchrone. Un modèle lent peut dépasser le délai ;
 aucun basculement ni nouvel appel automatique n'est effectué.
 
 [Guide anglais](incident-ai.md) · [Revue pour les contributeurs](incident-ai-review.md)
+
+## Parcours web facultatif
+
+Utiliser des compilations du code candidat pour **l'agent et l'interface** : les
+images publiées 1.3.3 ne contiennent pas cette fonction. Configurer les trois
+options dans `serve:` (ou leurs équivalents CLI avec des tirets) :
+
+```yaml
+serve:
+  ai_config: /private/incident-ai.yml
+  ai_token_file: /private/ai-proxy-token
+  ai_origin: https://monitor.example
+  trust_proxy_user: true
+```
+
+Le fichier fournisseur est identique à celui de la commande CLI. Il reste sur
+l'agent avec la clé privée. Le fichier `ai_token_file` contient un nouveau secret
+hexadécimal de 64 caractères, différent des secrets de lecture, métriques,
+journal, notifications et actions. Le générer localement avec
+`openssl rand -hex 32` sous `umask 077`. Aucun secret ne va dans le navigateur.
+L'accès IA ne nécessite pas d'activer les actions Docker ni l'accès HTTP au journal.
+
+Pour l'interface Nginx, monter `examples/ai/nginx.conf` en lecture seule à
+`/etc/nginx/monit-ai.conf`, ainsi que :
+
+- `/run/secrets/ai-htpasswd`, fichier HTTP Basic réservé aux opérateurs IA. Ces
+  opérateurs doivent aussi pouvoir accéder au tableau de bord ; conserver leurs
+  mêmes identifiants dans les deux fichiers évite les demandes répétées.
+- `/run/secrets/proxy-ai.conf`, contenant uniquement la directive
+  `proxy_set_header X-Monit-AI-Token "<secret-hexadecimal-de-64-caracteres>";`.
+
+`ai_origin` doit correspondre exactement à l'origine HTTPS publique. Le proxy
+remplace l'identité et le secret fournis par le client, accepte uniquement POST,
+ne réessaie pas l'appel et attend jusqu'à 130 secondes (120 au maximum côté
+fournisseur). L'interface livrée par défaut n'expose aucune route IA. Le port de
+l'agent reste privé. En conteneur, prévoir explicitement l'accès au fournisseur :
+le réseau `agent` de l'exemple est interne, sans sortie Internet ; l'adresse
+loopback d'Ollama désigne l'espace réseau de l'agent. La démo publique n'est pas activée.
+
+Cliquer sur **Explain incident**, examiner les observations filtrées, puis sur
+**Request explanation**. L'aperçu ne charge pas la clé et ne contacte aucun modèle.
+Il peut inclure une page bornée du journal des actions du conteneur, avec mention
+de l'historique incomplet. Les logs bruts et les définitions de règles actives ne
+font pas partie du contexte web. Un journal inaccessible bloque la demande.
+
+L'aperçu est lié à l'opérateur et au conteneur, conservé pendant 60 secondes, avec
+au plus 32 aperçus en mémoire. Si la collecte, le journal ou la fraîcheur changent,
+**Refresh preview** est obligatoire. Le modèle reçoit exactement l'aperçu validé,
+avec son âge au moment de l'aperçu. Un seul appel peut être en cours, avec au moins
+60 secondes entre deux départs, erreurs comprises, tous opérateurs confondus.
+Ces limites sont par processus et repartent à zéro au redémarrage ; elles ne
+remplacent pas un plafond de facturation chez le fournisseur.
+
+L'interface sépare observations, hypothèses, données manquantes et vérifications
+en lecture seule. Le texte du modèle est échappé et ne peut déclencher aucune
+action Docker. La latence et les compteurs de jetons disponibles sont affichés.
+Fermer la fenêtre n'annule pas un appel déjà accepté. Une erreur ou une réponse
+perdue peut quand même être facturée ; aucun nouvel essai n'est automatique.
+La surveillance et la planification des actions continuent indépendamment.
+
+### Contrat HTTP
+
+Les deux routes exigent JSON, `X-Monit-AI-Token`, l'origine exacte et, si activé,
+`X-Monit-Actor` remplacé par le proxy. Taille maximale : 1 Kio ; champs inconnus
+refusés. Le navigateur ne peut fournir ni modèle, ni clé, ni URL, ni prompt,
+ni observations à transmettre.
+
+| Route | Champs exacts | Réponse |
+| --- | --- | --- |
+| `POST /v1/ai/preview` | `container_id` | Aperçu, `preview_id`, `expires_in` |
+| `POST /v1/ai/explain` | `container_id`, `preview_id` | Contexte, analyse, latence et compteurs disponibles |
+
+`ai_enabled` dans `/v1/status` indique la présence de la fonction, pas un droit
+d'accès. Codes : 404 si désactivée, 403 pour l'autorisation ou l'origine, 400 pour
+une demande invalide, 409 pour un aperçu expiré/utilisé/modifié, 429 pour les
+limites d'admission, 504 pour le délai fournisseur, 503 pour les autres erreurs
+fournisseur/journal. Le champ `error` contient une raison stable. Toute tentative
+atteignant le chargement du fournisseur consomme l'aperçu, même en cas d'échec.
