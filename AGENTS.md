@@ -167,3 +167,26 @@ Current project runner: `unittest` for `tests`. CI helper tests use
 - Before adding a dependency, implementing a local component or preparing a release, inspect the current capabilities of DWho, HTTPdis and Sonicprobe and reuse applicable functionality.
 - For a new generic capability, assess whether it belongs in one of these shared libraries and record the placement decision in the contribution. Keep product-specific business rules in this repository.
 - When a shared-library change is needed, validate it in its own repository against its contracts, supported versions and existing consumers. Then update this project's dependency and verify the integration before delivery. Follow each repository's release procedures and existing authorization scope.
+
+## Internationalization of user interfaces
+
+- All user-facing interfaces, including the Android application, must use a
+  maintained internationalization mechanism appropriate to their framework.
+  Reuse the existing mechanism where available; do not implement ad hoc language
+  conditionals or inline translation dictionaries in application code.
+- Reference stable translation keys or resource identifiers from code. Keep
+  translated user-facing strings in separate locale resource/catalog files.
+  French and English are required initially; adding a language must not require
+  rewriting business or presentation logic.
+- Use the internationalization mechanism for plural forms, named interpolation,
+  locale-aware dates and numbers, and a documented fallback language. Do not
+  build translated sentences by concatenating fragments.
+- Cover menus, account screens, authentication, validation errors, confirmations,
+  accessibility labels, alerts and phone notifications. Preserve container names,
+  technical identifiers, raw logs and other original operational data.
+- Support the device language by default and a persisted explicit language
+  selection, available before login and in account settings.
+- Keep API machine-readable codes stable and backend diagnostic text in English
+  as required above; translate their user-facing presentation through catalogs.
+- Check French/English key parity, missing-key fallback, interpolation and plural
+  behavior, and verify language switching across the affected screens.
