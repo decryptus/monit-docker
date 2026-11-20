@@ -12,6 +12,51 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
+## 2.0.0 — selected next major release
+
+On 20 November 2026, the maintainer selected **2.0.0** as the next major
+release, bringing together optional AI incident assistance and SQLite accounts.
+A coordinated Android app launch is also targeted, subject to mobile readiness.
+This records the release direction; stable packages and images remain **1.3.3**.
+
+- **AI:** [PR #118](https://github.com/decryptus/monit-docker/pull/118) is merged.
+  CLI and optional web integration are implemented; actual model usefulness and
+  provider compatibility still require the [qualification review](incident-ai-review.md).
+- **Accounts:** [PR #119](https://github.com/decryptus/monit-docker/pull/119) is
+  merged. SQLite accounts, server-enforced roles, durable revocable sessions and
+  scoped machine tokens are implemented. Legacy authentication remains the
+  current default; choosing a major number does not silently change that default.
+- **Mobile:** coordinate the Android application with the native session API.
+  The existing Basic-auth APK is not evidence of SQLite compatibility. Deliver
+  the session client and verify login, expiry, revocation, logout and reconnection,
+  together with the required French/English locale resources and account settings.
+
+### Candidate and delivery sequence
+
+1. Assemble a fixed 2.0 release candidate from the combined code. Verify the
+   SQLite authorization paths for AI preview/explanation as well as ordinary
+   monitoring and actions; separate passing feature suites are not an integration
+   result.
+2. Qualify the eight AI incident scenarios with each provider/model combination
+   advertised as supported. Record the model, response quality, latency, usage
+   and review verdict. Preserve optional activation and independent monitoring.
+3. Rehearse the 1.3.3 migration with backups, explicit account/role mapping,
+   machine-token replacement and rollback. Test both legacy and SQLite modes,
+   with the candidate agent, proxy, web interface and compatible mobile client.
+4. Run the existing same-revision regression, package/image, upgrade/rollback,
+   documentation and desktop/mobile checks. Record unresolved limitations before
+   declaring the candidate ready.
+5. After acceptance, publish immutable 2.0.0 packages and images using the
+   existing release gates. Coordinate the app release if ready; any deferral must
+   be stated explicitly rather than advertised as delivered.
+6. Synchronize release notes, installation/version pins, registry descriptions,
+   FR/EN documentation, the website and demo. Validate deployed behavior and
+   configure any public AI access deliberately, including provider usage limits.
+
+No 2.0 tag, release publication, authentication migration or demo activation is
+established by this roadmap update. The major-version choice is a product
+milestone; any compatibility change still needs an explicit migration contract.
+
 ## 1.3.3
 
 The agent requires HTTPdis 0.7.1 or later.
