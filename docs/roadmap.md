@@ -31,6 +31,31 @@ This records the release direction; stable packages and images remain **1.3.3**.
   the session client and verify login, expiry, revocation, logout and reconnection,
   together with the required French/English locale resources and account settings.
 
+### Required French/English AI explanations
+
+Confirmed by the maintainer on 20 November 2026 as a **2.0 release requirement**.
+This is pending implementation and qualification; current candidate explanations
+are English-only.
+
+- Web and mobile explanations must follow the user's selected interface language,
+  initially French or English. Default to the supported device/browser language,
+  allow a persisted explicit choice, and document the fallback.
+- Provide an explicit equivalent language selection for CLI explanations.
+  Validate supported locale identifiers at the API boundary and pass language
+  through the shared application service; do not accept arbitrary prompt text.
+- Include the requested language in the preview/consent contract so the confirmed
+  request uses the selected language. Keep observations and technical identifiers
+  unchanged: container names, commands, raw operational data and machine-readable
+  API codes are not translated.
+- Use the framework's maintained internationalization mechanism and separate
+  locale catalogs for static interface text, errors and accessibility labels.
+  No inline translation dictionaries or ad hoc language branches in UI code.
+- Qualify actual model responses in both French and English, including missing
+  evidence, uncertain hypotheses and suggested checks. Verify language switching,
+  fallback and static catalog parity across the affected interfaces.
+- Update the English-only limitation in user documentation only when the language
+  selection is implemented and validated. Keep backend diagnostic text in English.
+
 ### Candidate and delivery sequence
 
 1. Assemble a fixed 2.0 release candidate from the combined code. Verify the
