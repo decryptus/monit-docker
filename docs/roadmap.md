@@ -12,75 +12,27 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
-## 2.0.0 — selected next major release
+## 2.0.0 — release scope
 
-On 20 November 2026, the maintainer selected **2.0.0** as the next major
-release, bringing together optional AI incident assistance and SQLite accounts.
-A coordinated Android app launch is also targeted, subject to mobile readiness.
-This records the release direction; stable packages and images remain **1.3.3**.
+On 20 November 2026 the maintainer authorized publishing 2.0.0 with optional
+AI incident assistance, opt-in SQLite accounts and the corrected web experience.
+Mobile delivery and real-model/API manual qualification are explicitly deferred;
+they are not prerequisites to this authorized release and are not claimed complete.
 
-- **AI:** [PR #118](https://github.com/decryptus/monit-docker/pull/118) is merged.
-  CLI and optional web integration are implemented; actual model usefulness and
-  provider compatibility still require the [qualification review](incident-ai-review.md).
-- **Accounts:** [PR #119](https://github.com/decryptus/monit-docker/pull/119) is
-  merged. SQLite accounts, server-enforced roles, durable revocable sessions and
-  scoped machine tokens are implemented. Legacy authentication remains the
-  current default; choosing a major number does not silently change that default.
-- **Mobile:** coordinate the Android application with the native session API.
-  The existing Basic-auth APK is not evidence of SQLite compatibility. Deliver
-  the session client and verify login, expiry, revocation, logout and reconnection,
-  together with the required French/English locale resources and account settings.
+Implemented: French/English AI instructions and preview consent, CLI language
+option, persisted web language choice, catalog-based authentication/AI text,
+and branded responsive sign-in. Legacy authentication remains the default.
+The public demo must open directly without a login form; authenticated deployments
+retain their sign-in screen and server-enforced permissions.
 
-### Required French/English AI explanations
+Publication requires the same-revision automated package, Docker, upgrade,
+proxy, browser and documentation checks. Registry publication and site/demo
+deployment are verified separately after those checks. See [release notes](release-2.0.0.md).
 
-Confirmed by the maintainer on 20 November 2026 as a **2.0 release requirement**.
-This is pending implementation and qualification; current candidate explanations
-are English-only.
-
-- Web and mobile explanations must follow the user's selected interface language,
-  initially French or English. Default to the supported device/browser language,
-  allow a persisted explicit choice, and document the fallback.
-- Provide an explicit equivalent language selection for CLI explanations.
-  Validate supported locale identifiers at the API boundary and pass language
-  through the shared application service; do not accept arbitrary prompt text.
-- Include the requested language in the preview/consent contract so the confirmed
-  request uses the selected language. Keep observations and technical identifiers
-  unchanged: container names, commands, raw operational data and machine-readable
-  API codes are not translated.
-- Use the framework's maintained internationalization mechanism and separate
-  locale catalogs for static interface text, errors and accessibility labels.
-  No inline translation dictionaries or ad hoc language branches in UI code.
-- Qualify actual model responses in both French and English, including missing
-  evidence, uncertain hypotheses and suggested checks. Verify language switching,
-  fallback and static catalog parity across the affected interfaces.
-- Update the English-only limitation in user documentation only when the language
-  selection is implemented and validated. Keep backend diagnostic text in English.
-
-### Candidate and delivery sequence
-
-1. Assemble a fixed 2.0 release candidate from the combined code. Verify the
-   SQLite authorization paths for AI preview/explanation as well as ordinary
-   monitoring and actions; separate passing feature suites are not an integration
-   result.
-2. Qualify the eight AI incident scenarios with each provider/model combination
-   advertised as supported. Record the model, response quality, latency, usage
-   and review verdict. Preserve optional activation and independent monitoring.
-3. Rehearse the 1.3.3 migration with backups, explicit account/role mapping,
-   machine-token replacement and rollback. Test both legacy and SQLite modes,
-   with the candidate agent, proxy, web interface and compatible mobile client.
-4. Run the existing same-revision regression, package/image, upgrade/rollback,
-   documentation and desktop/mobile checks. Record unresolved limitations before
-   declaring the candidate ready.
-5. After acceptance, publish immutable 2.0.0 packages and images using the
-   existing release gates. Coordinate the app release if ready; any deferral must
-   be stated explicitly rather than advertised as delivered.
-6. Synchronize release notes, installation/version pins, registry descriptions,
-   FR/EN documentation, the website and demo. Validate deployed behavior and
-   configure any public AI access deliberately, including provider usage limits.
-
-No 2.0 tag, release publication, authentication migration or demo activation is
-established by this roadmap update. The major-version choice is a product
-milestone; any compatibility change still needs an explicit migration contract.
+Still pending: real-model quality and language review, Android device testing and
+mobile release, full translation of the remaining dashboard views. Shared-library
+review found no reusable browser catalog facility in DWho/HTTPdis/Sonicprobe;
+self-hosted i18next handles presentation, while prompt policy stays in the core.
 
 ## 1.3.3
 
@@ -311,7 +263,7 @@ Ollama, OpenAI-compatible or native Anthropic/Claude configuration. An opt-in
 eight-scenario synthetic evaluation harness records latency and available usage
 for human review. The opt-in HTTP/UI integration now includes explicit preview
 and consent, dedicated AI authorization, bounded admission and escaped results.
-Real-model quality remains unqualified. This is not included in published 1.3.3.
+Real-model quality remains unqualified; optional assistance ships in 2.0.0.
 
 - Add optional assistance for a standalone Monit-Docker installation, using the
   user's own AI API key. API usage is billed directly by the chosen provider.
@@ -335,7 +287,7 @@ a release date or claim that automated schema checks prove model usefulness.
 
 Keep the DWho, HTTPdis and Sonicprobe foundations, global constants and a light
 mobile interface. Keep the simple mode useful without a monitoring stack. Code,
-UI labels and machine-readable reasons remain in English. Prefer measured
+Authentication and AI labels support French/English; other UI labels and machine-readable reasons remain in English. Prefer measured
 improvements and documented behavior over adding infrastructure by default.
 
 Discuss priorities through [GitHub issues](https://github.com/decryptus/monit-docker/issues).

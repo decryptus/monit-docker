@@ -146,7 +146,8 @@ function renderContainers() {
     row.memoryValue.textContent = bytes(container.mem_usage);
     row.memoryDetail.textContent = `${percent(container.mem_percent)} · limit ${bytes(container.mem_limit)}`;
     row.explain.hidden = !data?.ai_enabled;
-    row.explain.disabled = !connected;
+    row.explain.disabled = !connected || !window.MonitAIText?.available;
+    if (window.MonitAIText?.available) row.explain.textContent = window.MonitAIText.t('open');
     row.explain.setAttribute('aria-label', `Explain incident for ${container.name}`);
     row.readonly.hidden = actions().enabled && !history;
     for (const [action, button] of Object.entries(row.buttons)) {
@@ -290,17 +291,7 @@ refresh();
 
 // AI is explicit and separate from action admission. No key or provider URL is
 // stored in the browser; model strings are always rendered through textContent.
-const AI_MESSAGES = {
-  evidence_changed: 'Observations changed. Refresh the preview before sending.',
-  preview_expired: 'Preview expired. Refresh it before sending.',
-  invalid_preview: 'This preview is no longer usable. Refresh it before sending.',
-  ai_busy: 'An explanation is already running. Try a new preview later.',
-  ai_rate_limited: 'AI is limited to one request per minute. Try a new preview later.',
-  forbidden: 'AI access was not authorized. Ask the operator to check the dedicated AI access.',
-  origin_rejected: 'The configured AI origin does not match this page.',
-  provider_timeout: 'The provider timed out. The request may have been billed. It will not be retried.',
-  provider_unavailable: 'The provider is unavailable. No automatic retry was made.',
-};
+const AIText = window.MonitAIText;
 let incidentTarget = null;
 let incidentPreview = null;
 let incidentPending = false;
@@ -308,14 +299,14 @@ let incidentGeneration = 0;
 function incidentBusy(value) {
   incidentPending = value;
   $('ai-preview').disabled = value;
+  $('ai-language').disabled = value;
   $('ai-explain').disabled = value || !incidentPreview;
 }
 function incidentFailure(error) {
-  $('ai-state').textContent = AI_MESSAGES[error.message] ||
-    'Explanation unavailable or response unconfirmed. No automatic retry was made; the request may have been billed. Refresh the preview to try again.';
+  $('ai-state').textContent = AIText.t(['errors.' + error.message, 'errors.unknown']);
 }
 async function openIncident(id) {
-  if (incidentPending) return;
+  if (incidentPending || !await AIText.ready) return;
   incidentTarget = id;
   $('ai-dialog').showModal();
   await previewIncident();
@@ -325,14 +316,14 @@ async function previewIncident() {
   const generation = ++incidentGeneration;
   incidentPreview = null; incidentBusy(true);
   $('ai-results').replaceChildren(); $('ai-context').textContent = '';
-  $('ai-state').textContent = 'Preparing observations. No model call has been made.';
+  $('ai-state').textContent = AIText.t('preparing');
   try {
-    const result = await request('/v1/ai/preview', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({container_id: incidentTarget})});
+    const result = await request('/v1/ai/preview', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({container_id: incidentTarget, language: AIText.language})});
     if (generation !== incidentGeneration) return;
     incidentPreview = result;
     $('ai-context').textContent = JSON.stringify(result.context, null, 2);
     $('ai-evidence').open = true;
-    $('ai-state').textContent = `Evidence: ${result.context.freshness === 'current' ? 'current at preview time' : 'historical or unknown'}. Preview expires in ${result.expires_in} seconds. No model call has been made.`;
+    $('ai-state').textContent = AIText.t('preview', {freshness: AIText.t(result.context.freshness === 'current' ? 'current' : 'historical'), language: AIText.t('languages.' + result.language), count: result.expires_in});
   } catch (error) { if (generation === incidentGeneration) incidentFailure(error); }
   finally { incidentBusy(false); }
 }
@@ -341,20 +332,21 @@ async function explainIncident() {
   const generation = incidentGeneration;
   const preview = incidentPreview;
   incidentPreview = null; incidentBusy(true);
-  $('ai-state').textContent = 'Requesting one explanation… Monitoring continues.';
+  $('ai-state').textContent = AIText.t('requesting');
   try {
-    const result = await request('/v1/ai/explain', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({container_id: incidentTarget, preview_id: preview.preview_id})}, 130000);
+    const result = await request('/v1/ai/explain', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({container_id: incidentTarget, preview_id: preview.preview_id, language: preview.language})}, 130000);
     if (generation !== incidentGeneration) return;
     $('ai-evidence').open = false;
-    $('ai-state').textContent = `Explanation completed in ${number(result.elapsed_ms)} ms. Input tokens: ${number(result.usage?.prompt_tokens)} · output tokens: ${number(result.usage?.completion_tokens)}. Hypotheses require human review.`;
-    const sections = [['hypotheses', 'Possible explanations'], ['missing_evidence', 'Missing evidence'], ['suggested_checks', 'Read-only checks']];
-    for (const [key, title] of sections) {
-      const section = node('section'); section.append(node('h3', '', title));
+    $('ai-state').textContent = AIText.t('completed', {elapsed: AIText.number(result.elapsed_ms), input: AIText.number(result.usage?.prompt_tokens), output: AIText.number(result.usage?.completion_tokens)});
+    $('ai-results').lang = result.language || preview.language;
+    const sections = ['hypotheses', 'missing_evidence', 'suggested_checks'];
+    for (const key of sections) {
+      const section = node('section'); section.append(node('h3', '', AIText.t('sections.' + key)));
       const list = node('ul');
       for (const item of result.analysis[key]) {
         list.append(node('li', '', typeof item === 'string' ? item : `${item.text}${item.evidence.length ? ' [' + item.evidence.join(', ') + ']' : ''}`));
       }
-      if (!list.children.length) section.append(node('p', '', 'None supplied.'));
+      if (!list.children.length) section.append(node('p', '', AIText.t('none')));
       else section.append(list);
       $('ai-results').append(section);
     }
@@ -368,4 +360,24 @@ $('ai-dialog').addEventListener('close', () => {
   incidentGeneration++;
   incidentPreview = null;
   // Closing does not cancel or repeat a potentially billed server request.
+});
+
+function translateIncident() {
+  if (!AIText.available) return;
+  $('ai-dialog').lang = AIText.language;
+  $('ai-language').value = AIText.language;
+  document.querySelectorAll('[data-ai-text]').forEach(element => { element.textContent = AIText.t(element.dataset.aiText); });
+  renderContainers();
+}
+AIText.ready.then(translateIncident);
+$('ai-language').addEventListener('change', async event => {
+  if (incidentPending) { event.target.value = AIText.language; return; }
+  await AIText.select(event.target.value);
+});
+document.addEventListener('monit-language', () => {
+  // Consent belongs to the previous language. A new preview never calls a model.
+  incidentGeneration++;
+  incidentPreview = null;
+  translateIncident();
+  if ($('ai-dialog').open && !incidentPending) previewIncident();
 });

@@ -1,13 +1,12 @@
-# Incident assistance (development candidate)
+# Incident assistance
 
-This optional, open-source feature is **not included in release 1.3.3**. The
-candidate adds `monit-docker explain`: an explicit explanation of one container
+Available since **2.0.0**, this optional open-source feature adds `monit-docker explain`: an explicit explanation of one container
 from cached observations, with Ollama, an OpenAI-compatible endpoint or Claude's
 native Anthropic Messages API.
 It requires no broker account or additional product licence. Remote API usage
 is billed by your provider. No model is contacted by normal monitoring.
 
-The candidate includes the CLI and an opt-in HTTP/web preview-and-explain workflow.
+The feature includes the CLI and an opt-in HTTP/web preview-and-explain workflow.
 Model quality and real-provider compatibility still need field qualification;
 automated tests use synthetic responses, not a production model.
 
@@ -18,7 +17,7 @@ can compare providers with the [synthetic evaluation harness](incident-ai-review
 
 ## Preview the evidence first
 
-Install the candidate from its source checkout in a virtual environment:
+Install the 2.0.0 source checkout in a virtual environment:
 
 ```sh
 python3 -m venv .venv
@@ -174,8 +173,7 @@ deadline. Slow local models may time out; there is no automatic fallback or retr
 
 ## Optional web workflow
 
-Use matching **candidate source builds** of agent and UI; the published 1.3.3
-images do not contain this feature. AI remains disabled unless all three server
+Use matching **2.0.0 agent and UI images**. AI remains disabled unless all three server
 options are configured (CLI flags or the corresponding `serve:` YAML keys):
 
 ```yaml
@@ -250,3 +248,24 @@ invalid request fields return 400; expired, consumed or changed previews return
 409; busy/rate/capacity limits return 429; provider timeout returns 504; other
 provider or journal failures return 503 with a stable `error` reason. Every
 attempt that reaches provider loading consumes its preview, including errors.
+
+## Explanation language
+
+Use `--language fr` or `--language en` with `monit-docker explain` (default: `en`).
+The web sign-in/account selector and AI dialog share a persisted preference,
+initially selected from supported browser languages with English fallback.
+Static authentication and AI text uses self-hosted i18next and separate catalogs.
+Other dashboard views keep their existing language; this is not a full UI translation.
+
+The preview and explain JSON bodies accept an optional `language` (`en` or `fr`).
+An omitted preview language defaults to English. An omitted explain language uses
+the stored preview language. Unsupported values return `invalid_language` (400).
+A different language at submission returns `language_changed` (409), consumes
+that preview and makes no provider call. The UI creates a new preview when its
+language changes; inference still requires explicit consent.
+
+Only explanatory text is translated. JSON keys, evidence IDs, container identifiers,
+raw values and API error codes stay unchanged. A language instruction cannot
+ensure a particular model's quality; real-model FR/EN review is deferred.
+Run the qualification tool with `--language fr` or `--language en` to record the
+actual prompt hash and language alongside results.

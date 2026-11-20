@@ -153,6 +153,14 @@ class IncidentQualificationTests(unittest.TestCase):
         self.assertFalse(result['reported_usage_complete'])
         self.assertEqual(result['qualification'], 'not_established')
 
+    def test_french_qualification_records_the_actual_prompt(self):
+        import hashlib
+        from monit_docker.incident import explanation_prompt
+        self.assertEqual(self.invoke(['--language', 'fr']), 0)
+        report = json.loads(self.output.read_text())
+        self.assertEqual(report['language'], 'fr')
+        self.assertEqual(report['prompt_sha256'], hashlib.sha256(explanation_prompt('fr').encode()).hexdigest())
+
 
 if __name__ == '__main__':
     unittest.main()

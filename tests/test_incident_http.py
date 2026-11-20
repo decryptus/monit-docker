@@ -59,6 +59,19 @@ class IncidentHTTPTests(unittest.TestCase):
         self.assertIsNone(self.monitor.manual_actions)
         self.assertEqual(self.provider.complete.call_args.args[1], preview['context'])
 
+    def test_language_validation_and_consent_over_http(self):
+        for language in (None, {}, [], 'fr-FR', 'fr\n'):
+            self.assertEqual(self.request(payload=dict(container_id=IDENTIFIER, language=language))[0], 400)
+        _, preview = self.request(payload=dict(container_id=IDENTIFIER, language='fr'))
+        self.assertEqual(preview['language'], 'fr')
+        payload = dict(container_id=IDENTIFIER, preview_id=preview['preview_id'], language='en')
+        self.assertEqual(self.request('/v1/ai/explain', payload)[0], 409)
+        self.provider.complete.assert_not_called()
+        _, preview = self.request(payload=dict(container_id=IDENTIFIER, language='fr'))
+        code, report = self.request('/v1/ai/explain', dict(container_id=IDENTIFIER, preview_id=preview['preview_id']))
+        self.assertEqual((code, report['language']), (200, 'fr'))
+        self.assertIn('in French,', self.provider.complete.call_args.args[0])
+
     def test_read_action_credentials_wrong_origin_and_missing_actor_are_rejected(self):
         for headers in ({}, {'X-Monit-Action-Token': TOKEN}, {'Authorization': 'Bearer ' + TOKEN},
                         dict(HEADERS, Origin='https://other.example'), dict(HEADERS, **{'X-Monit-Actor': ''})):

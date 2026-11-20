@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from httpdis import httpdis
 
-from monit_docker.incident import ExplanationError
+from monit_docker.incident import ExplanationError, DEFAULT_LANGUAGE, validate_language
 from monit_docker.domain.errors import ActionRejected
 from monit_docker.audit import AuditError, export_events
 from monit_docker.audit_query import QueryError
@@ -25,10 +25,12 @@ _AI_REQUEST_FIELDS = {
     '/v1/ai/preview': frozenset(('container_id',)),
     '/v1/ai/explain': frozenset(('container_id', 'preview_id')),
 }
+_AI_OPTIONAL_FIELDS = frozenset(('language',))
 _AI_ERROR_STATUS = {'invalid_request': 400, 'invalid_container_id': 400,
     'container_not_found': 404, 'invalid_preview': 409, 'preview_expired': 409,
     'evidence_changed': 409, 'ai_busy': 429, 'ai_rate_limited': 429,
-    'preview_capacity': 429, 'provider_timeout': 504}
+    'preview_capacity': 429, 'provider_timeout': 504,
+    'invalid_language': 400, 'language_changed': 409}
 
 _ACTION_MAX_BODY_SIZE       = 1024
 _NOTIFICATION_MAX_BODY_SIZE = 64 * 1024
@@ -122,15 +124,21 @@ def audit_page(request):
 
 def incident(request):
     payload = request.payload_params()
-    if not isinstance(payload, dict) or set(payload) != _AI_REQUEST_FIELDS[request._path]:
+    required = _AI_REQUEST_FIELDS[request._path]
+    if (not isinstance(payload, dict) or not required.issubset(payload)
+            or set(payload) - required - _AI_OPTIONAL_FIELDS):
         return json_response(dict(error='invalid_request'), 400)
     monitor = request.server.monitor
     try:
+        if 'language' in payload:
+            validate_language(payload['language'])
         if request._path == '/v1/ai/preview':
-            result = monitor.incident_assistant.preview(monitor.status(), payload['container_id'], request.audit_actor)
+            result = monitor.incident_assistant.preview(monitor.status(), payload['container_id'], request.audit_actor,
+                                                       language=payload.get('language', DEFAULT_LANGUAGE))
         else:
             result = monitor.incident_assistant.explain(monitor.status(), payload['container_id'],
-                                                       payload['preview_id'], request.audit_actor)
+                                                       payload['preview_id'], request.audit_actor,
+                                                       language=payload.get('language'))
         return json_response(result)
     except ExplanationError as error:
         return json_response(dict(error=error.reason), _AI_ERROR_STATUS.get(error.reason, 503))

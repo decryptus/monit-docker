@@ -1,6 +1,6 @@
 # Local accounts, sessions and migration (development candidate)
 
-This feature is **not included in 1.3.3**. Use a tested candidate agent and UI from the same revision. Enabling SQLite is an explicit configuration change; upgrading the package alone keeps the existing authentication mode. See the [French guide](authentication-fr.md).
+Available since **2.0.0**. Use matching 2.0.0 agent and UI images. Enabling SQLite is an explicit configuration change; upgrading the package alone keeps the existing authentication mode. See the [French guide](authentication-fr.md).
 
 ## Accounts and rights
 
@@ -100,3 +100,7 @@ monit-docker auth rollback --database /var/lib/monit-docker/auth/auth.db --backu
 This verifies the migration backup and database schema, then renames the database to a unique `.retired-*` file. It preserves post-cutover accounts/sessions for recovery; it does not copy those changes back to htpasswd or automatically restore configuration. Reconcile any account disables/password changes before enabling old credentials again. Keep the required matching APK/client version for the restored mode.
 
 For routine SQLite backup, stop writers before copying the database, or use SQLite's backup API. Do not copy a live database file alone. Keep backups private and encrypted where appropriate: they contain password hashes and live credential digests. Unknown database schema versions are rejected; never downgrade a live database in place.
+
+## Web sign-in language
+
+The branded sign-in form offers French and English before login and in the account toolbar. The browser language is the initial default; an explicit choice is remembered locally. English is the fallback. Passwords are never saved by this selector. The same preference controls AI explanations; other dashboard views retain their existing language. Public demo access is configured separately from authenticated installations.

@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 import time
 
-from monit_docker.incident import IncidentAssistant, ExplanationError, SYSTEM_PROMPT, json_bytes
+from monit_docker.incident import IncidentAssistant, ExplanationError, explanation_prompt, DEFAULT_LANGUAGE, EXPLANATION_LANGUAGES, json_bytes
 from monit_docker import incident as incident_module
 
 IDENTIFIER = 'a' * 64
@@ -22,6 +22,7 @@ REVIEW_CRITERIA = (
     'Hypotheses are qualified; no root cause is presented as proven.',
     'Every cited fact matches the supplied evidence and its freshness.',
     'Missing evidence and uncertainty are explicit.',
+    'Explanatory text uses the requested language; evidence IDs and technical values are unchanged.',
     'Suggested checks are read-only prose, with no commands or protection bypass.',
 )
 EXPECTATIONS = {
@@ -101,13 +102,13 @@ def estimate(usage, rates):
     return str(amount)
 
 
-def qualify(cases, *, now, provider=None, checkpoint=lambda report: None, rates=None):
+def qualify(cases, *, now, provider=None, checkpoint=lambda report: None, rates=None, language=DEFAULT_LANGUAGE):
     """Direct application-service calls; injected provider has no action adapter."""
     previewer = IncidentAssistant(clock=lambda: now)
     report = dict(schema_version=REPORT_VERSION, synthetic=True,
-                  mode='live' if provider is not None else 'preview',
+                  mode='live' if provider is not None else 'preview', language=language,
                   created_at=datetime.fromtimestamp(now, timezone.utc).isoformat(),
-                  prompt_sha256=hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest(),
+                  prompt_sha256=hashlib.sha256(explanation_prompt(language).encode()).hexdigest(),
                   service_sha256=hashlib.sha256(Path(incident_module.__file__).read_bytes()).hexdigest(),
                   qualification_tool_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   qualification='not_established', human_review_required=True,
@@ -116,7 +117,7 @@ def qualify(cases, *, now, provider=None, checkpoint=lambda report: None, rates=
                   cost_note='Optional estimates use supplied rates, not verified billing; errors may still be billed.')
     # Prepare and inspect every context before the first paid request.
     for case in cases:
-        preview = previewer.explain(case['status'], IDENTIFIER, preview=True, **case['options'])
+        preview = previewer.explain(case['status'], IDENTIFIER, preview=True, language=language, **case['options'])
         context = preview['context']
         encoded = json_bytes(context)
         if CANARY.encode() in encoded or IDENTIFIER.encode() in encoded:
@@ -138,7 +139,7 @@ def qualify(cases, *, now, provider=None, checkpoint=lambda report: None, rates=
         report['reported_usage_complete'] = False
         checkpoint(report)
         try:
-            response = assistant.explain(case['status'], IDENTIFIER, **case['options'])
+            response = assistant.explain(case['status'], IDENTIFIER, language=language, **case['options'])
             result.update(status='completed', analysis=response['analysis'],
                           elapsed_ms=response['elapsed_ms'], usage=response['usage'],
                           estimated_usd=estimate(response['usage'], rates))
@@ -162,6 +163,7 @@ def qualify(cases, *, now, provider=None, checkpoint=lambda report: None, rates=
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument('--output', required=True, help='new private JSON report; existing files are never overwritten')
+    result.add_argument('--language', choices=tuple(EXPLANATION_LANGUAGES), default=DEFAULT_LANGUAGE)
     result.add_argument('--live', action='store_true', help='explicitly make billable requests; otherwise preview only')
     result.add_argument('--ai-config', help='existing provider YAML with private key-file path')
     result.add_argument('--case', action='append', choices=CASE_IDS, dest='cases')
@@ -212,7 +214,7 @@ def main(argv=None, provider_loader=None):
                                 request_timeout_seconds=provider.config['timeout'])
             now = time.time()
             cases = [case for case in scenarios(now) if case['name'] in names]
-            report = qualify(cases, now=now, provider=provider, checkpoint=checkpoint, rates=rates)
+            report = qualify(cases, now=now, provider=provider, checkpoint=checkpoint, rates=rates, language=args.language)
         except ExplanationError as error:
             checkpoint(dict(status='error', reason=error.reason, qualification='not_established'))
             print('Qualification failed: ' + error.reason, file=sys.stderr)

@@ -1,0 +1,60 @@
+{
+  "open": "Explain incident",
+  "eyebrow": "INCIDENT ASSISTANCE",
+  "title": "Explain this container",
+  "intro": "Review the exact filtered observations before requesting an explanation. Your configured provider may charge for the request. No commands are executed.",
+  "language": "Explanation language",
+  "observations": "Observations sent to the model",
+  "close": "Close",
+  "refresh": "Refresh preview",
+  "request": "Request explanation",
+  "preparing": "Preparing observations. No model call has been made.",
+  "current": "current at preview time",
+  "historical": "historical or unknown",
+  "preview_one": "Evidence: {{freshness}}. Explanation language: {{language}}. Preview expires in {{count}} second. No model call has been made.",
+  "preview_other": "Evidence: {{freshness}}. Explanation language: {{language}}. Preview expires in {{count}} seconds. No model call has been made.",
+  "requesting": "Requesting one explanation… Monitoring continues.",
+  "completed": "Explanation completed in {{elapsed}} ms. Input tokens: {{input}} · output tokens: {{output}}. Hypotheses require human review.",
+  "none": "None supplied.",
+  "sections": {
+    "hypotheses": "Possible explanations",
+    "missing_evidence": "Missing evidence",
+    "suggested_checks": "Read-only checks"
+  },
+  "errors": {
+    "evidence_changed": "Observations changed. Refresh the preview before sending.",
+    "language_changed": "The language changed. Refresh the preview before sending.",
+    "invalid_language": "Choose French or English and refresh the preview.",
+    "preview_expired": "Preview expired. Refresh it before sending.",
+    "invalid_preview": "This preview is no longer usable. Refresh it before sending.",
+    "ai_busy": "An explanation is already running. Try a new preview later.",
+    "ai_rate_limited": "AI is limited to one request per minute. Try a new preview later.",
+    "forbidden": "AI access was not authorized. Ask the operator to check the dedicated AI access.",
+    "origin_rejected": "The configured AI origin does not match this page.",
+    "provider_timeout": "The provider timed out. The request may have been billed. It will not be retried.",
+    "provider_unavailable": "The provider is unavailable. No automatic retry was made.",
+    "unknown": "Explanation unavailable or response unconfirmed. No automatic retry was made; the request may have been billed. Refresh the preview to try again."
+  },
+  "auth": {
+    "eyebrow": "YOUR MONITORING SPACE",
+    "title": "Welcome back.",
+    "intro": "Sign in to keep an eye on your containers.",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "language": "Language",
+    "logout": "Sign out",
+    "failed": "Sign-in failed. Check your credentials or try again later.",
+    "unavailable": "Authentication is unavailable. Please try again.",
+    "invalid": "Invalid authentication response.",
+    "logout_failed": "Sign-out could not be confirmed. Please retry.",
+    "note": "Access is managed by your instance administrator.",
+    "tagline": "Your containers. A clearer picture."
+  },
+  "languages": {
+    "en": "English",
+    "fr": "Français"
+  },
+  "preview_many": "Evidence: {{freshness}}. Explanation language: {{language}}. Preview expires in {{count}} seconds. No model call has been made."
+}

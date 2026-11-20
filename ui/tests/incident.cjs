@@ -7,9 +7,9 @@ const path = require('node:path');
 const http = require('node:http');
 const root = path.resolve(__dirname, '../static');
 const server = http.createServer((req, res) => {
-  const file = {'/': 'index.html', '/auth.js': 'auth.js', '/app.js': 'app.js', '/app.css': 'app.css'}[req.url];
+  const file = {'/ai-i18n.js': 'ai-i18n.js', '/vendor/i18next.min.js': 'vendor/i18next.min.js', '/locales/ai-en.json': 'locales/ai-en.json', '/locales/ai-fr.json': 'locales/ai-fr.json', '/logo.svg': 'logo.svg', '/': 'index.html', '/auth.js': 'auth.js', '/app.js': 'app.js', '/app.css': 'app.css'}[req.url];
   if (!file) return res.writeHead(404).end();
-  res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+  res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.json') ? 'application/json' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html');
   res.end(fs.readFileSync(path.join(root, file)));
 });
 async function main() {
@@ -19,6 +19,7 @@ async function main() {
     const page = await browser.newPage({viewport: {width: 1280, height: 900}});
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    let language = 'en';
     let enabled = false, previews = 0, calls = 0, actions = 0, fail = null;
     const id = 'a'.repeat(64);
     const context = {freshness: 'current', evidence: [{id: 'e1', field: 'mem_percent', value: 96}], missing_evidence: []};
@@ -27,12 +28,12 @@ async function main() {
     await page.route('**/v1/actions', route => { actions++; return route.abort(); });
     await page.route('**/v1/ai/preview', route => {
       previews++;
-      assert.deepEqual(route.request().postDataJSON(), {container_id: id});
-      return route.fulfill({json: {preview_id: 'b'.repeat(64), context, expires_in: 60}});
+      assert.deepEqual(route.request().postDataJSON(), {container_id: id, language});
+      return route.fulfill({json: {preview_id: 'b'.repeat(64), language, context, expires_in: 60}});
     });
     await page.route('**/v1/ai/explain', route => {
       calls++;
-      assert.deepEqual(route.request().postDataJSON(), {container_id: id, preview_id: 'b'.repeat(64)});
+      assert.deepEqual(route.request().postDataJSON(), {container_id: id, preview_id: 'b'.repeat(64), language});
       if (fail) return route.fulfill({status: fail === 'evidence_changed' ? 409 : 504, json: {error: fail}});
       return route.fulfill({json: {elapsed_ms: 15, usage: {}, analysis: {
         hypotheses: [{text: '<img src=x onerror=alert(1)> Possible pressure', evidence: ['e1']}],
@@ -48,6 +49,14 @@ async function main() {
     await page.locator('.ai-open').click();
     await page.waitForFunction(() => !document.getElementById('ai-explain').disabled);
     assert.equal(previews, 1); assert.equal(calls, 0);
+    language = 'fr';
+    await page.locator('#ai-language').selectOption('fr');
+    await page.waitForFunction(() => !document.getElementById('ai-explain').disabled);
+    assert.equal(previews, 2); assert.equal(calls, 0);
+    assert.match(await page.locator('#ai-state').textContent(), /Français/);
+    language = 'en';
+    await page.locator('#ai-language').selectOption('en');
+    await page.waitForFunction(() => !document.getElementById('ai-explain').disabled);
     assert.match(await page.locator('#ai-context').textContent(), /mem_percent/);
     await page.locator('#ai-explain').click();
     await page.waitForFunction(() => document.querySelectorAll('#ai-results section').length === 3);

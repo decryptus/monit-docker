@@ -2,6 +2,6 @@
 
 from __future__ import absolute_import
 
-__version__ = '1.3.3'
+__version__ = '2.0.0'
 
 __all__ = ('__version__',)

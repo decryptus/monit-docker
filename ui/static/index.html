@@ -7,7 +7,7 @@
   <title>monit-docker · Overview</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/app.css">
-  <script src="/auth.js" defer></script>
+  <script src="/vendor/i18next.min.js" defer></script><script src="/ai-i18n.js" defer></script><script src="/auth.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -45,12 +45,13 @@
     <form method="dialog"><p class="eyebrow">CONTAINER ACTION</p><h2 id="confirm-title">Confirm action</h2><p id="confirm-description"></p><p id="confirm-note" class="dialog-note"></p><div class="dialog-buttons"><button value="cancel">Cancel</button><button id="confirm-action" value="confirm" class="primary">Confirm</button></div></form>
   </dialog>
   <dialog id="ai-dialog" aria-labelledby="ai-title">
-    <p class="eyebrow">INCIDENT ASSISTANCE</p><h2 id="ai-title">Explain this container</h2>
-    <p>Review the exact filtered observations before requesting an explanation. Your configured provider may charge for the request. No commands are executed.</p>
+    <p class="eyebrow" data-ai-text="eyebrow">INCIDENT ASSISTANCE</p><h2 id="ai-title" data-ai-text="title">Explain this container</h2>
+    <p data-ai-text="intro">Review the exact filtered observations before requesting an explanation. Your configured provider may charge for the request. No commands are executed.</p>
+    <label class="ai-language"><span data-ai-text="language">Explanation language</span><select id="ai-language"><option value="en" lang="en">English</option><option value="fr" lang="fr">Français</option></select></label>
     <p id="ai-state" role="status"></p>
     <div id="ai-results"></div>
-    <details id="ai-evidence"><summary>Observations sent to the model</summary><pre id="ai-context"></pre></details>
-    <div class="dialog-buttons"><button id="ai-close" type="button">Close</button><button id="ai-preview" type="button">Refresh preview</button><button id="ai-explain" type="button" class="primary" disabled>Request explanation</button></div>
+    <details id="ai-evidence"><summary data-ai-text="observations">Observations sent to the model</summary><pre id="ai-context"></pre></details>
+    <div class="dialog-buttons"><button id="ai-close" type="button" data-ai-text="close">Close</button><button id="ai-preview" type="button" data-ai-text="refresh">Refresh preview</button><button id="ai-explain" type="button" class="primary" disabled data-ai-text="request">Request explanation</button></div>
   </dialog>
   <noscript><p class="notice">JavaScript is required to read the agent API. No external scripts are loaded.</p></noscript>
 </body>

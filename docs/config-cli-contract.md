@@ -337,4 +337,4 @@ do not complete every milestone in the 1.0 roadmap.
 
 ## Optional SQLite authentication (candidate)
 
-The opt-in `serve --auth-db PATH --auth-origin HTTPS_ORIGIN` configuration and offline `auth` administration/migration commands are described in the [authentication guide](authentication.md). They are not included in 1.3.3. Legacy authentication flags cannot be mixed with SQLite mode; omitted `--auth-db` preserves the current mode.
+The opt-in `serve --auth-db PATH --auth-origin HTTPS_ORIGIN` configuration and offline `auth` administration/migration commands are described in the [authentication guide](authentication.md). Available since 2.0.0. Legacy authentication flags cannot be mixed with SQLite mode; omitted `--auth-db` preserves the current mode.

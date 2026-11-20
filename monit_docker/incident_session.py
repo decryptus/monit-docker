@@ -8,7 +8,7 @@ from threading import Lock
 import time
 
 from monit_docker.domain.identifiers import CONTAINER_ID_RE
-from monit_docker.incident import IncidentAssistant, ExplanationError, json_bytes
+from monit_docker.incident import IncidentAssistant, ExplanationError, json_bytes, validate_language, DEFAULT_LANGUAGE
 
 PREVIEW_TTL = 60
 MAX_PREVIEWS = 32
@@ -37,9 +37,10 @@ class IncidentSessions:
             raise ExplanationError('invalid_container_id')
         return dict(self.evidence_options(container_id, actor), **options)
 
-    def preview(self, status, container_id, actor, **options):
+    def preview(self, status, container_id, actor, *, language=DEFAULT_LANGUAGE, **options):
+        validate_language(language)
         options = self._options(container_id, actor, options)
-        report = IncidentAssistant(clock=self.clock).explain(status, container_id, preview=True, **options)
+        report = IncidentAssistant(clock=self.clock).explain(status, container_id, preview=True, language=language, **options)
         now = self.timer()
         with self._lock:
             self._previews = {key: value for key, value in self._previews.items() if value[0] > now}
@@ -49,7 +50,9 @@ class IncidentSessions:
             self._previews[key] = (now + PREVIEW_TTL, actor, copy.deepcopy(report))
         return dict(report, preview_id=key, expires_in=PREVIEW_TTL)
 
-    def explain(self, status, container_id, preview_id, actor, **options):
+    def explain(self, status, container_id, preview_id, actor, *, language=None, **options):
+        if language is not None:
+            validate_language(language)
         if not isinstance(preview_id, str) or not PREVIEW_ID_RE.fullmatch(preview_id):
             raise ExplanationError('invalid_preview')
         options = self._options(container_id, actor, options)
@@ -61,6 +64,9 @@ class IncidentSessions:
             if stored[0] <= self.timer():
                 del self._previews[preview_id]
                 raise ExplanationError('preview_expired')
+            if language is not None and language != stored[2]['language']:
+                del self._previews[preview_id]
+                raise ExplanationError('language_changed')
             if evidence_identity(stored[2]['context']) != evidence_identity(current['context']):
                 del self._previews[preview_id]
                 raise ExplanationError('evidence_changed')
