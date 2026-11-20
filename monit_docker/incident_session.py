@@ -7,6 +7,7 @@ import re
 from threading import Lock
 import time
 
+from monit_docker.domain.identifiers import CONTAINER_ID_RE
 from monit_docker.incident import IncidentAssistant, ExplanationError, json_bytes
 
 PREVIEW_TTL = 60
@@ -31,8 +32,13 @@ class IncidentSessions:
         self._busy = False
         self._next_request = 0
 
+    def _options(self, container_id, actor, options):
+        if not isinstance(container_id, str) or not CONTAINER_ID_RE.fullmatch(container_id):
+            raise ExplanationError('invalid_container_id')
+        return dict(self.evidence_options(container_id, actor), **options)
+
     def preview(self, status, container_id, actor, **options):
-        options = dict(self.evidence_options(container_id, actor), **options)
+        options = self._options(container_id, actor, options)
         report = IncidentAssistant(clock=self.clock).explain(status, container_id, preview=True, **options)
         now = self.timer()
         with self._lock:
@@ -46,7 +52,7 @@ class IncidentSessions:
     def explain(self, status, container_id, preview_id, actor, **options):
         if not isinstance(preview_id, str) or not PREVIEW_ID_RE.fullmatch(preview_id):
             raise ExplanationError('invalid_preview')
-        options = dict(self.evidence_options(container_id, actor), **options)
+        options = self._options(container_id, actor, options)
         current = IncidentAssistant(clock=self.clock).explain(status, container_id, preview=True, **options)
         with self._lock:
             stored = self._previews.get(preview_id)

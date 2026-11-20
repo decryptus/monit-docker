@@ -100,3 +100,24 @@ class IncidentHTTPTests(unittest.TestCase):
         self.assertEqual(code, 503)
         self.assertEqual(result['error'], 'invalid_provider_configuration')
         self.assertEqual(self.request('/v1/status', method='GET')[0], 200)
+
+    def test_composed_web_context_reads_filtered_journal_without_http_audit_access(self):
+        from monit_docker.audit import AuditJournal
+        from monit_docker.composition import build_incident_assistant
+        with TemporaryDirectory() as folder:
+            journal = AuditJournal(Path(folder) / 'events.jsonl', emit=False)
+            journal.record('action', 'skipped', container_id=IDENTIFIER,
+                           action='restart', result='skipped', reason='restart-limit')
+            assistant = build_incident_assistant('ai.yml', journal)
+            assistant.clock = lambda: NOW
+            assistant.provider_loader = lambda: self.provider
+            self.monitor.incident_assistant = assistant
+            _, preview = self.request()
+            events = [e for e in preview['context']['evidence'] if e['kind'] == 'action_history']
+            self.assertEqual(events[0]['reason'], 'restart-limit')
+            self.assertIsNone(self.monitor.audit_reader)
+            journal.record('action', 'completed', container_id=IDENTIFIER,
+                           action='restart', result='failed')
+            code, result = self.request('/v1/ai/explain', dict(container_id=IDENTIFIER, preview_id=preview['preview_id']))
+            self.assertEqual((code, result['error']), (409, 'evidence_changed'))
+            self.provider.complete.assert_not_called()

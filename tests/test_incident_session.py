@@ -122,3 +122,12 @@ class IncidentSessionTests(unittest.TestCase):
         with self.assertRaisesRegex(ExplanationError, 'evidence_changed'):
             self.explain(preview)
         self.loader.assert_not_called()
+
+    def test_invalid_identifiers_are_rejected_before_reading_the_journal(self):
+        loader = Mock()
+        self.service.evidence_options = loader
+        for identifier in ('a' * 63, IDENTIFIER + '\n', 'é' * 64, [], None):
+            with self.subTest(identifier=identifier), self.assertRaisesRegex(ExplanationError, 'invalid_container_id'):
+                self.service.preview(self.data, identifier, 'alice')
+        loader.assert_not_called()
+        self.loader.assert_not_called()
