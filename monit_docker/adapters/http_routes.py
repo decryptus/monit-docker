@@ -148,6 +148,7 @@ _AUTH_ROUTES = tuple({'name': 'v1/auth/' + name, 'op': methods, 'handler': auth_
                       'to_auth': True, 'max_body_size': 4096}
                      for name, methods in (('info', _READ_METHODS), ('login', _WRITE_METHODS),
                         ('me', _READ_METHODS), ('logout', _WRITE_METHODS),
+                        ('profile', ('GET', 'HEAD', 'POST')), ('devices', ('GET', 'HEAD', 'POST')), ('password', _WRITE_METHODS), ('recover', _WRITE_METHODS),
                         ('sessions', ('GET', 'HEAD', 'POST')), ('users', ('GET', 'HEAD', 'POST'))))
 
 _ROUTES = _AUTH_ROUTES + ({'name': 'v1/ai/preview', 'op': _WRITE_METHODS, 'handler': incident,

@@ -74,7 +74,7 @@ def build_incident_assistant(config_path, audit=None):
             raise ExplanationError('ai_history_unavailable') from None
         return dict(records=page['records'], history_more=bool(page['next_cursor']))
     return IncidentSessions(lambda: load_provider(config_path), evidence_options=evidence_options)
-def build_authentication(database, origin):
+def build_authentication(database, origin, mobile_push=False):
     """Explicit auth ownership; no anonymous or memory fallback on failure."""
     if database is None:
         return None
@@ -86,7 +86,7 @@ def build_authentication(database, origin):
         accounts = Accounts(database)
         if not any(user['enabled'] for user in accounts.list_users()):
             raise ValueError('no enabled account')
-        return AuthTransport(accounts, origin)
+        return AuthTransport(accounts, origin, mobile_push)
     except Exception:
         if accounts is not None:
             accounts.close()

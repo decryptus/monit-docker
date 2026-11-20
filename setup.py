@@ -28,6 +28,7 @@ setup(
     license                       = setup_cfg['license'],
     url                           = setup_cfg['url'],
     packages                      = find_packages(),
+    package_data                  = {'monit_docker.adapters': ['mobile_push_messages.json']},
     scripts                       = ['bin/monit-docker'],
     install_requires              = requirements,
     extras_require                = {'textual': ['dwho[textual]>=0.3.66', "textual>=8.2.8,<9; python_version >= '3.9'"]},

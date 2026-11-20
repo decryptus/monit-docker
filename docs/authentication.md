@@ -104,3 +104,5 @@ For routine SQLite backup, stop writers before copying the database, or use SQLi
 ## Web sign-in language
 
 The branded sign-in form offers French and English before login and in the account toolbar. The browser language is the initial default; an explicit choice is remembered locally. English is the fallback. Passwords are never saved by this selector. The same preference controls AI explanations; other dashboard views retain their existing language. Public demo access is configured separately from authenticated installations.
+
+See [account lifecycle and remote notifications](mobile-accounts.md).

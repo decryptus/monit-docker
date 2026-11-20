@@ -2,6 +2,7 @@
 from httpdis.authentication import AuthenticationRequest, AuthenticationDenied
 from httpdis.auth_browser import BrowserAuthProvider
 from monit_docker.auth_policy import PATH_SCOPES, username
+from monit_docker.account_lifecycle import AccountLifecycle
 
 AUTH_PREFIX = '/v1/auth/'
 LOGIN_PATH = AUTH_PREFIX + 'login'
@@ -10,6 +11,13 @@ ME_PATH = AUTH_PREFIX + 'me'
 LOGOUT_PATH = AUTH_PREFIX + 'logout'
 SESSIONS_PATH = AUTH_PREFIX + 'sessions'
 USERS_PATH = AUTH_PREFIX + 'users'
+PROFILE_PATH = AUTH_PREFIX + 'profile'
+PASSWORD_PATH = AUTH_PREFIX + 'password'
+RECOVER_PATH = AUTH_PREFIX + 'recover'
+DEVICES_PATH = AUTH_PREFIX + 'devices'
+UNREGISTER_FIELDS = frozenset(('unregister',))
+PASSWORD_FIELDS = frozenset(('current_password', 'new_password'))
+RECOVER_FIELDS = frozenset(('username', 'recovery_code', 'new_password'))
 AUTH_HEADERS = frozenset(('authorization', 'cookie', 'origin', 'host', 'content-type',
                          'sec-fetch-site', 'sec-fetch-mode', 'x-csrf-token', 'x-monit-client'))
 NATIVE_MARKER = 'native-v1'
@@ -21,7 +29,7 @@ USER_FIELDS = {
     'role': frozenset(('operation', 'username', 'role')),
     'disable': frozenset(('operation', 'username')),
 }
-PUBLIC_AUTH_PATHS = frozenset((INFO_PATH, LOGIN_PATH))
+PUBLIC_AUTH_PATHS = frozenset((INFO_PATH, LOGIN_PATH, RECOVER_PATH))
 
 def auth_request(handler):
     request = AuthenticationRequest(handler.command, handler._path,
@@ -43,8 +51,13 @@ def session_secret(request):
     return secret
 
 class AuthTransport:
-    def __init__(self, accounts, origin):
+    def __init__(self, accounts, origin, mobile_push=False):
         self.accounts = accounts
+        self.lifecycle = AccountLifecycle(accounts)
+        from monit_docker.adapters.mobile_push import PushDevices
+        self.devices = PushDevices(accounts)
+        self.mobile_push = mobile_push
+        self.origin = origin
         self.browser = BrowserAuthProvider(accounts.service, origin, cookie_prefix='monit')
 
     def authenticate(self, handler):
@@ -70,7 +83,17 @@ class AuthTransport:
         request = auth_request(handler)
         path = request.path
         if path == INFO_PATH:
-            return json_response({'enabled': True, 'api_version': 1, 'native_auth': 'session-v1'})
+            return json_response({'enabled': True, 'api_version': 1, 'native_auth': 'session-v1',
+                                  'mobile_push': self.mobile_push, 'account_profile': True, 'password_change': True, 'recovery': 'administrator-code-v1'})
+        if path == RECOVER_PATH:
+            native_request(request)
+            if request.header('x-monit-client') != NATIVE_MARKER or request.header('authorization') is not None:
+                raise AuthenticationDenied()
+            data = handler.payload_params()
+            if not isinstance(data, dict) or set(data) != RECOVER_FIELDS:
+                return json_response({'error': 'invalid_request'}, 400)
+            self.lifecycle.recover(data['username'], data['recovery_code'], data['new_password'], request.peer)
+            return json_response({'updated': True, 'sessions_revoked': True})
         if path == LOGIN_PATH:
             data = handler.payload_params()
             if not isinstance(data, dict) or set(data) != LOGIN_FIELDS:
@@ -103,6 +126,33 @@ class AuthTransport:
                 response.add_header('Set-Cookie', self.browser.cookie(grant.secret, int(self.accounts.service.session_ttl)))
             return response
         identity = handler.auth_identity
+        if path == DEVICES_PATH:
+            if identity.method != 'session' or 'status:read' not in identity.scopes:
+                raise AuthenticationDenied()
+            native_request(request)
+            secret = session_secret(request)
+            if request.method in ('GET', 'HEAD'):
+                return json_response(dict(self.devices.status(identity.principal, secret), enabled=self.mobile_push))
+            data = handler.payload_params()
+            if isinstance(data, dict) and set(data) == UNREGISTER_FIELDS and data['unregister'] is True:
+                from monit_docker.adapters.mobile_push import digest
+                self.devices.revoke_session(identity.principal, digest(secret))
+                return json_response({'revoked': True})
+            if not self.mobile_push:
+                return json_response({'error': 'push_not_configured'}, 409)
+            return json_response(self.devices.register(identity.principal, secret, data))
+        if path in (PROFILE_PATH, PASSWORD_PATH):
+            if identity.method != 'session':
+                raise AuthenticationDenied()
+            if path == PROFILE_PATH:
+                result = (self.lifecycle.profile(identity.principal) if request.method in ('GET', 'HEAD')
+                          else self.lifecycle.update(identity.principal, handler.payload_params()))
+                return json_response(result)
+            data = handler.payload_params()
+            if not isinstance(data, dict) or set(data) != PASSWORD_FIELDS:
+                return json_response({'error': 'invalid_request'}, 400)
+            self.lifecycle.change_password(identity.principal, data['current_password'], data['new_password'], request.peer)
+            return json_response({'updated': True, 'sessions_revoked': True})
         if path == ME_PATH:
             return json_response({'username': identity.principal, 'scopes': sorted(identity.scopes), 'method': identity.method})
         if path == LOGOUT_PATH:
@@ -113,6 +163,8 @@ class AuthTransport:
             secret = session_secret(request) if native else self.browser.session_secret(request)
             if not secret or identity.method != 'session':
                 raise AuthenticationDenied()
+            from monit_docker.adapters.mobile_push import digest
+            self.devices.revoke_session(identity.principal, digest(secret))
             self.accounts.service.logout(secret)
             response = json_response({'revoked': True})
             if not native:
@@ -125,6 +177,7 @@ class AuthTransport:
             if not isinstance(data, dict) or set(data) != SESSION_FIELDS:
                 return json_response({'error': 'invalid_request'}, 400)
             self.accounts.revoke(identity.principal, data['id'])
+            self.devices.revoke_session(identity.principal, data['id'])
             return json_response({'revoked': True})
         if path == USERS_PATH:
             if request.method in ('GET', 'HEAD'):

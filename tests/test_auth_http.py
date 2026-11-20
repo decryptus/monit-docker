@@ -140,3 +140,35 @@ class AuthHttpTests(unittest.TestCase):
         self.assertEqual(code, 413)
         self.assertEqual(headers['cache-control'], 'no-store')
         self.assertNotIn('access-control-allow-origin', headers)
+
+    def test_account_profile_session_only_and_csrf(self):
+        headers = self.login()
+        profile = {'display_name': 'Reader phone', 'language': 'fr'}
+        self.assertEqual(self.request('/v1/auth/profile', profile, headers)[0], 200)
+        self.assertEqual(self.request('/v1/auth/profile', headers=headers)[2], profile)
+        self.assertEqual(self.request('/v1/auth/profile', profile, {'Authorization': headers['Authorization']})[0], 401)
+        token = self.accounts.service.issue_token('reader', ['status:read'], 60)
+        self.assertEqual(self.request('/v1/auth/profile', headers={'Authorization': 'Bearer ' + token.secret})[0], 401)
+
+    def test_password_change_and_recovery_http(self):
+        headers = self.login()
+        new = 'new-password-123456'
+        self.assertEqual(self.request('/v1/auth/password', {'current_password': PASSWORD, 'new_password': new}, headers)[0], 200)
+        self.assertEqual(self.request('/v1/status', headers=headers)[0], 401)
+        code = self.server.auth.lifecycle.issue_recovery('reader')
+        body = {'username': 'reader', 'recovery_code': code, 'new_password': PASSWORD}
+        self.assertEqual(self.request('/v1/auth/recover', body, {'X-Monit-Client': 'native-v1', 'Origin': ORIGIN})[0], 401)
+        self.assertEqual(self.request('/v1/auth/recover', body, {'X-Monit-Client': 'native-v1'})[0], 200)
+        self.assertEqual(self.request('/v1/auth/recover', body, {'X-Monit-Client': 'native-v1'})[0], 401)
+        self.assertTrue(self.login())
+
+    def test_push_is_opt_in_session_bound_and_logout_revokes(self):
+        headers = self.login()
+        device = {'token': 'ExpoPushToken[fixture-token-123]', 'language': 'en', 'channel': 'monit-observations-1-1'}
+        self.assertFalse(self.request('/v1/auth/devices', headers=headers)[2]['enabled'])
+        self.assertEqual(self.request('/v1/auth/devices', device, headers)[0], 409)
+        self.server.auth.mobile_push = True
+        self.assertEqual(self.request('/v1/auth/devices', device, headers)[0], 200)
+        self.assertEqual(len(self.server.auth.devices.pending()), 1)
+        self.assertEqual(self.request('/v1/auth/logout', {}, headers)[0], 200)
+        self.assertEqual(self.server.auth.devices.pending(), [])
