@@ -70,6 +70,12 @@ class AuthHttpTests(unittest.TestCase):
         self.assertEqual(self.request('/v1/auth/logout', {}, headers)[0], 200)
         self.assertEqual(self.request('/v1/status', headers=headers)[0], 401)
 
+    def test_unspecified_push_option_exposes_false_not_null(self):
+        self.server.auth = AuthTransport(self.accounts, ORIGIN, mobile_push=None)
+        self.assertIs(self.request('/v1/auth/info')[2]['mobile_push'], False)
+        headers = self.login()
+        self.assertIs(self.request('/v1/auth/devices', headers=headers)[2]['enabled'], False)
+
     def test_reader_cannot_execute_or_create_admin(self):
         headers = self.login()
         self.assertEqual(self.request('/v1/actions', payload(), headers)[0], 403)
