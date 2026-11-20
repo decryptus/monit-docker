@@ -1,14 +1,13 @@
-# Assistance aux incidents (version de développement)
+# Assistance aux incidents
 
-Cette fonction facultative et open source **n'est pas incluse dans la version
-1.3.3**. La commande `monit-docker explain` explique la situation d'un conteneur
+Cette fonction facultative et open source est disponible depuis la **2.0.0**. La commande `monit-docker explain` explique la situation d'un conteneur
 à partir des observations disponibles, avec Ollama, une API compatible OpenAI
 ou l'API native Anthropic de Claude.
 Elle ne nécessite ni compte de courtage ni licence produit supplémentaire.
 L'utilisation d'une API distante est facturée par le fournisseur choisi.
 La surveillance normale ne déclenche aucun appel au modèle.
 
-Cette version de développement propose une commande CLI et un parcours HTTP/web facultatif.
+La fonction propose une commande CLI et un parcours HTTP/web facultatif.
 La qualité des explications et la compatibilité des modèles restent à qualifier
 en conditions réelles. Les tests automatisés utilisent des réponses synthétiques.
 
@@ -21,7 +20,7 @@ avec le [banc d'essai synthétique](incident-ai-review.md#reproducible-synthetic
 
 ## Vérifier les données avant l'envoi
 
-Depuis le dépôt contenant cette version de développement :
+Depuis le dépôt de la version 2.0.0 :
 
 ```sh
 python3 -m venv .venv
@@ -150,7 +149,7 @@ suggérés sont séparés et non vérifiés. Chaque référence doit correspondr
 observation fournie, mais cela ne prouve pas la justesse du raisonnement.
 Les données manquantes ou anciennes restent visibles. Aucune suggestion ne peut
 déclencher une action, modifier la configuration ou contourner les protections.
-Les messages du produit et les explications sont en anglais.
+Les explications peuvent être en français ou en anglais ; les codes et diagnostics serveur restent en anglais.
 
 `--output json` produit un rapport structuré. Les erreurs opérationnelles renvoient
 le code 120 et un champ `reason` stable, sans corps de réponse du fournisseur ni
@@ -178,7 +177,7 @@ aucun basculement ni nouvel appel automatique n'est effectué.
 ## Parcours web facultatif
 
 Utiliser des compilations du code candidat pour **l'agent et l'interface** : les
-images publiées 1.3.3 ne contiennent pas cette fonction. Configurer les trois
+images 2.0.0 contiennent cette fonction. Configurer les trois
 options dans `serve:` (ou leurs équivalents CLI avec des tirets) :
 
 ```yaml
@@ -252,3 +251,23 @@ une demande invalide, 409 pour un aperçu expiré/utilisé/modifié, 429 pour le
 limites d'admission, 504 pour le délai fournisseur, 503 pour les autres erreurs
 fournisseur/journal. Le champ `error` contient une raison stable. Toute tentative
 atteignant le chargement du fournisseur consomme l'aperçu, même en cas d'échec.
+
+## Langue des explications
+
+Utiliser `--language fr` ou `--language en` avec `monit-docker explain` (anglais
+par défaut). Le formulaire de connexion, la barre du compte et la fenêtre IA
+partagent une préférence mémorisée. La langue du navigateur sert de choix initial,
+avec repli en anglais. Les textes de connexion et d’IA utilisent i18next hébergé
+localement et des catalogues séparés ; les autres vues ne sont pas encore traduites.
+
+Les requêtes JSON d’aperçu et d’explication acceptent `language` (`fr` ou `en`).
+L’aperçu est en anglais si ce champ est absent. L’explication reprend la langue de
+l’aperçu si le champ est absent. Une valeur non prise en charge renvoie
+`invalid_language` (400). Changer de langue après l’aperçu renvoie
+`language_changed` (409), invalide cet aperçu et ne contacte aucun modèle.
+L’interface prépare un nouvel aperçu ; l’envoi nécessite toujours une action explicite.
+
+Les identifiants, clés JSON, références de preuve, valeurs brutes et codes d’erreur
+restent inchangés. La consigne linguistique ne garantit pas la qualité du modèle.
+Les essais avec de vrais modèles sont différés. Le banc d’essai accepte
+`--language fr` et `--language en` et consigne la langue et l’empreinte du prompt.

@@ -1,0 +1,60 @@
+{
+  "open": "Expliquer l’incident",
+  "eyebrow": "ASSISTANCE AUX INCIDENTS",
+  "title": "Comprendre ce conteneur",
+  "intro": "Vérifiez les observations filtrées avant de demander une explication. Le fournisseur configuré peut facturer la demande. Aucune commande n’est exécutée.",
+  "language": "Langue des explications",
+  "observations": "Observations transmises au modèle",
+  "close": "Fermer",
+  "refresh": "Actualiser l’aperçu",
+  "request": "Demander une explication",
+  "preparing": "Préparation des observations. Aucun appel au modèle n’a été effectué.",
+  "current": "actuelles au moment de l’aperçu",
+  "historical": "historiques ou inconnues",
+  "preview_one": "Observations : {{freshness}}. Langue des explications : {{language}}. L’aperçu expire dans {{count}} seconde. Aucun appel au modèle n’a été effectué.",
+  "preview_other": "Observations : {{freshness}}. Langue des explications : {{language}}. L’aperçu expire dans {{count}} secondes. Aucun appel au modèle n’a été effectué.",
+  "preview_many": "Observations : {{freshness}}. Langue des explications : {{language}}. L’aperçu expire dans {{count}} secondes. Aucun appel au modèle n’a été effectué.",
+  "requesting": "Demande d’une explication… La surveillance continue.",
+  "completed": "Explication obtenue en {{elapsed}} ms. Jetons d’entrée : {{input}} · jetons de sortie : {{output}}. Les hypothèses doivent être vérifiées par une personne.",
+  "none": "Aucun élément fourni.",
+  "sections": {
+    "hypotheses": "Explications possibles",
+    "missing_evidence": "Informations manquantes",
+    "suggested_checks": "Vérifications en lecture seule"
+  },
+  "errors": {
+    "evidence_changed": "Les observations ont changé. Actualisez l’aperçu avant l’envoi.",
+    "language_changed": "La langue a changé. Actualisez l’aperçu avant l’envoi.",
+    "invalid_language": "Choisissez le français ou l’anglais, puis actualisez l’aperçu.",
+    "preview_expired": "L’aperçu a expiré. Actualisez-le avant l’envoi.",
+    "invalid_preview": "Cet aperçu n’est plus utilisable. Actualisez-le avant l’envoi.",
+    "ai_busy": "Une explication est déjà en cours. Réessayez avec un nouvel aperçu plus tard.",
+    "ai_rate_limited": "L’IA est limitée à une demande par minute. Réessayez avec un nouvel aperçu plus tard.",
+    "forbidden": "L’accès à l’IA n’a pas été autorisé. Demandez à l’administrateur de vérifier les droits d’accès dédiés.",
+    "origin_rejected": "L’origine configurée pour l’IA ne correspond pas à cette page.",
+    "provider_timeout": "Le délai du fournisseur est dépassé. La demande peut avoir été facturée. Elle ne sera pas répétée.",
+    "provider_unavailable": "Le fournisseur est indisponible. Aucun nouvel essai automatique n’a été effectué.",
+    "unknown": "Explication indisponible ou réponse non confirmée. Aucun nouvel essai automatique n’a été effectué ; la demande peut avoir été facturée. Actualisez l’aperçu pour réessayer."
+  },
+  "auth": {
+    "eyebrow": "VOTRE ESPACE DE SUPERVISION",
+    "title": "Heureux de vous revoir.",
+    "intro": "Connectez-vous pour garder un œil sur vos conteneurs.",
+    "username": "Identifiant",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "submitting": "Connexion…",
+    "language": "Langue",
+    "logout": "Se déconnecter",
+    "failed": "Connexion refusée. Vérifiez vos identifiants ou réessayez plus tard.",
+    "unavailable": "Authentification indisponible. Veuillez réessayer.",
+    "invalid": "Réponse d’authentification invalide.",
+    "logout_failed": "La déconnexion n’a pas pu être confirmée. Veuillez réessayer.",
+    "note": "Les accès sont gérés par l’administrateur de votre instance.",
+    "tagline": "Vos conteneurs. Une vision plus claire."
+  },
+  "languages": {
+    "en": "English",
+    "fr": "Français"
+  }
+}

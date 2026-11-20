@@ -378,4 +378,4 @@ Journal schemas remain independent of HTTP route and application versions.
 
 ## Optional SQLite authentication candidate
 
-The opt-in [account/session API](authentication.md) requires `--auth-db` and an exact HTTPS origin. It replaces legacy proxy secrets for that instance. This development addition is not part of the 1.3.3 contract.
+The opt-in [account/session API](authentication.md) requires `--auth-db` and an exact HTTPS origin. It replaces legacy proxy secrets for that instance. This addition is part of the 2.0.0 contract.

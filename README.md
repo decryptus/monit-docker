@@ -1,15 +1,15 @@
 # monit-docker project
 
-**Current package and image version: [1.3.3](https://github.com/decryptus/monit-docker/tree/v1.3.3)**
-— [Release notes and upgrade guidance](docs/release-1.3.3.md).
+**Current package and image version: [2.0.0](https://github.com/decryptus/monit-docker/tree/v2.0.0)**
+— [Release notes and upgrade guidance](docs/release-2.0.0.md).
 
-Development candidate: optional [incident assistance](docs/incident-ai.md)
+Optional [incident assistance](docs/incident-ai.md)
 ([guide français](docs/incident-ai-fr.md)) with a local model or your own API key.
-The CLI and opt-in web workflow are not included in 1.3.3; real-model qualification is pending.
+CLI and opt-in web explanations support French and English. Real-model qualification remains pending.
 
-Development candidate: [SQLite accounts and migration](docs/authentication.md)
+[SQLite accounts and migration](docs/authentication.md)
 ([guide français](docs/authentication-fr.md)), with web login and a native-session API.
-Not included in 1.3.3; deployment and APK cutover are separate steps.
+SQLite activation is explicit; the Android release and device testing are deferred.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/decryptus/monit-docker/v0.0.63/ui/branding/monit-docker-logo.png" alt="monit-docker logo" width="640">
@@ -25,7 +25,7 @@ Not included in 1.3.3; deployment and APK cutover are separate steps.
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/) ·
 [Release roadmap](docs/roadmap.md) ·
-[1.3.3 release notes](docs/release-1.3.3.md) ·
+[2.0.0 release notes](docs/release-2.0.0.md) ·
 [Logos and icons](ui/branding/README.md)
 
 monit-docker is a free, open-source tool for checking Docker containers and
@@ -36,7 +36,7 @@ container or reloading PHP-FPM when memory usage is high.
 Compose v2 and curl, run:
 
 ```sh
-git clone --branch v1.3.3 --depth 1 https://github.com/decryptus/monit-docker.git
+git clone --branch v2.0.0 --depth 1 https://github.com/decryptus/monit-docker.git
 cd monit-docker
 ./install.sh
 ```
@@ -137,7 +137,7 @@ for prerequisites, the UI, upgrades and stopping the stack. The
 then explicitly enables one automatic restart. The default installation has no action rules.
 
 The current Compose checkout builds the socket proxy locally and runs the published
-1.3.3 agent and UI images. Before switching an existing direct-socket agent,
+2.0.0 agent and UI images. Before switching an existing direct-socket agent,
 follow the [socket migration](docs/compose-quickstart.md#migrate-an-existing-agent).
 
 **Existing root Compose users:** the old cron/PHP-FPM example is replaced by

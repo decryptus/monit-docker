@@ -1,6 +1,6 @@
 # Authentification SQLite et migration (version de développement)
 
-Cette fonctionnalité **n'est pas incluse dans la version 1.3.3**. Utiliser des images agent et interface construites à partir de la même révision validée. L'activation est explicite : une mise à jour seule ne change pas l'authentification existante. Le [guide technique anglais](authentication.md) décrit les commandes et le contrat API complet.
+Disponible depuis la **2.0.0**. Utiliser les images agent et interface 2.0.0 correspondantes. L'activation est explicite : une mise à jour seule ne change pas l'authentification existante. Le [guide technique anglais](authentication.md) décrit les commandes et le contrat API complet.
 
 ## Comptes, droits et sessions
 
@@ -75,3 +75,7 @@ monit-docker auth rollback --database /var/lib/monit-docker/auth/auth.db --backu
 La commande vérifie la sauvegarde et le schéma, puis renomme la base en `.retired-*`. Elle conserve les comptes et sessions créés depuis la bascule ; elle ne les recopie pas dans htpasswd et ne restaure pas la configuration. Réconcilier les désactivations et changements de mot de passe avant de réactiver les anciens accès. Prévoir la version APK adaptée au mode restauré.
 
 Pour les sauvegardes courantes, arrêter les écritures ou utiliser l'API de sauvegarde SQLite : ne pas copier uniquement le fichier d'une base active. Protéger les sauvegardes, qui contiennent des empreintes de mots de passe et de jetons. Un schéma inconnu est refusé ; ne pas rétrograder une base active en place.
+
+## Langue de la connexion web
+
+Le formulaire avec le logo propose le français et l’anglais avant connexion et dans la barre du compte. La langue du navigateur sert de choix initial ; la préférence explicite est mémorisée localement, avec l’anglais en repli. Aucun mot de passe n’est enregistré par ce sélecteur. Ce choix pilote aussi les explications IA ; les autres vues du tableau de bord conservent leur langue actuelle. L’accès public de la démo se configure séparément des installations avec comptes.

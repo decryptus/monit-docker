@@ -7,9 +7,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../static');
 const server = http.createServer((req, res) => {
-  const file = {'/': 'index.html', '/auth.js': 'auth.js', '/app.js': 'app.js', '/app.css': 'app.css'}[req.url];
+  const file = {'/ai-i18n.js': 'ai-i18n.js', '/vendor/i18next.min.js': 'vendor/i18next.min.js', '/locales/ai-en.json': 'locales/ai-en.json', '/locales/ai-fr.json': 'locales/ai-fr.json', '/logo.svg': 'logo.svg', '/': 'index.html', '/auth.js': 'auth.js', '/app.js': 'app.js', '/app.css': 'app.css'}[req.url];
   if (!file) return res.writeHead(404).end();
-  res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+  res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.json') ? 'application/json' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html');
   res.end(fs.readFileSync(path.join(root, file)));
 });
 async function main() {
@@ -41,6 +41,19 @@ async function main() {
     }}));
     await page.route('**/v1/actions', route => { mutations++; return route.abort(); });
     await page.goto(`http://127.0.0.1:${server.address().port}`);
+    await page.locator('#auth-dialog').waitFor();
+    await page.waitForFunction(() => document.querySelector('#auth-dialog img').naturalWidth > 0);
+    assert.equal(await page.locator('#auth-dialog').evaluate(e => e.scrollWidth <= e.clientWidth), true);
+    const captures = path.resolve(process.env.UI_SCREENSHOTS || 'ui/test-results');
+    fs.mkdirSync(captures, {recursive: true});
+    await page.locator('#auth-dialog select').selectOption('fr');
+    await page.getByRole('heading', {name: 'Heureux de vous revoir.'}).waitFor();
+    await page.screenshot({path: path.join(captures, 'login-fr-mobile.png')});
+    await page.setViewportSize({width: 1440, height: 1000});
+    await page.screenshot({path: path.join(captures, 'login-fr-desktop.png')});
+    await page.reload();
+    await page.getByLabel('Identifiant', {exact: true}).waitFor();
+    await page.locator('#auth-dialog select').selectOption('en');
     await page.getByLabel('Username', {exact: true}).fill('reader');
     await page.getByLabel('Password', {exact: true}).fill('test-only-password');
     await page.getByRole('button', {name: 'Sign in', exact: true}).click();

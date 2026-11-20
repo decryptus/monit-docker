@@ -6,6 +6,7 @@ import sys
 
 from dwho.cli import write_json
 from monit_docker.incident import IncidentAssistant, ExplanationError, DEFAULT_MAX_AGE, MAX_AGE, MAX_RULES
+from monit_docker.incident import DEFAULT_LANGUAGE, EXPLANATION_LANGUAGES
 from monit_docker.domain.identifiers import CONTAINER_ID_RE
 
 OUTPUT_FORMATS = ('text', 'json')
@@ -18,6 +19,7 @@ def render_report(report, stream):
         return json.dumps(value, ensure_ascii=True, allow_nan=False)
     context = report['context']
     stream.write('Incident explanation: %s (%s)\n' % (report['status'], context['freshness']))
+    stream.write('Explanation language: %s\n' % report.get('language', DEFAULT_LANGUAGE))
     stream.write('Container: %s\nObserved facts (model input):\n' % report['container_id'])
     for item in context['evidence']:
         stream.write('  %s %s\n' % (item['id'], quoted({key: value for key, value in item.items() if key != 'id'})))
@@ -48,6 +50,8 @@ class MonitDockerSubCmdExplain:
         parser.add_argument('--container-id', required=True, help='exact full Docker ID; sent to the model as an alias')
         parser.add_argument('--ai-config', help='separate plain YAML provider settings; required unless previewing')
         parser.add_argument('--preview', action='store_true', help='show the filtered context without contacting any model')
+        parser.add_argument('--language', choices=tuple(EXPLANATION_LANGUAGES), default=DEFAULT_LANGUAGE,
+                            help='language of model explanations: en or fr (default: en)')
         parser.add_argument('--max-age', type=int, default=DEFAULT_MAX_AGE, help='freshness limit in seconds (default: 90)')
         parser.add_argument('--rule', action='append', default=[], help='explicit rule to describe; never execute it or assume it is active')
         parser.add_argument('--output', choices=OUTPUT_FORMATS, default='text')
@@ -91,7 +95,7 @@ class MonitDockerSubCmdExplain:
                     raise ExplanationError('audit_unavailable') from None
                 records, more = page['records'], bool(page['next_cursor'])
             report = IncidentAssistant(provider).explain(status, options.container_id, preview=options.preview,
-                max_age=options.max_age, records=records, history_more=more, rules=rules)
+                language=options.language, max_age=options.max_age, records=records, history_more=more, rules=rules)
         except ExplanationError as error:
             if options.output == 'json':
                 write_json(dict(status='error', reason=error.reason), ensure_ascii=True, sort_keys=True)

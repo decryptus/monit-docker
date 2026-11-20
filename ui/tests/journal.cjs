@@ -6,7 +6,7 @@ const path = require('node:path');
 const http = require('node:http');
 const root = path.resolve(__dirname, '../static');
 const output = path.resolve(process.env.UI_SCREENSHOTS || 'ui/test-results');
-const FILES = {'/auth.js': ['auth.js', 'application/javascript'], '/logs': ['logs.html', 'text/html'], '/logs.js': ['logs.js', 'application/javascript'], '/app.css': ['app.css', 'text/css']};
+const FILES = {'/ai-i18n.js': ['ai-i18n.js', 'application/javascript'],'/vendor/i18next.min.js': ['vendor/i18next.min.js', 'application/javascript'],'/locales/ai-en.json': ['locales/ai-en.json', 'application/json'],'/locales/ai-fr.json': ['locales/ai-fr.json', 'application/json'],'/logo.svg': ['logo.svg', 'image/svg+xml'],'/auth.js': ['auth.js', 'application/javascript'], '/logs': ['logs.html', 'text/html'], '/logs.js': ['logs.js', 'application/javascript'], '/app.css': ['app.css', 'text/css']};
 const server = http.createServer((req, res) => {
   const file = FILES[req.url];
   if (!file) return res.writeHead(404).end();
@@ -14,7 +14,7 @@ const server = http.createServer((req, res) => {
 });
 async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const browser = await chromium.launch({headless:true});
+  const browser = await chromium.launch({headless:true, ...(process.env.CHROMIUM_EXECUTABLE ? {executablePath: process.env.CHROMIUM_EXECUTABLE} : {})});
   try {
     const page = await browser.newPage({viewport:{width:1440,height:1050}, acceptDownloads:true});
     const errors = []; page.on('pageerror', e => errors.push(e.message));

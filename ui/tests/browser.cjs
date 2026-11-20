@@ -9,9 +9,9 @@ const http = require('node:http');
 const root = path.resolve(__dirname, '../static');
 const output = path.resolve(process.env.UI_SCREENSHOTS || 'ui/test-results');
 fs.mkdirSync(output, {recursive: true});
-const types = {'.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript'};
+const types = {'.json': 'application/json', '.svg': 'image/svg+xml', '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript'};
 const server = http.createServer((request, response) => {
-  const filename = {'/': 'index.html', '/app.css': 'app.css', '/auth.js': 'auth.js', '/app.js': 'app.js'}[request.url];
+  const filename = {'/ai-i18n.js': 'ai-i18n.js', '/vendor/i18next.min.js': 'vendor/i18next.min.js', '/locales/ai-en.json': 'locales/ai-en.json', '/locales/ai-fr.json': 'locales/ai-fr.json', '/logo.svg': 'logo.svg', '/': 'index.html', '/app.css': 'app.css', '/auth.js': 'auth.js', '/app.js': 'app.js'}[request.url];
   if (!filename) { response.writeHead(404).end(); return; }
   response.setHeader('Content-Type', types[path.extname(filename)]);
   response.end(fs.readFileSync(path.join(root, filename)));
@@ -20,7 +20,7 @@ const server = http.createServer((request, response) => {
 async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({headless: true});
+  const browser = await chromium.launch({headless: true, ...(process.env.CHROMIUM_EXECUTABLE ? {executablePath: process.env.CHROMIUM_EXECUTABLE} : {})});
   try {
     const page = await browser.newPage({viewport: {width: 1440, height: 1100}});
     const errors = [];

@@ -9,6 +9,30 @@ window.MonitAuth = (() => {
   let unavailable = false;
   let csrf = sessionStorage.getItem(KEY);
   let dialog;
+  const text = window.MonitAIText;
+  const translated = (tag, key) => {
+    const node = element(tag, text.t('auth.' + key));
+    node.dataset.authText = key;
+    return node;
+  };
+  function translate() {
+    document.querySelectorAll('[data-auth-text]').forEach(node => { node.textContent = text.t('auth.' + node.dataset.authText); });
+    document.querySelectorAll('.auth-language select').forEach(node => { node.value = text.language; });
+    if (dialog) dialog.lang = text.language;
+  }
+  document.addEventListener('monit-language', translate);
+  function languageSelector() {
+    const label = element('label'); label.className = 'auth-language';
+    const select = element('select');
+    for (const code of ['en', 'fr']) {
+      const option = element('option', text.t('languages.' + code));
+      option.value = code; option.lang = code; select.append(option);
+    }
+    select.value = text.language;
+    select.addEventListener('change', () => text.select(select.value));
+    label.append(translated('span', 'language'), select);
+    return label;
+  }
   const element = (tag, text) => {
     const node = document.createElement(tag);
     if (text) node.textContent = text;
@@ -23,42 +47,51 @@ window.MonitAuth = (() => {
     if (dialog) { if (!dialog.open) dialog.showModal(); return; }
     dialog = element('dialog');
     dialog.id = 'auth-dialog';
-    const title = element('h2', 'Sign in to monit-docker');
+    const title = translated('h2', 'title');
     title.id = 'auth-title';
     dialog.setAttribute('aria-labelledby', title.id);
     dialog.addEventListener('cancel', event => event.preventDefault());
-    const form = element('form');
-    const userLabel = element('label', 'Username');
+    const form = element('form'); form.className = 'auth-form';
+    const branding = element('div'); branding.className = 'auth-branding';
+    const logo = element('img'); logo.src = '/logo.svg'; logo.alt = 'monit-docker'; logo.width = 240; logo.height = 88;
+    branding.append(logo, translated('p', 'tagline'));
+    const toolbar = element('div'); toolbar.className = 'auth-toolbar';
+    const eyebrow = translated('p', 'eyebrow'); eyebrow.className = 'eyebrow';
+    toolbar.append(eyebrow, languageSelector());
+    const intro = translated('p', 'intro'); intro.className = 'auth-intro';
+    const note = translated('p', 'note'); note.className = 'auth-note';
+    const userLabel = element('label'); userLabel.append(translated('span', 'username'));
     const user = element('input');
     user.name = 'username'; user.autocomplete = 'username'; user.required = true; user.maxLength = 64;
     userLabel.append(user);
-    const passwordLabel = element('label', 'Password');
+    const passwordLabel = element('label'); passwordLabel.append(translated('span', 'password'));
     const password = element('input');
     password.name = 'password'; password.type = 'password'; password.autocomplete = 'current-password'; password.required = true;
     passwordLabel.append(password);
-    const error = element('p'); error.setAttribute('role', 'alert');
-    const submit = element('button', 'Sign in'); submit.type = 'submit'; submit.className = 'primary';
-    form.append(title, userLabel, passwordLabel, error, submit);
+    const error = element('p'); error.className = 'auth-error'; error.setAttribute('role', 'alert');
+    const submit = translated('button', 'submit'); submit.type = 'submit'; submit.className = 'primary';
+    form.append(toolbar, title, intro, userLabel, passwordLabel, error, submit, note);
     form.addEventListener('submit', async event => {
-      event.preventDefault(); submit.disabled = true; error.textContent = '';
+      event.preventDefault(); submit.disabled = true; error.textContent = ''; delete error.dataset.authText;
+      submit.dataset.authText = 'submitting'; translate();
       try {
         const response = await authFetch('login', {method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({username: user.value, password: password.value})});
         password.value = '';
-        if (!response.ok) throw new Error(response.status === 401 ? 'Sign-in failed. Check your credentials or try again later.' : 'Authentication is unavailable.');
+        if (!response.ok) throw new Error(response.status === 401 ? 'failed' : 'unavailable');
         const data = await response.json();
-        if (typeof data.csrf_token !== 'string') throw new Error('Invalid authentication response.');
+        if (typeof data.csrf_token !== 'string') throw new Error('invalid');
         sessionStorage.setItem(KEY, data.csrf_token);
         location.reload();
-      } catch (reason) { password.value = ''; error.textContent = reason.message; }
-      finally { submit.disabled = false; }
+      } catch (reason) { password.value = ''; error.dataset.authText = ['failed', 'unavailable', 'invalid'].includes(reason.message) ? reason.message : 'unavailable'; }
+      finally { submit.disabled = false; submit.dataset.authText = 'submit'; translate(); }
     });
-    dialog.append(form); document.body.append(dialog); dialog.showModal();
+    dialog.append(branding, form); dialog.lang = text.language; document.body.append(dialog); dialog.showModal();
   }
   function account(identity) {
     const container = element('div'); container.className = 'auth-account';
     const name = element('span', identity.username);
-    const logout = element('button', 'Sign out');
+    const logout = translated('button', 'logout');
     const message = element('span'); message.setAttribute('role', 'alert');
     logout.addEventListener('click', async () => {
       logout.disabled = true;
@@ -66,9 +99,9 @@ window.MonitAuth = (() => {
         const response = await authFetch('logout', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: '{}'});
         if (!response.ok) throw new Error('Sign-out could not be confirmed. Please retry.');
         clear(); location.reload();
-      } catch (error) { message.textContent = error.message; logout.disabled = false; }
+      } catch (error) { message.dataset.authText = 'logout_failed'; translate(); logout.disabled = false; }
     });
-    container.append(name, logout, message); document.querySelector('.topbar').append(container);
+    container.append(name, languageSelector(), logout, message); document.querySelector('.topbar').append(container);
   }
   const ready = (async () => {
     try {
@@ -77,6 +110,7 @@ window.MonitAuth = (() => {
       if (!info.ok) throw new Error('Authentication discovery failed');
       enabled = (await info.json()).enabled === true;
       if (!enabled) return;
+      if (!await text.ready) throw new Error('Language resources unavailable');
       if (!csrf) { login(); return; }
       const response = await authFetch('me');
       if (response.status === 401) { clear(); login(); return; }
