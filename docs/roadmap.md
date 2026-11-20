@@ -235,9 +235,12 @@ This item records planned verification/hardening, not completed enforcement.
 
 ### Basic open-source AI assistance (development candidate)
 
-Scope approved on 18 November 2026. The 19 November candidate implements a
+Scope approved on 18 November 2026. The 20 November candidate implements a
 standalone `explain` command, with explicit preview, bounded evidence and optional
-Ollama/OpenAI-compatible configuration. It is not included in published 1.3.3.
+Ollama, OpenAI-compatible or native Anthropic/Claude configuration. An opt-in
+eight-scenario synthetic evaluation harness records latency and available usage
+for human review. Real-model quality remains unqualified; the HTTP/UI integration
+is designed but not implemented. This is not included in published 1.3.3.
 
 - Add optional assistance for a standalone Monit-Docker installation, using the
   user's own AI API key. API usage is billed directly by the chosen provider.
