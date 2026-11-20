@@ -311,3 +311,5 @@ the displayed page. It does not poll in the background. See the
 [audit guide](audit.md) for explicit
 activation, a separate proxy secret, versioned Compose wiring and retention.
 The public demo keeps its journal private.
+
+The development candidate also provides optional [incident assistance](incident-ai.md#optional-web-workflow) with separate AI operator access; it is not in 1.3.3.

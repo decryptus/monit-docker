@@ -9,4 +9,6 @@ COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY nginx/proxy.conf /etc/nginx/monit-proxy.conf
 COPY nginx/audit.conf /etc/nginx/monit-audit.conf
 
+COPY nginx/ai.conf /etc/nginx/monit-ai.conf
+
 EXPOSE 443

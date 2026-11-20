@@ -190,8 +190,7 @@ confirmed regression is triaged. This section is not marked complete by the
 ### Scenario Group (planned)
 
 Add named, ordered groups of existing scenarios as a later product enhancement.
-This is not part of the delivered 1.0 scope; Auton remains the current development
-priority across projects.
+This is not part of the delivered 1.0 scope.
 
 - Proposed CLI: `monit-docker run --scenario-group maintenance`; preserve
   `monit-docker run NAME`, existing container selectors and `ctn-groups`.
@@ -233,11 +232,16 @@ a competing generic `!include` mechanism or impose Auton's client schema.
   feature arrives. Shared principles do not require a shared runtime framework.
 
 This item records planned verification/hardening, not completed enforcement.
-Auton remains the current development priority.
 
-### Basic open-source AI assistance (planned)
+### Basic open-source AI assistance (development candidate)
 
-Planned scope approved on 18 November 2026; not implemented or released.
+Scope approved on 18 November 2026. The 20 November candidate implements a
+standalone `explain` command, with explicit preview, bounded evidence and optional
+Ollama, OpenAI-compatible or native Anthropic/Claude configuration. An opt-in
+eight-scenario synthetic evaluation harness records latency and available usage
+for human review. The opt-in HTTP/UI integration now includes explicit preview
+and consent, dedicated AI authorization, bounded admission and escaped results.
+Real-model quality remains unqualified. This is not included in published 1.3.3.
 
 - Add optional assistance for a standalone Monit-Docker installation, using the
   user's own AI API key. API usage is billed directly by the chosen provider.
@@ -252,8 +256,10 @@ Planned scope approved on 18 November 2026; not implemented or released.
 - Preserve normal monitoring, local YAML configuration and existing protections
   when AI is disabled, unavailable or misconfigured.
 
-Provider compatibility and implementation details remain to be specified. This
-roadmap entry does not announce a release date.
+The [user guide](incident-ai.md) documents the implemented protocol and limits;
+the [contributor review](incident-ai-review.md) records automated coverage and
+the remaining real-model qualification. This roadmap entry does not announce
+a release date or claim that automated schema checks prove model usefulness.
 
 ## Design constraints
 

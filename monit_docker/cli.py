@@ -24,6 +24,7 @@ from sonicprobe import helpers
 
 from monit_docker.cli_audit import (MonitDockerSubCmdAudit, MonitDockerSubCmdAuditSend,
                                     MonitDockerSubCmdAuditMigrate)
+from monit_docker.cli_incident import MonitDockerSubCmdExplain
 from monit_docker.composition import build_application, audit_journal as _audit_journal
 from monit_docker.observation import DEFAULT_REFRESH, MIN_REFRESH, MAX_REFRESH
 from monit_docker.job import JobOptions, validate_job
@@ -480,6 +481,9 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
         parser.add_argument('--status-token-file', help='require a dedicated Bearer secret to read /v1/status')
         parser.add_argument('--metrics-token-file', help='require a dedicated Bearer secret to scrape /metrics')
         parser.add_argument('--notification-token-file', help='enable private Alertmanager audit webhook with a separate Bearer secret')
+        parser.add_argument('--ai-config', help='enable optional incident assistance with a server-side provider YAML')
+        parser.add_argument('--ai-token-file', help='dedicated 64-character hex AI proxy secret; distinct from read/action secrets')
+        parser.add_argument('--ai-origin', help='exact HTTPS browser origin allowed to request AI explanations')
         parser.add_argument('--action-cooldown', type=float, default=30,
                             help='minimum seconds between manual attempts per container (default: 30)')
         _add_policy_options(parser)
@@ -529,7 +533,21 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
                 parser.error('--allow-actions cannot be combined with --dry-run')
         elif options.action_origin or options.action_token_file:
             parser.error('--action-origin and --action-token-file require --allow-actions')
-        for role in ('action', 'audit_read', 'status', 'metrics', 'notification'):
+        ai_options = (options.ai_config, options.ai_token_file, options.ai_origin)
+        if any(ai_options):
+            from urllib.parse import urlsplit
+            try:
+                origin = urlsplit(options.ai_origin or '')
+                valid = (all(ai_options) and origin.scheme == 'https' and origin.hostname
+                         and not origin.username and not origin.password and not origin.path
+                         and not origin.query and not origin.fragment
+                         and not any(c.isspace() for c in options.ai_origin)
+                         and (origin.port is None or 1 <= origin.port <= 65535))
+            except ValueError:
+                valid = False
+            if not valid:
+                parser.error('AI requires --ai-config, --ai-token-file and --ai-origin https://host[:port]')
+        for role in ('action', 'audit_read', 'status', 'metrics', 'notification', 'ai'):
             path = getattr(options, role + '_token_file')
             if path is not None and not path.strip():
                 parser.error('token file path must not be empty')
@@ -537,8 +555,8 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             parser.error('--action-cooldown must be finite and at least 1 second')
         if options.audit_read_token_file and not options.audit_file:
             parser.error('--audit-read-token-file requires an explicit --audit-file')
-        if options.trust_proxy_user and not (options.allow_actions or options.audit_read_token_file):
-            parser.error('--trust-proxy-user requires --allow-actions or --audit-read-token-file')
+        if options.trust_proxy_user and not (options.allow_actions or options.audit_read_token_file or options.ai_config):
+            parser.error('--trust-proxy-user requires --allow-actions, --audit-read-token-file or --ai-config')
         _validate_policy_options(parser, options)
         if options.trigger_after and options.max_gap <= options.interval:
             parser.error('--max-gap must exceed --interval to allow time for collection')
@@ -558,14 +576,19 @@ class MonitDockerSubCmdServe(MonitDockerSubCmdStats):
             notification_token_file=self.options.notification_token_file,
             audit_read_token_file=self.options.audit_read_token_file,
             status_token_file=getattr(self.options, 'status_token_file', None),
-            metrics_token_file=getattr(self.options, 'metrics_token_file', None))
+            metrics_token_file=getattr(self.options, 'metrics_token_file', None),
+            ai_token_file=getattr(self.options, 'ai_token_file', None),
+            ai_origin=getattr(self.options, 'ai_origin', None))
         actions = (ManualActions(self.application.manual_action, audit=self.audit,
                                  allow_maintenance=self.options.allow_maintenance)
                    if self.options.allow_actions else None)
         notifications = NotificationAudit(self.audit) if security.notification_token else None
         reader = AuditReader(self.audit) if security.audit_token else None
+        from monit_docker.composition import build_incident_assistant
+        assistant = build_incident_assistant(getattr(self.options, 'ai_config', None), self.audit)
         monitor = MonitorService(self.application.cycle, self.options.interval, self.options.stale_after,
-                                 manual_actions=actions, notification_audit=notifications, audit_reader=reader)
+                                 manual_actions=actions, notification_audit=notifications, audit_reader=reader,
+                                 incident_assistant=assistant)
         run_server(monitor, self.options.bind, self.options.port, security=security)
 
 
@@ -695,6 +718,7 @@ class MonitDockerSubCmdTui:
 
 
 _SUBCMDS['tui'] = MonitDockerSubCmdTui
+_SUBCMDS['explain'] = MonitDockerSubCmdExplain
 _SUBCMDS['run'] = MonitDockerSubCmdRun
 _SUBCMDS['scenario'] = MonitDockerSubCmdScenario
 _SUBCMDS['audit-export'] = MonitDockerSubCmdAudit
@@ -714,7 +738,7 @@ def main(options):
     Main function
     """
     # Resolve named jobs before setup; offline commands need no logging or Docker.
-    if options.subcommand in ('tui', 'check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
+    if options.subcommand in ('explain', 'tui', 'check-config', 'audit-export', 'audit-send', 'audit-migrate', 'restart-reset', 'maintenance', 'run', 'scenario'):
         try:
             return _SUBCMDS[options.subcommand](options)()
         except (MonitoringError, OSError, ValueError) as error:

@@ -54,3 +54,23 @@ def build_application(options, config=None, inline=None, use_rules=True, actor='
     engine = MonitoringEngine(collector, DockerActionExecutor(collector), audit=audit,
                                    audit_source=source, audit_actor=actor)
     return MonitoringApplication(engine, rules, options, audit, state_factory=LocalState)
+
+
+def build_incident_assistant(config_path, audit=None):
+    """Lazy provider loading keeps missing credentials isolated from monitoring."""
+    if not config_path:
+        return None
+    from monit_docker.incident_session import IncidentSessions
+    from monit_docker.adapters.incident_ai import load_provider
+    from monit_docker.audit_query import AuditReader, AuditQuery, QueryError
+    from monit_docker.incident import ExplanationError
+    reader = AuditReader(audit) if audit is not None else None
+    def evidence_options(container_id, actor):
+        if reader is None:
+            return {}
+        try:
+            page = reader.page(AuditQuery(filters={'container': container_id, 'category': 'action'}), actor)
+        except QueryError:
+            raise ExplanationError('ai_history_unavailable') from None
+        return dict(records=page['records'], history_more=bool(page['next_cursor']))
+    return IncidentSessions(lambda: load_provider(config_path), evidence_options=evidence_options)

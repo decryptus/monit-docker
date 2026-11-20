@@ -320,3 +320,5 @@ Read endpoints remain responsive; they never execute queued work. Existing
 decisions only, not manual requests. The manual queue/results are in memory;
 only their per-container cooldown reservations are persisted. The UI guide
 describes expiry, restart behavior, selection and autonomous-rule interactions.
+
+The development candidate adds optional [AI preview/explanation endpoints](incident-ai.md#http-contract) with dedicated authorization; they are not in 1.3.3.

@@ -21,7 +21,8 @@ permissions:
 jobs:
   acceptance:
     name: Published images with real Docker and mobile browser
-    runs-on: ubuntu-latest
+    # Keep Playwright 1.55.0 on its supported distribution.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       MONIT_UI_RELEASE: ${{ inputs.release || '0.0.66' }}

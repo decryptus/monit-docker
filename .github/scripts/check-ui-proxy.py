@@ -28,6 +28,7 @@ from monit_docker.manual_actions import ManualActions
 from monit_docker.audit import AuditJournal
 from monit_docker.audit_query import AuditReader
 from monit_docker.service import MonitorService
+from monit_docker.incident_session import IncidentSessions
 
 
 def command(*args):
@@ -38,12 +39,18 @@ def main():
     identifier = 'a' * 64
     token = secrets.token_hex(32)
     audit_token = secrets.token_hex(32)
+    ai_token = secrets.token_hex(32)
+    model_calls = []
+    class Provider:
+        def complete(self, prompt, evidence):
+            model_calls.append(evidence)
+            return dict(analysis=dict(hypotheses=[], missing_evidence=["Synthetic fixture."], suggested_checks=[]))
     calls = []
     actions = ManualActions(lambda *args: calls.append(args))
     monitor = MonitorService(lambda _: CycleResult((ContainerSnapshot(
         id=identifier, name='fixture', status='running'),), ()), interval=.1, manual_actions=actions)
     security = HttpSecurity(action_token=token, action_origin='https://localhost:18443',
-                            trust_actor=True, audit_token=audit_token)
+                            trust_actor=True, audit_token=audit_token, ai_token=ai_token, ai_origin='https://localhost:18443')
     server = StatusServer(('0.0.0.0', 19808), monitor, security)
     stop = Event()
     serving = Thread(target=server.serve_forever, kwargs={'poll_interval': .05})
@@ -78,6 +85,10 @@ def main():
                                     text=True, stdout=subprocess.PIPE, check=True).stdout
             (root / 'htpasswd').write_text('test:' + hashed)
             (root / 'htpasswd').chmod(0o644)
+            (root / 'ai-htpasswd').write_text('ai-operator:' + hashed)
+            (root / 'ai-htpasswd').chmod(0o644)
+            (root / 'proxy-ai.conf').write_text('proxy_set_header X-Monit-AI-Token "' + ai_token + '";\n')
+            (root / 'ai.conf').write_text(Path('ui/nginx/ai.conf').read_text())
             (root / 'proxy-action.conf').write_text('proxy_set_header X-Monit-Action-Token "' + token + '";\n')
             command('openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
                     '-subj', '/CN=localhost', '-keyout', str(root / 'tls.key'), '-out', str(root / 'tls.crt'))
@@ -85,9 +96,10 @@ def main():
             config = Path('ui/nginx/proxy.conf').read_text().replace(':9808', ':19808')
             (root / 'proxy.conf').write_text(config)
             mounts = ['-v', '%s:/etc/nginx/monit-audit.conf:ro' % (root / 'proxy-audit.conf')]
-            for file in ('htpasswd', 'proxy-action.conf', 'tls.key', 'tls.crt'):
+            for file in ('htpasswd', 'ai-htpasswd', 'proxy-ai.conf', 'proxy-action.conf', 'tls.key', 'tls.crt'):
                 mounts.extend(['-v', '%s:/run/secrets/%s:ro' % (root / file, file)])
             mounts.extend(['-v', '%s:/etc/nginx/monit-proxy.conf:ro' % (root / 'proxy.conf')])
+            mounts.extend(['-v', '%s:/etc/nginx/monit-ai.conf:ro' % (root / 'ai.conf')])
             command('docker', 'run', '-d', '--name', name, '--add-host', 'monit-docker:host-gateway',
                     '-p', '127.0.0.1:18443:443', *mounts, 'monit-docker-ui:test')
             for _ in range(50):
@@ -145,6 +157,35 @@ def main():
                 assert error.code == 403
             else:
                 raise AssertionError('direct write bypassed proxy authentication')
+            # Default image has no AI route even if the agent capability is enabled.
+            monitor.incident_assistant = IncidentSessions(lambda: Provider())
+            ai_body = dict(container_id=identifier)
+            assert request('/v1/ai/preview', body=ai_body)[0] == 404
+            (root / 'ai.conf').write_text(Path('examples/ai/nginx.conf').read_text().replace(':9808', ':19808'))
+            command('docker', 'exec', name, 'nginx', '-t')
+            command('docker', 'exec', name, 'nginx', '-s', 'reload')
+            ai_auth = 'Basic ' + base64.b64encode(b'ai-operator:local-test-password').decode()
+            for _ in range(30):
+                if request('/v1/ai/preview', body=ai_body)[0] == 401:
+                    break
+            else:
+                raise AssertionError('AI operator access configuration did not reload')
+            # Stop the fast fixture polling so consent refers to one stable capture.
+            stop.set()
+            polling.join(3)
+            ai_headers = {'Origin': security.ai_origin, 'X-Monit-AI-Token': 'forged', 'X-Monit-Actor': 'forged'}
+            code, data, _ = request('/v1/ai/preview', ai_auth, ai_body, ai_headers)
+            assert code == 200, (code, data)
+            preview = json.loads(data)
+            assert not model_calls
+            assert list(monitor.incident_assistant._previews.values())[0][1] == 'ai-operator'
+            ai_body['preview_id'] = preview['preview_id']
+            code, data, _ = request('/v1/ai/explain', ai_auth, ai_body, ai_headers)
+            assert code == 200, (code, data)
+            assert model_calls == [preview['context']]
+            assert request('/v1/ai/explain', ai_auth, ai_body, ai_headers)[0] == 409
+            assert len(model_calls) == 1 and calls == [(identifier, 'restart')]
+            print('AI proxy checks passed: disabled default, dedicated operator auth, overwritten secrets/identity, consent and no replay.')
             print('Nginx checks passed: TLS, auth, private metrics, proxy secret, CSRF and deduplication.')
     except Exception:
         subprocess.run(['docker', 'logs', name], check=False)

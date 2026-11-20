@@ -1,0 +1,27 @@
+{
+  "api_version": 1,
+  "ready": true,
+  "last_cycle_success": true,
+  "last_success_at": 1800000000,
+  "age_seconds": 2,
+  "containers": [{
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "name": "synthetic-example-not-transmitted",
+    "status": "running",
+    "health": "unhealthy",
+    "mem_usage": 100663296,
+    "mem_limit": 104857600,
+    "mem_percent": 96,
+    "cpu_percent": 12,
+    "oom_events": 2,
+    "starts_recent": 4,
+    "event_history_complete": 1,
+    "event_window_end": 1800000000,
+    "event_window_seconds": 300,
+    "restart_attempts": 3,
+    "restart_limit": 3,
+    "manual_actions_protected": true,
+    "maintenance_active": true,
+    "maintenance_until": 1800000300
+  }]
+}

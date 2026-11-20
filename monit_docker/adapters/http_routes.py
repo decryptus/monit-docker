@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 
 from httpdis import httpdis
 
+from monit_docker.incident import ExplanationError
 from monit_docker.domain.errors import ActionRejected
 from monit_docker.audit import AuditError, export_events
 from monit_docker.audit_query import QueryError
@@ -15,6 +16,16 @@ from monit_docker.outputs.prometheus import render_metrics
 
 _AUDIT_EXPORT_TYPES        = {'jsonl': 'application/x-ndjson; charset=utf-8', 'csv': 'text/csv; charset=utf-8'}
 _AUDIT_READ_PATHS          = ('/v1/audit', '/v1/audit/export')
+
+_AI_PATHS = ('/v1/ai/preview', '/v1/ai/explain')
+_AI_REQUEST_FIELDS = {
+    '/v1/ai/preview': frozenset(('container_id',)),
+    '/v1/ai/explain': frozenset(('container_id', 'preview_id')),
+}
+_AI_ERROR_STATUS = {'invalid_request': 400, 'invalid_container_id': 400,
+    'container_not_found': 404, 'invalid_preview': 409, 'preview_expired': 409,
+    'evidence_changed': 409, 'ai_busy': 429, 'ai_rate_limited': 429,
+    'preview_capacity': 429, 'provider_timeout': 504}
 
 _ACTION_MAX_BODY_SIZE       = 1024
 _NOTIFICATION_MAX_BODY_SIZE = 64 * 1024
@@ -94,7 +105,27 @@ def audit_page(request):
         return json_response(dict(error=error.reason), query_error_status(error))
 
 
-_ROUTES = ({'name': 'v1/audit', 'op': _READ_METHODS, 'handler': audit_page, 'to_auth': True},
+def incident(request):
+    payload = request.payload_params()
+    if not isinstance(payload, dict) or set(payload) != _AI_REQUEST_FIELDS[request._path]:
+        return json_response(dict(error='invalid_request'), 400)
+    monitor = request.server.monitor
+    try:
+        if request._path == '/v1/ai/preview':
+            result = monitor.incident_assistant.preview(monitor.status(), payload['container_id'], request.audit_actor)
+        else:
+            result = monitor.incident_assistant.explain(monitor.status(), payload['container_id'],
+                                                       payload['preview_id'], request.audit_actor)
+        return json_response(result)
+    except ExplanationError as error:
+        return json_response(dict(error=error.reason), _AI_ERROR_STATUS.get(error.reason, 503))
+
+
+_ROUTES = ({'name': 'v1/ai/preview', 'op': _WRITE_METHODS, 'handler': incident,
+            'to_auth': True, 'max_body_size': _ACTION_MAX_BODY_SIZE},
+           {'name': 'v1/ai/explain', 'op': _WRITE_METHODS, 'handler': incident,
+            'to_auth': True, 'max_body_size': _ACTION_MAX_BODY_SIZE},
+           {'name': 'v1/audit', 'op': _READ_METHODS, 'handler': audit_page, 'to_auth': True},
            {'name': 'v1/audit/export', 'op': _READ_METHODS, 'handler': audit_page, 'to_auth': True},
            {'name': 'v1/notifications', 'op': _WRITE_METHODS, 'handler': notification,
             'to_auth': True, 'max_body_size': _NOTIFICATION_MAX_BODY_SIZE},
