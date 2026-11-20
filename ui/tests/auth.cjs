@@ -18,7 +18,7 @@ async function main() {
   try {
     const page = await browser.newPage({viewport: {width: 390, height: 844}});
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    let signedIn = false, logouts = 0, mutations = 0, failLogout = true;
+    let signedIn = false, logouts = 0, mutations = 0, failLogout = 503;
     const csrf = 'synthetic-csrf-token';
     await page.route('**/v1/auth/info', route => route.fulfill({json: {enabled: true, api_version: 1}}));
     await page.route('**/v1/auth/me', route => route.fulfill({status: signedIn ? 200 : 401, json: {username: 'reader', scopes: ['status:read']}}));
@@ -32,7 +32,7 @@ async function main() {
       logouts++;
       assert.equal(route.request().headers()['x-csrf-token'], csrf);
       assert.deepEqual(route.request().postDataJSON(), {});
-      if (failLogout) return route.fulfill({status: 503, json: {error: 'authentication_unavailable'}});
+      if (failLogout) return route.fulfill({status: failLogout, json: {error: 'authentication_unavailable'}});
       signedIn = false;
       return route.fulfill({json: {revoked: true}});
     });
@@ -49,11 +49,17 @@ async function main() {
     assert.equal(await page.evaluate(() => JSON.stringify({...localStorage, ...sessionStorage})).then(x => x.includes('test-only-password')), false);
     await page.getByRole('button', {name: 'Sign out'}).click();
     await page.getByText('Sign-out could not be confirmed. Please retry.').waitFor();
-    failLogout = false;
+    // A stale CSRF token can return 401 while the cookie session is still valid.
+    // Do not claim revocation or discard the local token on that response.
+    failLogout = 401;
+    await page.getByRole('button', {name: 'Sign out'}).click();
+    await page.waitForFunction(() => !document.querySelector('.auth-account button').disabled);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('monit.csrf.v1')), csrf);
+    failLogout = 0;
     await page.getByRole('button', {name: 'Sign out'}).click();
     await page.getByRole('button', {name: 'Sign in', exact: true}).waitFor();
     assert.equal(await page.evaluate(() => sessionStorage.getItem('monit.csrf.v1')), null);
-    assert.equal(logouts, 2); assert.equal(mutations, 0); assert.deepEqual(errors, []);
+    assert.equal(logouts, 3); assert.equal(mutations, 0); assert.deepEqual(errors, []);
     console.log('SQLite browser login, failed logout, revocation and mobile layout: OK');
   } finally { await browser.close(); server.close(); }
 }

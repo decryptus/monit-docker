@@ -64,7 +64,7 @@ window.MonitAuth = (() => {
       logout.disabled = true;
       try {
         const response = await authFetch('logout', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: '{}'});
-        if (!response.ok && response.status !== 401) throw new Error('Sign-out could not be confirmed. Please retry.');
+        if (!response.ok) throw new Error('Sign-out could not be confirmed. Please retry.');
         clear(); location.reload();
       } catch (error) { message.textContent = error.message; logout.disabled = false; }
     });
