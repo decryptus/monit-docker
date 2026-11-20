@@ -17,3 +17,4 @@ For installation and operation, return to :doc:`/index`.
    roadmap
    textual-review
    incident-ai-review
+   authentication-review

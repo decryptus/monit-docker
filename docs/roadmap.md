@@ -270,3 +270,9 @@ improvements and documented behavior over adding infrastructure by default.
 
 Discuss priorities through [GitHub issues](https://github.com/decryptus/monit-docker/issues).
 The maintainer may revise the order and scope as evidence and user needs change.
+
+## SQLite authentication candidate
+
+Implemented on the development branch: local accounts and global roles, durable sessions, scoped machine tokens, browser login/logout, native session API, offline htpasswd migration with explicit role mapping and non-destructive rollback. See the [engineering record](authentication-review.md) and [operator guide](authentication.md).
+
+Pending delivery gates: candidate CI and real TLS proxy acceptance, matching APK session client, coordinated deployment cutover, package/image release and public website/manual synchronization. Existing 1.3.3 installations and Basic-auth demo configuration are unchanged. Do not mark this feature deployed from unit tests alone.

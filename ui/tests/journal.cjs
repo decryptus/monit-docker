@@ -6,7 +6,7 @@ const path = require('node:path');
 const http = require('node:http');
 const root = path.resolve(__dirname, '../static');
 const output = path.resolve(process.env.UI_SCREENSHOTS || 'ui/test-results');
-const FILES = {'/logs': ['logs.html', 'text/html'], '/logs.js': ['logs.js', 'application/javascript'], '/app.css': ['app.css', 'text/css']};
+const FILES = {'/auth.js': ['auth.js', 'application/javascript'], '/logs': ['logs.html', 'text/html'], '/logs.js': ['logs.js', 'application/javascript'], '/app.css': ['app.css', 'text/css']};
 const server = http.createServer((req, res) => {
   const file = FILES[req.url];
   if (!file) return res.writeHead(404).end();

@@ -67,3 +67,8 @@ main{max-width:1288px;margin:auto;padding:46px 24px 0}.intro{display:flex;justif
 #ai-results { overflow-wrap: anywhere; }
 #ai-results section { margin-block: 1.2rem; }
 #ai-dialog .dialog-buttons { flex-wrap: wrap; }
+
+.auth-account {display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+#auth-dialog {max-width:26rem;width:calc(100% - 2rem)}
+#auth-dialog label {display:block;margin:1rem 0}
+#auth-dialog input {display:block;width:100%;margin-top:.4rem}

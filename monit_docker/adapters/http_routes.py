@@ -2,6 +2,9 @@
 
 import json
 import io
+import copy
+
+from monit_docker.adapters.auth_http import auth_endpoint
 from urllib.parse import urlsplit
 
 from httpdis import httpdis
@@ -37,6 +40,8 @@ _METRICS_TYPE       = 'text/plain; version=0.0.4; charset=utf-8'
 _HEALTH_RESPONSE    = {'alive': True}
 _REJECTION_CODES    = {'invalid_request': 400, 'container_protected': 403}
 _RESPONSE_HEADERS   = {'Cache-Control':          'no-store',
+                       'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+                       'X-Frame-Options': 'DENY',
                        'X-Content-Type-Options': 'nosniff',
                        'Referrer-Policy':        'no-referrer'}
 
@@ -58,7 +63,17 @@ def readiness(request):
 
 
 def status(request):
-    return json_response(request.server.monitor.status())
+    data = request.server.monitor.status()
+    identity = getattr(request, 'auth_identity', None)
+    if identity is not None:
+        data = copy.deepcopy(data)
+        if 'actions:write' not in identity.scopes:
+            data['manual_actions'] = {'enabled': False, 'recent': []}
+        if 'audit:read' not in identity.scopes:
+            data['audit_enabled'] = False
+        if 'ai:use' not in identity.scopes:
+            data['ai_enabled'] = False
+    return json_response(data)
 
 
 def metrics(request):
@@ -121,7 +136,13 @@ def incident(request):
         return json_response(dict(error=error.reason), _AI_ERROR_STATUS.get(error.reason, 503))
 
 
-_ROUTES = ({'name': 'v1/ai/preview', 'op': _WRITE_METHODS, 'handler': incident,
+_AUTH_ROUTES = tuple({'name': 'v1/auth/' + name, 'op': methods, 'handler': auth_endpoint,
+                      'to_auth': True, 'max_body_size': 4096}
+                     for name, methods in (('info', _READ_METHODS), ('login', _WRITE_METHODS),
+                        ('me', _READ_METHODS), ('logout', _WRITE_METHODS),
+                        ('sessions', ('GET', 'HEAD', 'POST')), ('users', ('GET', 'HEAD', 'POST'))))
+
+_ROUTES = _AUTH_ROUTES + ({'name': 'v1/ai/preview', 'op': _WRITE_METHODS, 'handler': incident,
             'to_auth': True, 'max_body_size': _ACTION_MAX_BODY_SIZE},
            {'name': 'v1/ai/explain', 'op': _WRITE_METHODS, 'handler': incident,
             'to_auth': True, 'max_body_size': _ACTION_MAX_BODY_SIZE},

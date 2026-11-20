@@ -39,7 +39,9 @@ jobs:
       - name: Install agent dependencies for proxy integration tests
         run: python -m pip install -r requirements.txt
       - name: Test real Nginx authentication and action proxy
-        run: python .github/scripts/check-ui-proxy.py
+        run: |
+          python .github/scripts/check-ui-proxy.py
+          python .github/scripts/check-sqlite-proxy.py
       - name: Check private Compose wiring
         env:
           UI_ORIGIN: https://localhost:8443
@@ -65,6 +67,7 @@ jobs:
           node ui/tests/browser.cjs
           node ui/tests/journal.cjs
           node ui/tests/incident.cjs
+          node ui/tests/auth.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

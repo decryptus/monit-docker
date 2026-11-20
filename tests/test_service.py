@@ -196,7 +196,8 @@ class ServeCliTests(unittest.TestCase):
     invoke = legacy.RegressionTests.invoke
 
     def test_defaults_are_loopback_read_only_and_collect_all_resources(self):
-        def run(monitor, bind, port, *, security):
+        def run(monitor, bind, port, *, security, auth):
+            self.assertIsNone(auth)
             self.assertIsNone(security.action_token)
             self.assertIsNone(security.audit_token)
             self.assertIsNone(security.notification_token)

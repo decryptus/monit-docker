@@ -6,13 +6,13 @@ from monit_docker.adapters.syntax import RESOURCE_CHOICES
 from monit_docker.adapters.validation_rules import mapping, require, string_list
 from monit_docker.domain.filesystems import filesystem_resource
 
-_BOOL_FIELDS = frozenset(('allow_actions', 'allow_maintenance', 'trust_proxy_user'))
+_BOOL_FIELDS = frozenset(('allow_actions', 'allow_maintenance', 'trust_proxy_user', 'auth_audit', 'auth_notifications'))
 _INTEGER_MIN = {'port': 1, 'max_restarts': 1}
 _NUMBER_MIN = {'interval': 0.1, 'stale_after': 0.1, 'cooldown': 0, 'action_cooldown': 1,
                'trigger_after': 0, 'max_gap': 0}
 _TEXT_FIELDS = frozenset(('bind', 'state_file', 'action_origin', 'action_token_file',
                           'audit_read_token_file', 'notification_token_file', 'metrics_token_file',
-                          'status_token_file', 'ai_config', 'ai_token_file', 'ai_origin'))
+                          'status_token_file', 'ai_config', 'ai_token_file', 'ai_origin', 'auth_db', 'auth_origin'))
 _LIST_FIELDS = frozenset(('rsc', 'cmd'))
 _SERVE_FIELDS = _BOOL_FIELDS | _INTEGER_MIN.keys() | _NUMBER_MIN.keys() | _TEXT_FIELDS | _LIST_FIELDS
 

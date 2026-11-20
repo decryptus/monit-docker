@@ -7,7 +7,7 @@ const path = require('node:path');
 const http = require('node:http');
 const root = path.resolve(__dirname, '../static');
 const server = http.createServer((req, res) => {
-  const file = {'/': 'index.html', '/app.js': 'app.js', '/app.css': 'app.css'}[req.url];
+  const file = {'/': 'index.html', '/auth.js': 'auth.js', '/app.js': 'app.js', '/app.css': 'app.css'}[req.url];
   if (!file) return res.writeHead(404).end();
   res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
   res.end(fs.readFileSync(path.join(root, file)));

@@ -11,4 +11,6 @@ COPY nginx/audit.conf /etc/nginx/monit-audit.conf
 
 COPY nginx/ai.conf /etc/nginx/monit-ai.conf
 
+COPY nginx/sqlite-proxy.conf /etc/nginx/monit-sqlite-proxy.conf
+
 EXPOSE 443

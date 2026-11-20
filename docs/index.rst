@@ -36,6 +36,8 @@ For installation and the command reference, see the
    tutorial-memory
    serve
    http-api-contract
+   authentication
+   authentication-fr
    ui
    compose
    metrics
