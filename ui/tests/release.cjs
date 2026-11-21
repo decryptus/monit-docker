@@ -108,7 +108,7 @@ async function main() {
         // Legacy releases returned 405; current HTTPdis routes hide disabled actions with 404.
         assert.ok([404, 405].includes(denied.status()), `Disabled actions returned ${denied.status()}`);
         assert.deepEqual(inspectDemo(), before);
-        assert.equal((await status(context)).manual_actions.recent.length, 0);
+        assert.equal((await status(context)).manual_actions.enabled, false);
       } else if (mobile) {
         const before = inspectDemo().StartedAt;
         await page.getByRole('button', {name: `Restart ${CONFIG.demo_name}`, exact: true}).click();
