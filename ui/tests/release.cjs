@@ -102,8 +102,13 @@ async function main() {
       if (PHASE === 'readonly') {
         assert.equal(await page.locator('.container-row button:visible').count(), 0);
         assert.match(await page.locator('#mode').textContent(), /Read-only/);
-        assert.equal((await context.request.post(CONFIG.origin + '/v1/actions', {data: {},
-          headers: {Origin: CONFIG.origin}})).status(), 405);
+        const before = inspectDemo();
+        const denied = await context.request.post(CONFIG.origin + '/v1/actions', {data: {},
+          headers: {Origin: CONFIG.origin}});
+        // Legacy releases returned 405; current HTTPdis routes hide disabled actions with 404.
+        assert.ok([404, 405].includes(denied.status()), `Disabled actions returned ${denied.status()}`);
+        assert.deepEqual(inspectDemo(), before);
+        assert.equal((await status(context)).manual_actions.enabled, false);
       } else if (mobile) {
         const before = inspectDemo().StartedAt;
         await page.getByRole('button', {name: `Restart ${CONFIG.demo_name}`, exact: true}).click();

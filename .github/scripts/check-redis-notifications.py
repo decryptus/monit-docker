@@ -85,7 +85,7 @@ def main():
     before = redis('XLEN', STREAM)
     assert request('/alerts', group, token='invalid')[0] == 401
     assert request('/alerts', {})[0] == 400
-    assert request('/alerts', b'{')[0] == 415
+    assert request('/alerts', b'{')[0] == 400
     assert request('/alerts', b'x' * (1024 * 1024 + 1))[0] == 413
     assert redis('XLEN', STREAM) == before
     saved_id = entries()[0][0]
