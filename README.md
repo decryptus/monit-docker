@@ -1,7 +1,7 @@
 # monit-docker project
 
-**Current package and image version: [2.0.0](https://github.com/decryptus/monit-docker/tree/v2.0.0)**
-— [Release notes and upgrade guidance](docs/release-2.0.0.md).
+**Current package and image version: [2.0.1](https://github.com/decryptus/monit-docker/tree/v2.0.1)**
+— [Release notes and upgrade guidance](docs/release-2.0.1.md).
 
 Optional [incident assistance](docs/incident-ai.md)
 ([guide français](docs/incident-ai-fr.md)) with a local model or your own API key.
@@ -25,7 +25,7 @@ SQLite activation is explicit; the Android release and device testing are deferr
 [Documentation (EN)](https://www.monit-docker.com/docs/en/) ·
 [Live demo](https://demo.monit-docker.com/) ·
 [Release roadmap](docs/roadmap.md) ·
-[2.0.0 release notes](docs/release-2.0.0.md) ·
+[2.0.1 release notes](docs/release-2.0.1.md) ·
 [Logos and icons](ui/branding/README.md)
 
 monit-docker is a free, open-source tool for checking Docker containers and
@@ -36,7 +36,7 @@ container or reloading PHP-FPM when memory usage is high.
 Compose v2 and curl, run:
 
 ```sh
-git clone --branch v2.0.0 --depth 1 https://github.com/decryptus/monit-docker.git
+git clone --branch v2.0.1 --depth 1 https://github.com/decryptus/monit-docker.git
 cd monit-docker
 ./install.sh
 ```
@@ -137,7 +137,7 @@ for prerequisites, the UI, upgrades and stopping the stack. The
 then explicitly enables one automatic restart. The default installation has no action rules.
 
 The current Compose checkout builds the socket proxy locally and runs the published
-2.0.0 agent and UI images. Before switching an existing direct-socket agent,
+2.0.1 agent and UI images. Before switching an existing direct-socket agent,
 follow the [socket migration](docs/compose-quickstart.md#migrate-an-existing-agent).
 
 **Existing root Compose users:** the old cron/PHP-FPM example is replaced by
