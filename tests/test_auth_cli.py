@@ -17,7 +17,7 @@ class AuthCliTests(unittest.TestCase):
             database = str(Path(root) / 'auth.db')
             output = io.StringIO()
             with patch('monit_docker.cli.initialize_runtime', side_effect=AssertionError('runtime started')), contextlib.redirect_stdout(output):
-                code = main(argv_parse_check(['auth', 'user-add', '--database', database, '--username', 'reader',
+                code = main(argv_parse_check(['auth', 'user-add', '--database', database, '--username', 'reader@example.com',
                     '--role', 'viewer', '--password-file', str(password)]))
                 self.assertEqual(code, 0)
                 self.assertEqual(main(argv_parse_check(['auth', 'users', '--database', database])), 0)

@@ -16,10 +16,10 @@ class MobileNotificationsTests(unittest.TestCase):
         self.now = [1000]
         self.accounts = Accounts(Path(directory.name) / 'auth.db', create=True, passwords=FastPasswords(), clock=lambda: self.now[0])
         self.addCleanup(self.accounts.close)
-        self.accounts.provision('alice', PASSWORD, 'viewer')
-        self.grant = self.accounts.login('alice', PASSWORD, 'fixture')
+        self.accounts.provision('alice@example.com', PASSWORD, 'viewer')
+        self.grant = self.accounts.login('alice@example.com', PASSWORD, 'fixture')
         self.devices = PushDevices(self.accounts)
-        self.devices.register('alice', self.grant.secret, DEVICE)
+        self.devices.register('alice@example.com', self.grant.secret, DEVICE)
         self.sender = Mock()
         self.sender.send.return_value = {'status': 'ok', 'id': 'receipt-fixture'}
         self.snapshot = {'ready': True, 'containers': [{'id': 'a'*64, 'status': 'exited', 'health': 'none'}]}
@@ -55,33 +55,33 @@ class MobileNotificationsTests(unittest.TestCase):
         self.assertEqual(self.sender.send.call_count, 1)
 
     def test_expiry_role_change_and_revocation_stop_delivery(self):
-        self.accounts.set_role('alice', 'metrics')
+        self.accounts.set_role('alice@example.com', 'metrics')
         self.assertEqual(self.devices.pending(), [])
-        self.accounts.set_role('alice', 'viewer')
-        grant = self.accounts.login('alice', PASSWORD, 'fixture')
-        self.devices.register('alice', grant.secret, DEVICE)
-        self.devices.revoke_session('alice', self.accounts.sessions('alice')[0]['id'])
+        self.accounts.set_role('alice@example.com', 'viewer')
+        grant = self.accounts.login('alice@example.com', PASSWORD, 'fixture')
+        self.devices.register('alice@example.com', grant.secret, DEVICE)
+        self.devices.revoke_session('alice@example.com', self.accounts.sessions('alice@example.com')[0]['id'])
         self.assertEqual(self.devices.pending(), [])
-        self.devices.register('alice', grant.secret, DEVICE)
+        self.devices.register('alice@example.com', grant.secret, DEVICE)
         self.now[0] += 7 * 86400 + 1
         self.assertEqual(self.devices.pending(), [])
 
     def test_device_moves_between_accounts_and_cannot_replay_old_update(self):
         before = self.devices.pending()[0][2]
-        self.accounts.provision('bob', PASSWORD, 'viewer')
-        grant = self.accounts.login('bob', PASSWORD, 'fixture')
-        self.devices.register('bob', grant.secret, DEVICE)
-        self.assertEqual([row[0] for row in self.devices.pending()], ['bob'])
-        self.assertFalse(self.devices.update('alice', 'wrong', before, delivery='accepted'))
+        self.accounts.provision('bob@example.com', PASSWORD, 'viewer')
+        grant = self.accounts.login('bob@example.com', PASSWORD, 'fixture')
+        self.devices.register('bob@example.com', grant.secret, DEVICE)
+        self.assertEqual([row[0] for row in self.devices.pending()], ['bob@example.com'])
+        self.assertFalse(self.devices.update('alice@example.com', 'wrong', before, delivery='accepted'))
 
     def test_device_validation_and_capacity(self):
         for patch in ({'token': 'https://evil.example'}, {'language': 'xx'}, {'channel': '../secret'}):
             with self.assertRaises(ValueError):
-                self.devices.register('alice', self.grant.secret, dict(DEVICE, **patch))
+                self.devices.register('alice@example.com', self.grant.secret, dict(DEVICE, **patch))
         for index in range(4):
-            self.devices.register('alice', self.grant.secret, dict(DEVICE, token='ExpoPushToken[fixture-token-%d]' % index))
+            self.devices.register('alice@example.com', self.grant.secret, dict(DEVICE, token='ExpoPushToken[fixture-token-%d]' % index))
         with self.assertRaises(ValueError):
-            self.devices.register('alice', self.grant.secret, dict(DEVICE, token='ExpoPushToken[fixture-token-limit]'))
+            self.devices.register('alice@example.com', self.grant.secret, dict(DEVICE, token='ExpoPushToken[fixture-token-limit]'))
 
     def test_maintenance_and_missing_data_are_not_healthy(self):
         self.assertEqual(observation_episode({'ready': False}), 'unavailable')

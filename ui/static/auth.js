@@ -62,7 +62,7 @@ window.MonitAuth = (() => {
     const note = translated('p', 'note'); note.className = 'auth-note';
     const userLabel = element('label'); userLabel.append(translated('span', 'username'));
     const user = element('input');
-    user.name = 'username'; user.autocomplete = 'username'; user.required = true; user.maxLength = 64;
+    user.name = 'username'; user.autocomplete = 'username'; user.required = true; user.maxLength = 254;
     userLabel.append(user);
     const passwordLabel = element('label'); passwordLabel.append(translated('span', 'password'));
     const password = element('input');

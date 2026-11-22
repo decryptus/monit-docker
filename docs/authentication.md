@@ -2,6 +2,20 @@
 
 Available since **2.0.0**. Use matching 2.0.0 agent and UI images. Enabling SQLite is an explicit configuration change; upgrading the package alone keeps the existing authentication mode. See the [French guide](authentication-fr.md).
 
+## Email identifiers for new accounts
+
+New accounts created by the CLI or administration API require an ASCII email
+identifier (unquoted local part, dotted DNS domain, up to 254 characters). Plus
+addressing is accepted. Identifiers remain case-sensitive: use the exact spelling
+when signing in. This validates syntax only; it does not verify mailbox ownership
+or enable email password recovery.
+
+Existing legacy accounts keep their identifier, password, roles and sessions.
+Administrative password/role resets and explicit offline htpasswd imports remain
+supported. At server startup, `auth_accounts_without_email` warns once with the
+number of legacy accounts, including disabled accounts, without logging identities
+or credentials. Login and polling do not repeat this warning.
+
 ## Accounts and rights
 
 Accounts, password hashes, sessions, API token digests and login throttling live in one local SQLite database. No Redis or hosted broker is needed. The database must be on a local filesystem in a directory owned by the daemon user, without group/other write permission. Keep the database at mode `0600`, its directory at `0700`, and mount the **directory** persistently when using containers. Do not publish the agent port on the Internet.
@@ -20,7 +34,7 @@ Create the directory and first account **as the daemon user**:
 
 ```sh
 install -d -m 700 /var/lib/monit-docker/auth
-monit-docker auth user-add --database /var/lib/monit-docker/auth/auth.db --username administrator --role admin
+monit-docker auth user-add --database /var/lib/monit-docker/auth/auth.db --username administrator@example.com --role admin
 monit-docker auth users --database /var/lib/monit-docker/auth/auth.db
 monit-docker serve --auth-db /var/lib/monit-docker/auth/auth.db --auth-origin https://monitor.example
 ```

@@ -2,6 +2,21 @@
 
 Disponible depuis la **2.0.0**. Utiliser les images agent et interface 2.0.0 correspondantes. L'activation est explicite : une mise à jour seule ne change pas l'authentification existante. Le [guide technique anglais](authentication.md) décrit les commandes et le contrat API complet.
 
+## Identifiants e-mail pour les nouveaux comptes
+
+La création par CLI ou API exige un identifiant au format e-mail ASCII (partie
+locale sans guillemets, domaine DNS avec un point, 254 caractères maximum). Les
+adresses avec `+` sont acceptées. La casse est conservée : utilisez exactement
+la même écriture à la connexion. Seule la syntaxe est vérifiée ; cela ne valide
+ni la propriété de la boîte ni la récupération du mot de passe par e-mail.
+
+Les anciens comptes conservent identifiant, mot de passe, rôles et sessions.
+Leur réinitialisation administrative et l’import explicite htpasswd restent
+possibles. Au démarrage du serveur, `auth_accounts_without_email` signale une fois
+le nombre de comptes sans identifiant e-mail, comptes désactivés compris, sans
+afficher les identifiants ou les secrets. Les connexions et actualisations ne
+répètent pas cet avertissement.
+
 ## Comptes, droits et sessions
 
 Les comptes, empreintes de mots de passe, sessions, empreintes des jetons API et limites de connexion sont stockés dans une base SQLite locale, sans Redis ni service hébergé. Le fichier appartient à l'utilisateur du service, en `0600`, dans un dossier privé `0700`. En conteneur, monter durablement le **dossier**. Ne pas exposer directement le port de l'agent à Internet.
@@ -20,7 +35,7 @@ Exécuter sous l'utilisateur du service :
 
 ```sh
 install -d -m 700 /var/lib/monit-docker/auth
-monit-docker auth user-add --database /var/lib/monit-docker/auth/auth.db --username administrateur --role admin
+monit-docker auth user-add --database /var/lib/monit-docker/auth/auth.db --username administrateur@example.com --role admin
 monit-docker serve --auth-db /var/lib/monit-docker/auth/auth.db --auth-origin https://monitor.example
 ```
 
