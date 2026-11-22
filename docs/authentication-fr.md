@@ -2,7 +2,7 @@
 
 Disponible depuis la **2.0.0**. Utiliser les images agent et interface 2.0.0 correspondantes. L'activation est explicite : une mise à jour seule ne change pas l'authentification existante. Le [guide technique anglais](authentication.md) décrit les commandes et le contrat API complet.
 
-### Identifiants e-mail pour les nouveaux comptes
+## Identifiants e-mail pour les nouveaux comptes
 
 La création par CLI ou API exige un identifiant au format e-mail ASCII (partie
 locale sans guillemets, domaine DNS avec un point, 254 caractères maximum). Les

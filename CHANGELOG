@@ -1,8 +1,10 @@
-monit-docker (2.0.2)
+monit-docker (2.0.2) stable; urgency=medium
 
   * Require email identifiers for new accounts while preserving legacy access.
   * Warn once at startup about accounts without email identifiers.
   * Accept full email identifiers in web sign-in.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Sun, 22 Nov 2026 09:25:00 +0100
 
 monit-docker (2.0.1) unstable; urgency=medium
 

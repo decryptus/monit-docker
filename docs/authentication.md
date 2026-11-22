@@ -2,7 +2,7 @@
 
 Available since **2.0.0**. Use matching 2.0.0 agent and UI images. Enabling SQLite is an explicit configuration change; upgrading the package alone keeps the existing authentication mode. See the [French guide](authentication-fr.md).
 
-### Email identifiers for new accounts
+## Email identifiers for new accounts
 
 New accounts created by the CLI or administration API require an ASCII email
 identifier (unquoted local part, dotted DNS domain, up to 254 characters). Plus
