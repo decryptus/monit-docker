@@ -24,8 +24,7 @@ monit-docker auth recovery-code --database /private/auth.db --username alice --o
 Il transmet le code confidentiellement à l’utilisateur, qui le saisit avec son
 nouveau mot de passe dans l’application. Le code est valable 15 minutes, à usage
 unique ; seul son condensat est conservé. Un nouveau code remplace le précédent.
-Supprimez le fichier après transmission. Aucun e-mail n’est envoyé : le modèle de
-compte actuel n’impose ni adresse vérifiée ni serveur SMTP. Les comptes désactivés
+Supprimez le fichier après transmission. Aucun e-mail n’est envoyé : un identifiant au format e-mail ne constitue pas une adresse vérifiée et aucun serveur SMTP n’est configuré. Les comptes désactivés
 ne peuvent pas récupérer leur accès. Les limites de tentatives persistent après
 redémarrage. Le mot de passe doit comporter au moins 12 caractères.
 

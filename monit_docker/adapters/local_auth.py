@@ -7,7 +7,7 @@ from pathlib import Path
 from httpdis.auth_backend import LocalAuthService, Argon2Passwords
 from httpdis.auth_sqlite import SQLiteAuthStore
 from httpdis.authentication import AuthenticationDenied
-from monit_docker.auth_policy import username, role_scopes, role_name
+from monit_docker.auth_policy import username, email_identifier, role_scopes, role_name
 
 LEGACY_CRYPT_RE = re.compile(r'\$(?:5|6)\$(?:rounds=([0-9]{4,7})\$)?[./0-9A-Za-z]{1,16}\$[./0-9A-Za-z]{43,86}')
 LEGACY_BCRYPT_RE = re.compile(r'\$2[aby]\$(0[4-9]|1[0-4])\$[./0-9A-Za-z]{53}')
@@ -61,7 +61,14 @@ class Accounts:
         self.store.close()
 
     def provision(self, principal, password, role):
-        self.service.provision(username(principal), password, role_scopes(role))
+        principal = username(principal)
+        if not email_identifier(principal):
+            # Existing accounts retain administrative password/role reset. The
+            # explicit offline importer owns legacy account creation separately.
+            with self.store.transaction() as tx:
+                if tx.get('accounts', principal) is None:
+                    raise ValueError('new account identifier must be an email address')
+        self.service.provision(principal, password, role_scopes(role))
 
     def list_users(self):
         with self.store.transaction() as tx:

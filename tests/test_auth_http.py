@@ -22,7 +22,7 @@ class AuthHttpTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.accounts = Accounts(Path(self.directory.name) / 'auth.db', create=True, passwords=FastPasswords())
         self.addCleanup(self.accounts.close)
-        for name, role in [('reader', 'viewer'), ('operator', 'operator'), ('admin', 'admin')]:
+        for name, role in [('reader@example.com', 'viewer'), ('operator@example.com', 'operator'), ('admin@example.com', 'admin')]:
             self.accounts.provision(name, PASSWORD, role)
         self.actions = ManualActions(Mock())
         self.monitor = MonitorService(Mock(return_value=snapshot()), manual_actions=self.actions)
@@ -53,7 +53,7 @@ class AuthHttpTests(unittest.TestCase):
         finally:
             connection.close()
 
-    def login(self, user='reader'):
+    def login(self, user='reader@example.com'):
         status, _, body = self.request('/v1/auth/login', {'username': user, 'password': PASSWORD}, {'X-Monit-Client': 'native-v1'})
         self.assertEqual(status, 200, body)
         return {'Authorization': 'Session ' + body['session_token'], 'X-CSRF-Token': body['csrf_token']}
@@ -79,23 +79,40 @@ class AuthHttpTests(unittest.TestCase):
     def test_reader_cannot_execute_or_create_admin(self):
         headers = self.login()
         self.assertEqual(self.request('/v1/actions', payload(), headers)[0], 403)
-        self.assertEqual(self.request('/v1/auth/users', {'operation': 'role', 'username': 'reader', 'role': 'admin'}, headers)[0], 403)
+        self.assertEqual(self.request('/v1/auth/users', {'operation': 'role', 'username': 'reader@example.com', 'role': 'admin'}, headers)[0], 403)
         self.assertFalse(self.request('/v1/status', headers=headers)[2]['manual_actions']['enabled'])
         self.actions.execute.assert_not_called()
 
+    def test_http_provision_requires_email_and_new_account_can_login(self):
+        headers = self.login('admin@example.com')
+        body = {'operation': 'provision', 'username': 'new-legacy', 'password': PASSWORD, 'role': 'viewer'}
+        self.assertEqual(self.request('/v1/auth/users', body, headers)[0], 400)
+        self.assertNotIn('new-legacy', [user['username'] for user in self.accounts.list_users()])
+        body['username'] = 'new+mobile@example.com'
+        self.assertEqual(self.request('/v1/auth/users', body, headers)[0], 200)
+        native = self.login(body['username'])
+        self.assertEqual(self.request('/v1/auth/me', headers=native)[2]['username'], body['username'])
+
+    def test_http_legacy_account_remains_usable_after_upgrade(self):
+        from monit_docker.auth_policy import role_scopes
+        self.accounts.service.provision('legacy-viewer', PASSWORD, role_scopes('viewer'))
+        headers = self.login('legacy-viewer')
+        self.assertEqual(self.request('/v1/status', headers=headers)[0], 200)
+        self.assertEqual(self.request('/v1/auth/profile', headers=headers)[0], 200)
+
     def test_operator_action_uses_authenticated_actor_not_proxy_header(self):
-        headers = self.login('operator')
+        headers = self.login('operator@example.com')
         headers['X-Monit-Actor'] = 'spoofed-admin'
         code, _, body = self.request('/v1/actions', payload(), headers)
         self.assertEqual(code, 202, body)
-        self.assertEqual(body['actor'], 'operator')
+        self.assertEqual(body['actor'], 'operator@example.com')
 
     def test_no_fallback_to_old_proxy_secrets(self):
         code, _, _ = self.request('/v1/actions', payload(), {'X-Monit-Action-Token': 'a' * 64, 'Origin': ORIGIN})
         self.assertEqual(code, 401)
 
     def test_browser_cookie_secure_and_csrf_required(self):
-        code, headers, body = self.request('/v1/auth/login', {'username': 'operator', 'password': PASSWORD}, {'Origin': ORIGIN})
+        code, headers, body = self.request('/v1/auth/login', {'username': 'operator@example.com', 'password': PASSWORD}, {'Origin': ORIGIN})
         self.assertEqual(code, 200)
         self.assertNotIn('session_token', body)
         cookie = headers['set-cookie']
@@ -110,7 +127,7 @@ class AuthHttpTests(unittest.TestCase):
 
     def test_foreign_origin_and_mixed_credentials_rejected(self):
         for extra in ({'Origin': 'https://evil.example'}, {'Cookie': 'anything=x'}, {'Sec-Fetch-Site': 'cross-site'}):
-            code, _, _ = self.request('/v1/auth/login', {'username': 'reader', 'password': PASSWORD}, {'X-Monit-Client': 'native-v1', **extra})
+            code, _, _ = self.request('/v1/auth/login', {'username': 'reader@example.com', 'password': PASSWORD}, {'X-Monit-Client': 'native-v1', **extra})
             self.assertEqual(code, 401)
         headers = self.login()
         headers['Cookie'] = 'anything=x'
@@ -118,8 +135,8 @@ class AuthHttpTests(unittest.TestCase):
         self.assertEqual(self.request('/v1/auth/login', method='OPTIONS')[0], 405)
 
     def test_admin_role_change_revokes_existing_session(self):
-        reader, admin = self.login(), self.login('admin')
-        self.assertEqual(self.request('/v1/auth/users', {'operation': 'role', 'username': 'reader', 'role': 'operator'}, admin)[0], 200)
+        reader, admin = self.login(), self.login('admin@example.com')
+        self.assertEqual(self.request('/v1/auth/users', {'operation': 'role', 'username': 'reader@example.com', 'role': 'operator'}, admin)[0], 200)
         self.assertEqual(self.request('/v1/status', headers=reader)[0], 401)
 
     def test_session_listing_and_individual_revocation(self):
@@ -135,14 +152,14 @@ class AuthHttpTests(unittest.TestCase):
         self.assertEqual(self.request('/v1/status', headers=headers)[0], 503)
 
     def test_api_token_has_explicit_scope_without_session_cookie(self):
-        grant = self.accounts.service.issue_token('operator', ['status:read'], 60)
+        grant = self.accounts.service.issue_token('operator@example.com', ['status:read'], 60)
         headers = {'Authorization': 'Bearer ' + grant.secret}
         self.assertEqual(self.request('/v1/status', headers=headers)[0], 200)
         self.assertEqual(self.request('/v1/actions', payload(), headers)[0], 403)
 
     def test_unknown_path_and_oversized_login_are_bounded(self):
         self.assertEqual(self.request('/v1/auth/login/', {})[0], 404)
-        code, headers, body = self.request('/v1/auth/login', {'username': 'reader', 'password': 'x' * 5000}, {'X-Monit-Client': 'native-v1'})
+        code, headers, body = self.request('/v1/auth/login', {'username': 'reader@example.com', 'password': 'x' * 5000}, {'X-Monit-Client': 'native-v1'})
         self.assertEqual(code, 413)
         self.assertEqual(headers['cache-control'], 'no-store')
         self.assertNotIn('access-control-allow-origin', headers)
@@ -153,7 +170,7 @@ class AuthHttpTests(unittest.TestCase):
         self.assertEqual(self.request('/v1/auth/profile', profile, headers)[0], 200)
         self.assertEqual(self.request('/v1/auth/profile', headers=headers)[2], profile)
         self.assertEqual(self.request('/v1/auth/profile', profile, {'Authorization': headers['Authorization']})[0], 401)
-        token = self.accounts.service.issue_token('reader', ['status:read'], 60)
+        token = self.accounts.service.issue_token('reader@example.com', ['status:read'], 60)
         self.assertEqual(self.request('/v1/auth/profile', headers={'Authorization': 'Bearer ' + token.secret})[0], 401)
 
     def test_password_change_and_recovery_http(self):
@@ -161,8 +178,8 @@ class AuthHttpTests(unittest.TestCase):
         new = 'new-password-123456'
         self.assertEqual(self.request('/v1/auth/password', {'current_password': PASSWORD, 'new_password': new}, headers)[0], 200)
         self.assertEqual(self.request('/v1/status', headers=headers)[0], 401)
-        code = self.server.auth.lifecycle.issue_recovery('reader')
-        body = {'username': 'reader', 'recovery_code': code, 'new_password': PASSWORD}
+        code = self.server.auth.lifecycle.issue_recovery('reader@example.com')
+        body = {'username': 'reader@example.com', 'recovery_code': code, 'new_password': PASSWORD}
         self.assertEqual(self.request('/v1/auth/recover', body, {'X-Monit-Client': 'native-v1', 'Origin': ORIGIN})[0], 401)
         self.assertEqual(self.request('/v1/auth/recover', body, {'X-Monit-Client': 'native-v1'})[0], 200)
         self.assertEqual(self.request('/v1/auth/recover', body, {'X-Monit-Client': 'native-v1'})[0], 401)

@@ -314,3 +314,13 @@ Automated checks cover the supported Python suites, installed packages, real TLS
   package/images remain immutable and do not include these subsequent endpoints.
   Remote delivery still requires Expo/FCM configuration and physical-phone
   acceptance. See mobile-accounts.md.
+
+## Email account identifiers — follow-up to 2.0.1
+
+New CLI/API accounts require email syntax; legacy login/reset/import stay
+compatible. Server startup reports the count of accounts without email
+identifiers once. HTTPdis owns durable identity/session storage; Sonicprobe's
+existing mailbox validator is reused with Monit-Docker's bounded ASCII account
+policy. No new dependency or shared-library release is needed. Web and mobile
+clients must accept the longer identifiers before this backend is deployed.
+Mailbox verification and automatic email recovery are separate future work.

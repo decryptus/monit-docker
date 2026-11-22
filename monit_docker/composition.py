@@ -1,5 +1,6 @@
 """Neutral application assembly; no command parser or terminal dependencies."""
 import os
+import logging
 from monit_docker.adapters.validation import CheckedConfiguration, validate_configuration, ConfigurationCheckError
 from monit_docker.adapters.selection import ContainerSelector
 from monit_docker.adapters.rules import RuleParser
@@ -11,6 +12,8 @@ from monit_docker.application import MonitoringApplication
 from monit_docker.audit import DEFAULT_MAX_BYTES
 from monit_docker.job import validate_job
 from monit_docker.adapters.state import LocalState
+
+LOG = logging.getLogger('monit-docker')
 
 def audit_journal(options, explicit=False):
     from monit_docker.audit import AuditJournal
@@ -84,9 +87,15 @@ def build_authentication(database, origin, mobile_push=False):
     accounts = None
     try:
         accounts = Accounts(database)
-        if not any(user['enabled'] for user in accounts.list_users()):
+        users = accounts.list_users()
+        if not any(user['enabled'] for user in users):
             raise ValueError('no enabled account')
-        return AuthTransport(accounts, origin, mobile_push)
+        transport = AuthTransport(accounts, origin, mobile_push)
+        from monit_docker.auth_policy import email_identifier
+        missing = sum(not email_identifier(user['username']) for user in users)
+        if missing:
+            LOG.warning('auth_accounts_without_email: %d existing account(s) have no email identifier; legacy access remains available', missing)
+        return transport
     except Exception:
         if accounts is not None:
             accounts.close()

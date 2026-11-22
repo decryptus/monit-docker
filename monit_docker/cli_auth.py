@@ -20,7 +20,7 @@ class MonitDockerSubCmdAuth:
         parser = subparsers.add_parser(cls.CMD_NAME, help='manage local SQLite accounts and migrate legacy users offline')
         parser.add_argument('operation', choices=OPERATIONS)
         parser.add_argument('--database', required=True)
-        parser.add_argument('--username')
+        parser.add_argument('--username', help='email address for new accounts; existing legacy identifiers remain supported')
         parser.add_argument('--role', choices=tuple(ROLES))
         parser.add_argument('--password-file', help='private UTF-8 file; otherwise prompt without echo')
         parser.add_argument('--scope', action='append', choices=sorted(ALL_SCOPES), default=[])
