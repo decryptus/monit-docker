@@ -1,4 +1,73 @@
-# Roadmap and 1.0 validation record
+# Roadmap and validation record
+
+## Current delivery — 22 November 2026
+
+Monit-Docker **2.0.2 is published**. The 2.0 release is complete; it must not be
+listed as a future milestone. See [2.0.0](release-2.0.0.md),
+[2.0.1](release-2.0.1.md) and [2.0.2](release-2.0.2.md) for their immutable scope.
+
+- Delivered: optional SQLite accounts/sessions, branded web authentication,
+  optional read-only incident assistance, account profile/password/recovery-code
+  operations and the optional remote-notification worker.
+- Delivered in 2.0.2: email syntax for new account identifiers, compatible legacy
+  accounts and a startup count warning for accounts without email identifiers.
+- Still unverified: real-model usefulness/provider compatibility and physical
+  notification receipt. Automated tests do not establish these results.
+- Still incomplete: translation of the whole web dashboard. Authentication and
+  AI already have French/English catalogs; other views need the same treatment.
+
+### Immediate priority: finish the bilingual web interface
+
+This is the maintainer's first development priority. Reuse self-hosted i18next
+and separate FR/EN catalogs throughout the dashboard; do not introduce inline
+translations or language conditionals.
+
+- [ ] Inventory remaining text in overview/detail views, filters, menus, charts,
+  history, action dialogs, loading/empty/offline states and error messages.
+- [ ] Translate user-facing labels, confirmations, validation and accessibility
+  text with stable keys, pluralization, named interpolation and locale formatting.
+  Preserve original workload identifiers, raw logs and API codes.
+- [ ] Preserve the language selected before login and across navigation/reload;
+  verify device-language selection and the documented fallback.
+- [ ] Validate key parity and language switching on desktop and mobile browsers,
+  including anonymous demo and authenticated workflows.
+- [ ] Update affected FR/EN guides/captures, then deliver matching agent/UI assets
+  through the existing release and deployment checks.
+
+### Acceptance work for delivered capabilities
+
+- [ ] Qualify real Ollama, OpenAI-compatible and Claude models on the documented
+  incident scenarios in FR/EN; record accuracy, missing-evidence handling,
+  latency, usage and actual cost where available. Keep analysis read-only.
+- [ ] Validate opt-in remote notifications with a registered physical device:
+  background/closed-app receipt, denial, reconnection and force-stop behavior.
+  Check provider tickets/receipts separately from visible device receipt.
+- [ ] Continue representative deployment observation, resource/latency
+  measurements and failure/recovery checks described in the historical record.
+- [ ] Reconcile remaining contributor reviews that still describe 2.0 features
+  as unpublished; retain historical results without implying missing acceptance.
+
+### Planned evolutions
+
+These are backlog proposals, not implemented features, release commitments or
+prerequisites for using the published standalone agent. After the bilingual UI,
+prioritize them according to field feedback and the acceptance results above.
+
+| Evolution | Intended result and boundaries |
+| --- | --- |
+| Verified email and self-service recovery | Verify mailbox ownership, add optional SMTP delivery and expiring single-use recovery links/codes with rate limits. Preserve administrator-issued recovery when email is not configured. Email syntax alone is not verification. |
+| Alert lifecycle | Add server-owned acknowledgement, time-bounded silence and durable incident/open/recovered history, with authorization and audit. Keep the existing action journal and transport alerts working. |
+| Notification preferences and diagnostics | Add quiet hours and per-account severity/channel preferences; provide an authenticated, rate-limited test to the user's own registered devices and readable delivery status. A test must not induce real workload failures or reveal tokens. |
+| Extended history and charts | Extend navigation/comparison and bounded retention of existing snapshots/action history; define the API and measured storage limits before adding persistence. Preserve existing Prometheus/Grafana integration. |
+| Bounded workload logs | Add authorized, size/time-limited container log reads with explicit access and disclosure rules. Do not automatically forward raw logs to AI providers. |
+| Scenario groups | Implement the ordered, finite scenario groups specified below, preserving per-scenario protections, stop-on-failure behavior and existing CLI contracts. |
+| Configuration-import hardening | Audit and bound section imports as specified below, with explicit compatibility/migration decisions before rejecting previously accepted configurations. |
+| Operational diagnostics | Improve actionable configuration/connection/permission errors and reproducible support evidence; exclude credentials and make resource limits explicit. |
+
+The local agent remains independently usable. These evolutions do not add a
+mandatory central service, paid entitlement, AI provider or shared database.
+
+## Historical compatibility and validation record
 
 The maintainer selected the documented compatibility contract for **1.0.0** on
 2026-09-28. Publication remains gated by same-revision regression, installed
@@ -12,12 +81,12 @@ acceptance now has separate post-release evidence, recorded below. See
 scope and known limits, and inspect the tagged revision's workflow results for
 actual automated acceptance.
 
-## 2.0.0 — release scope
+## 2.0.0 — delivered release scope
 
 On 20 November 2026 the maintainer authorized publishing 2.0.0 with optional
 AI incident assistance, opt-in SQLite accounts and the corrected web experience.
-Mobile delivery and real-model/API manual qualification are explicitly deferred;
-they are not prerequisites to this authorized release and are not claimed complete.
+Real-model/API manual qualification and physical-device acceptance were deferred;
+they were not prerequisites to the authorized release and remain separate gates.
 
 Implemented: French/English AI instructions and preview consent, CLI language
 option, persisted web language choice, catalog-based authentication/AI text,
@@ -29,8 +98,9 @@ Publication requires the same-revision automated package, Docker, upgrade,
 proxy, browser and documentation checks. Registry publication and site/demo
 deployment are verified separately after those checks. See [release notes](release-2.0.0.md).
 
-Still pending: real-model quality and language review, Android device testing and
-mobile release, full translation of the remaining dashboard views. Shared-library
+Still pending for the server: real-model quality and language review, physical
+notification acceptance and full translation of the remaining dashboard views.
+Application distribution and device acceptance are tracked separately. Shared-library
 review found no reusable browser catalog facility in DWho/HTTPdis/Sonicprobe;
 self-hosted i18next handles presentation, while prompt policy stays in the core.
 
@@ -255,7 +325,7 @@ a competing generic `!include` mechanism or impose Auton's client schema.
 
 This item records planned verification/hardening, not completed enforcement.
 
-### Basic open-source AI assistance (development candidate)
+### Basic open-source AI assistance — delivered in 2.0.0
 
 Scope approved on 18 November 2026. The 20 November candidate implements a
 standalone `explain` command, with explicit preview, bounded evidence and optional
@@ -263,7 +333,7 @@ Ollama, OpenAI-compatible or native Anthropic/Claude configuration. An opt-in
 eight-scenario synthetic evaluation harness records latency and available usage
 for human review. The opt-in HTTP/UI integration now includes explicit preview
 and consent, dedicated AI authorization, bounded admission and escaped results.
-Real-model quality remains unqualified; optional assistance ships in 2.0.0.
+Real-model quality remains unqualified; optional assistance was published in 2.0.0.
 
 - Add optional assistance for a standalone Monit-Docker installation, using the
   user's own AI API key. API usage is billed directly by the chosen provider.
@@ -278,16 +348,18 @@ Real-model quality remains unqualified; optional assistance ships in 2.0.0.
 - Preserve normal monitoring, local YAML configuration and existing protections
   when AI is disabled, unavailable or misconfigured.
 
-The [user guide](incident-ai.md) documents the implemented protocol and limits;
-the [contributor review](incident-ai-review.md) records automated coverage and
-the remaining real-model qualification. This roadmap entry does not announce
-a release date or claim that automated schema checks prove model usefulness.
+The [user guide](incident-ai.md) documents the delivered protocol and limits.
+The [contributor review](incident-ai-review.md) retains historical automated
+coverage and remaining real-model qualification; its older release-pending text
+is superseded by the published 2.0 release record. Automated schema checks do
+not prove model usefulness.
 
 ## Design constraints
 
 Keep the DWho, HTTPdis and Sonicprobe foundations, global constants and a light
-mobile interface. Keep the simple mode useful without a monitoring stack. Code,
-Authentication and AI labels support French/English; other UI labels and machine-readable reasons remain in English. Prefer measured
+mobile interface. Keep the simple mode useful without a monitoring stack. Authentication and AI labels already support French/English; translating the
+remaining dashboard labels is the immediate priority. Machine-readable codes
+and backend diagnostic text remain unchanged. Prefer measured
 improvements and documented behavior over adding infrastructure by default.
 
 Discuss priorities through [GitHub issues](https://github.com/decryptus/monit-docker/issues).
@@ -299,7 +371,7 @@ Released in 2.0.0: local accounts and global roles, durable sessions, scoped mac
 
 Automated checks cover the supported Python suites, installed packages, real TLS proxy migration and browser authentication (see [PR #119](https://github.com/decryptus/monit-docker/pull/119) for revision-specific results). The matching native session client exists in the mobile application. The 2.0.0 package/images and public demo have been delivered; anonymous demo status is read-only while private routes still require authentication. Physical mobile acceptance remains separate. Do not infer device acceptance from CI or server checks.
 
-## Account lifecycle and optional device delivery — implementation after 2.0.0
+## Account lifecycle and optional device delivery — delivered after 2.0.0
 
 - Implemented: own display name/language, current-password change, offline-admin
   one-time recovery codes, credential revocation and bounded device registration.
@@ -310,17 +382,18 @@ Automated checks cover the supported Python suites, installed packages, real TLS
 - Validation: full Python 3.10/3.12, package/image, Docker integration, proxy/browser
   and documentation checks passed. Account lifecycle was also verified on the demo
   with a disposable account, including recovery replay and session revocation.
-- Delivery: merged source and demo candidate deployment; the published 2.0.0
-  package/images remain immutable and do not include these subsequent endpoints.
-  Remote delivery still requires Expo/FCM configuration and physical-phone
-  acceptance. See mobile-accounts.md.
+- Delivery: these endpoints and the optional worker are included in the published
+  2.0.2 packages/images and deployed demo. The original 2.0.0 artifacts remain
+  immutable. Each installation still needs its own push configuration and device
+  opt-in; physical-phone receipt remains a separate gate. See
+  [mobile accounts](mobile-accounts.md).
 
-## Email account identifiers — follow-up to 2.0.1
+## Email account identifiers — delivered in 2.0.2
 
 New CLI/API accounts require email syntax; legacy login/reset/import stay
 compatible. Server startup reports the count of accounts without email
 identifiers once. HTTPdis owns durable identity/session storage; Sonicprobe's
 existing mailbox validator is reused with Monit-Docker's bounded ASCII account
-policy. No new dependency or shared-library release is needed. Web and mobile
-clients must accept the longer identifiers before this backend is deployed.
-Mailbox verification and automatic email recovery are separate future work.
+policy. The web client accepts these identifiers; third-party clients must also
+support the longer format. Mailbox verification and automatic email recovery
+remain planned evolutions, not capabilities implied by the 2.0.2 release.
