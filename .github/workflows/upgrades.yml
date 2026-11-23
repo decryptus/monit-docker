@@ -26,7 +26,7 @@ jobs:
       - run: docker pull alpine:3.20
       - name: Exercise installed artifacts outside the checkout
         run: python .github/scripts/check-upgrades.py --backend '${{ matrix.backend }}' --integration --output '${{ runner.temp }}/upgrade-results'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: upgrade-${{ matrix.backend }}
@@ -57,7 +57,7 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/ui-browser/node_modules/playwright
           UI_SCREENSHOTS: ${{ runner.temp }}/ui-release-results
         run: python .github/scripts/check-ui-release.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: upgrade-published-ui

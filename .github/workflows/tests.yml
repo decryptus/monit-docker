@@ -59,7 +59,7 @@ jobs:
           python -m unittest discover -s "$GITHUB_WORKSPACE/textual_tests" -v
       - name: Generate synthetic captures from actual interface
         run: PYTHONPATH=. python scripts/capture_textual.py --output "$RUNNER_TEMP/textual-captures"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: textual-candidate-captures
           path: ${{ runner.temp }}/textual-captures
@@ -286,7 +286,7 @@ jobs:
       - name: Measure sustained and saturated audit HTTP load
         if: matrix.python-version == '3.12'
         run: python .github/scripts/benchmark-audit-load.py --output "$RUNNER_TEMP/audit-load.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always() && matrix.python-version == '3.12'
         with:
           name: performance-baseline
@@ -367,7 +367,7 @@ jobs:
           result = unittest.TextTestRunner(verbosity=2).run(suite)
           raise SystemExit(not result.wasSuccessful())
           PYTHON
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: oom-diagnostics

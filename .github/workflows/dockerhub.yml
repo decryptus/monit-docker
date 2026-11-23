@@ -71,7 +71,7 @@ jobs:
           node ui/tests/journal.cjs
           node ui/tests/incident.cjs
           node ui/tests/auth.cjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ui-screenshots
@@ -80,7 +80,7 @@ jobs:
       - name: Save tested UI image
         if: github.event_name == 'push'
         run: docker save monit-docker-ui:test | gzip > "$RUNNER_TEMP/monit-docker-ui-image.tar.gz"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: github.event_name == 'push'
         with:
           name: tested-ui-image
@@ -119,7 +119,7 @@ jobs:
           "$RUNNER_TEMP/pypi-test/bin/python" "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest tests
           "$RUNNER_TEMP/pypi-test/bin/python" -m unittest discover -s tests -v
           "$RUNNER_TEMP/pypi-test/bin/monit-docker" --help
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-distributions
           path: dist/*
@@ -178,7 +178,7 @@ jobs:
       - name: Save tested image
         if: github.event_name == 'push'
         run: docker save monit-docker:test | gzip > "$RUNNER_TEMP/monit-docker-image.tar.gz"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: github.event_name == 'push'
         with:
           name: tested-image
