@@ -1,4 +1,4 @@
-FROM nginx:1.28-alpine
+FROM nginx:1.31-alpine
 
 LABEL org.opencontainers.image.title="monit-docker-ui" \
       org.opencontainers.image.source="https://github.com/decryptus/monit-docker" \
