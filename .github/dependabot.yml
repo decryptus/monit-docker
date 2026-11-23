@@ -4,13 +4,33 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    versioning-strategy: increase-if-necessary
+    groups:
+      pip-minor-patch:
+        update-types: [minor, patch]
+      pip-major:
+        update-types: [major]
   - package-ecosystem: docker
     directories:
       - /
       - /ui
     schedule:
       interval: weekly
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]
+      docker-major:
+        update-types: [major]
+    ignore:
+      # Python image jumps (e.g. 3.12 -> 3.15) are done deliberately.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns: ['*']
