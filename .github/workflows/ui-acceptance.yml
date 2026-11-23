@@ -31,13 +31,13 @@ jobs:
     env:
       MONIT_UI_RELEASE: ${{ inputs.release || '2.0.0' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Install browser test tools outside the application
@@ -49,7 +49,7 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/ui-browser/node_modules/playwright
           UI_SCREENSHOTS: ${{ runner.temp }}/ui-release-results
         run: python .github/scripts/check-ui-release.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: published-ui-acceptance

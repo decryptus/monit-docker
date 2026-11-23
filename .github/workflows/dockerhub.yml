@@ -27,15 +27,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: requirements.txt
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - run: docker build -t monit-docker-ui:test ui
@@ -71,7 +71,7 @@ jobs:
           node ui/tests/journal.cjs
           node ui/tests/incident.cjs
           node ui/tests/auth.cjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ui-screenshots
@@ -80,7 +80,7 @@ jobs:
       - name: Save tested UI image
         if: github.event_name == 'push'
         run: docker save monit-docker-ui:test | gzip > "$RUNNER_TEMP/monit-docker-ui-image.tar.gz"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: github.event_name == 'push'
         with:
           name: tested-ui-image
@@ -92,10 +92,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install build tools
@@ -119,7 +119,7 @@ jobs:
           "$RUNNER_TEMP/pypi-test/bin/python" "$GITHUB_WORKSPACE/.github/scripts/check-test-collection.py" --runner unittest tests
           "$RUNNER_TEMP/pypi-test/bin/python" -m unittest discover -s tests -v
           "$RUNNER_TEMP/pypi-test/bin/monit-docker" --help
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-distributions
           path: dist/*
@@ -130,7 +130,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Test release selection
@@ -178,7 +178,7 @@ jobs:
       - name: Save tested image
         if: github.event_name == 'push'
         run: docker save monit-docker:test | gzip > "$RUNNER_TEMP/monit-docker-image.tar.gz"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: github.event_name == 'push'
         with:
           name: tested-image
@@ -199,7 +199,7 @@ jobs:
       group: monit-docker-release
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -212,7 +212,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: test -n "$TOKEN" || { echo 'Configure the DOCKERHUB_TOKEN repository secret.'; exit 1; }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: steps.release.outputs.publish == 'true'
         with:
           name: tested-image
@@ -220,7 +220,7 @@ jobs:
       - name: Load tested image
         if: steps.release.outputs.publish == 'true'
         run: docker load --input "$RUNNER_TEMP/monit-docker-image.tar.gz"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: steps.release.outputs.publish == 'true'
         with:
           name: tested-ui-image
@@ -290,7 +290,7 @@ jobs:
       group: monit-docker-pypi
       cancel-in-progress: false
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-distributions
           path: dist/
@@ -308,7 +308,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Publish notes for the distributed version
