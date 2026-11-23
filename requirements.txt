@@ -10,4 +10,4 @@ six>=1.13.0
 sonicprobe>=0.3.66
 regex>=2024.5.15
 
-dwho>=0.3.63
+dwho>=0.3.69
