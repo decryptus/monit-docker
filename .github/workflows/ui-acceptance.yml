@@ -31,7 +31,7 @@ jobs:
     env:
       MONIT_UI_RELEASE: ${{ inputs.release || '2.0.0' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-python@v5
