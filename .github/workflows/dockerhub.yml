@@ -212,7 +212,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: test -n "$TOKEN" || { echo 'Configure the DOCKERHUB_TOKEN repository secret.'; exit 1; }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: steps.release.outputs.publish == 'true'
         with:
           name: tested-image
@@ -220,7 +220,7 @@ jobs:
       - name: Load tested image
         if: steps.release.outputs.publish == 'true'
         run: docker load --input "$RUNNER_TEMP/monit-docker-image.tar.gz"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: steps.release.outputs.publish == 'true'
         with:
           name: tested-ui-image
@@ -290,7 +290,7 @@ jobs:
       group: monit-docker-pypi
       cancel-in-progress: false
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-distributions
           path: dist/
