@@ -17,16 +17,16 @@ jobs:
       matrix:
         backend: [pip, docker]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: docker pull alpine:3.20
       - name: Exercise installed artifacts outside the checkout
         run: python .github/scripts/check-upgrades.py --backend '${{ matrix.backend }}' --integration --output '${{ runner.temp }}/upgrade-results'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: upgrade-${{ matrix.backend }}
@@ -39,13 +39,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - run: |
@@ -57,7 +57,7 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/ui-browser/node_modules/playwright
           UI_SCREENSHOTS: ${{ runner.temp }}/ui-release-results
         run: python .github/scripts/check-ui-release.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: upgrade-published-ui

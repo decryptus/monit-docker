@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Prepare synthetic time series
@@ -56,7 +56,7 @@ jobs:
             docker logs demo-renderer
             exit 1
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: grafana-screenshots
           path: ${{ runner.temp }}/monit-demo/screenshots/
