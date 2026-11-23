@@ -191,6 +191,22 @@ Current project runner: `unittest` for `tests`. CI helper tests use
 - Check French/English key parity, missing-key fallback, interpolation and plural
   behavior, and verify language switching across the affected screens.
 
+## Brand assets placement
+
+- `ui/branding/` remains the brand source of truth: SVG sources, the
+  `build.py`/`build-vectors.py` generators and the generated `icons/` and
+  `logos/` used by the web interface, the README and CI. Do not move it to
+  `assets/brand/`; regenerate exports with its scripts instead of editing them.
+- Keep the GitHub social preview and Open Graph images under
+  `assets/brand/social/`, with the GitHub preview at
+  `assets/brand/social/social-preview-1280x640.png` (1280×640, under 1 MB),
+  derived from the existing logo. Do not redesign the brand.
+- Name new exports without the project prefix and, for raster files, with the
+  pixel width (`logo-horizontal-1024.png`). Existing `monit-docker-*` names stay
+  until a deliberate rename.
+- Do not move or rename an existing asset without updating every reference
+  (README, HTML, packaging, CI, build scripts) in the same change.
+
 ## Commit authorship
 
 Write every commit as `decryptus <decryptus@users.noreply.github.com>`, as both author and committer (run `git config user.name decryptus` and `git config user.email decryptus@users.noreply.github.com` before committing, including when rebasing). Do not add `Co-Authored-By` lines, session links or any mention of an assistant or tool in commit messages. Do not rewrite history already published on the default branch to fix older commits.
