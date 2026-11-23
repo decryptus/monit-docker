@@ -6,7 +6,7 @@ Mako
 pyOpenSSL>=20.0.0
 PyYAML>=3.10
 pycurl>=7.43.0
-six>=1.13.0
+six>=1.17.0
 sonicprobe>=0.3.66
 regex>=2024.5.15
 
