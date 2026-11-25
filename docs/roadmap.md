@@ -72,6 +72,20 @@ or enabled**; acceptance and compatibility review are still required.
   supported runtime metadata; never assume that a stopped container is safe
   to delete. Keep GitLab integration optional and standalone, without a GitLab
   token, mandatory SaaS account, Centrex service or expanded Docker privileges.
+- [ ] Make Monit-Docker part of the **standard host provisioning baseline** for
+  persistent CI runner servers (especially self-hosted GitLab Runner Docker
+  executors), not an agent started inside each ephemeral job. Verify service
+  startup, restart/reboot recovery, local alerts, monitored Docker access and
+  upgrade/rollback on a real runner host before calling this profile delivered.
+- [ ] Reuse existing Monit-Docker authorized action capabilities for an optional
+  runner incident response: alert on a runaway or wedged job container, present
+  the exact container/job correlation and current state, then offer a reviewed
+  stop/restart where supported. Never kill a live CI job, remove its image or
+  automatically retry a destructive action based solely on resource pressure.
+  Keep protected targets, per-target grants, maintenance windows, cooldowns,
+  action budgets and audit enforcement on the server, including across restarts.
+  Any automatic remediation requires separate, explicit per-runner policy and
+  a fresh guard that the job is no longer legitimately active.
 - [ ] For GitLab Runner, document Docker executor behavior, runner-managed image
   and container lifecycles, shared-runner multi-project boundaries, configured
   cleanup hooks, and alert correlation with the host. Monitoring complements
