@@ -1,11 +1,17 @@
 include requirements.txt setup.yml VERSION RELEASE
-recursive-include docs *.md *.rst *.png
 recursive-include examples *.json *.yaml *.yml *.sh *.py *.txt Dockerfile
 prune examples/monitoring/notifications.local
 prune examples/ui/secrets.local
 prune ui
 
-recursive-include textual_tests *.py
-include scripts/capture_textual.py
-
 include monit_docker/adapters/mobile_push_messages.json
+
+# Repository and maintainer material never ships in the source distribution.
+prune tests
+prune textual_tests
+prune docs
+prune scripts
+prune .github
+prune debian
+prune docker
+global-exclude __pycache__ *.py[cod]
