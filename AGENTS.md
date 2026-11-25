@@ -191,6 +191,31 @@ Current project runner: `unittest` for `tests`. CI helper tests use
 - Check French/English key parity, missing-key fallback, interpolation and plural
   behavior, and verify language switching across the affected screens.
 
+## Deliverable and deployment contents
+
+- Every deliverable and deployment ships only what the product needs to install,
+  run and meet its legal obligations. This covers source tarballs and sdists,
+  wheels, Docker images, Debian packages, GitHub release assets, browser
+  extensions, mobile packages (APK/AAB/IPA), Claude skills and plugins, ChatGPT
+  apps and instructions, and published websites.
+- Never ship repository or maintainer material: `AGENTS.md`, `CLAUDE.md` and
+  other agent instructions, roadmaps, contribution guides, reviews and acceptance
+  records, CI configuration (`.github/`), tests and fixtures, development
+  scripts, Dockerfiles and build tooling, editor/VCS files, local configuration,
+  secrets or credentials.
+- Keep what is required: runtime code and assets, the default configuration and
+  examples the product loads or documents for installation, `LICENSE` and
+  required notices, and the README or metadata a registry needs to describe the
+  package. Ship user documentation only in deliverables meant to carry it.
+- Select contents with explicit allow-lists: a `.dockerignore` starting with `*`,
+  a `MANIFEST.in` without broad `graft`, explicit package data, a dedicated build
+  directory for sites and plugins, and `export-ignore` in `.gitattributes` for
+  GitHub source archives. Never publish a repository root or `COPY . .` into a
+  final image.
+- Before each release or deployment, list the actual artifact contents (sdist and
+  wheel listings, image filesystem, archive listing, deployed URLs) and remove
+  any non-essential file before publishing. Report this check in the handoff.
+
 ## Configuration file format
 
 - Prefer YAML (`.yaml` / `.yml`) over JSON for project configuration files: it is
