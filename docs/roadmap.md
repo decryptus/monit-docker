@@ -34,6 +34,53 @@ translations or language conditionals.
 - [ ] Update affected FR/EN guides/captures, then deliver matching agent/UI assets
   through the existing release and deployment checks.
 
+### Next development priority: Docker Storage Monitor (proposed)
+
+After completing the bilingual web dashboard, prioritize a read-only Docker
+storage monitoring module for the standalone Community agent. This addresses
+observed staging-disk pressure during deployment and backups without treating
+host cleanup as a monitoring side effect. **Not implemented, released, deployed,
+or enabled**; acceptance and compatibility review are still required.
+
+- [ ] Audit the existing disk/inode/volume checks, Docker API access via the
+  filtered socket, Prometheus/Grafana metrics, and DWho/HTTPdis/Sonicprobe
+  capabilities before adding a storage collector. Keep CLI, HTTP, web and
+  scheduled monitoring on the same application service.
+- [ ] Report bounded host filesystem space/inode pressure and Docker's aggregate
+  image, writable-layer, container, volume and build-cache usage. Distinguish
+  active, unused and *potentially* reclaimable storage; Docker's reported
+  reclaimable bytes are an estimate, not a promise of safely removable files.
+- [ ] Provide per-container writable-layer usage and age for stopped containers
+  only when the local Docker API and permissions support it. Separate shared
+  image layers from unique size to avoid double counting. Identify missing
+  privileges, unsupported storage drivers and unavailable metrics explicitly.
+- [ ] Expose historical trends, configurable threshold alerts, and concise
+  operator diagnostics in the FR/EN web interface, CLI and Prometheus where
+  appropriate. Avoid unbounded scans or storing per-file inventories. Use
+  rate-limited collection and bounded cardinality; do not block regular health
+  monitoring when the storage collector fails.
+- [ ] Document independent deployment-staging inspections and the separate
+  host-maintenance jobs for Demo and Honorata. These remain host-specific
+  GitHub Actions/cron responsibilities, not implicit Docker data managed by
+  the open-source agent. Detect stale successful and failed deployment staging,
+  but preserve active jobs and recovery/rollback evidence.
+- [ ] Start with **read-only monitoring and alerts**. Any later cleanup is a
+  separately reviewed, opt-in capability with a dry-run listing, exact object
+  identity, explicit operator approval, revalidation, audit, maintenance/backup
+  locks and protection of rollback image digests. Never use a broad
+  `rm -rf *`, `docker system prune`, automatic volume pruning or deletion of
+  Restic snapshots; exact-path `find` selection alone is not authorization.
+- [ ] Test overlay2/containerd and alternate Docker storage drivers, image
+  reuse/deduplication, stopped vs. running containers, changing Docker state,
+  access denied/daemon unavailable, storage exhaustion, retention boundaries,
+  security of filtered-socket permissions, alert deduplication and installation
+  upgrade/rollback. Verify no unexpected Docker actions in read-only mode.
+
+**Release order:** complete the bilingual dashboard first, then implement and
+qualify Docker Storage Monitor; separately finish the already pending real-model
+and physical push-notification acceptance work. Do not silently include a storage
+cleanup daemon in the existing 2.0.2 release.
+
 ### Acceptance work for delivered capabilities
 
 - [ ] Qualify real Ollama, OpenAI-compatible and Claude models on the documented
