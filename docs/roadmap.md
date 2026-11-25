@@ -34,6 +34,83 @@ translations or language conditionals.
 - [ ] Update affected FR/EN guides/captures, then deliver matching agent/UI assets
   through the existing release and deployment checks.
 
+### Next development priority: Docker Storage Monitor (proposed)
+
+After completing the bilingual web dashboard, prioritize a read-only Docker
+storage monitoring module for the standalone Community agent. This addresses
+observed staging-disk pressure during deployment and backups without treating
+host cleanup as a monitoring side effect. **Not implemented, released, deployed,
+or enabled**; acceptance and compatibility review are still required.
+
+- [ ] Audit the existing disk/inode/volume checks, Docker API access via the
+  filtered socket, Prometheus/Grafana metrics, and DWho/HTTPdis/Sonicprobe
+  capabilities before adding a storage collector. Keep CLI, HTTP, web and
+  scheduled monitoring on the same application service.
+- [ ] Report bounded host filesystem space/inode pressure and Docker's aggregate
+  image, writable-layer, container, volume and build-cache usage. Distinguish
+  active, unused and *potentially* reclaimable storage; Docker's reported
+  reclaimable bytes are an estimate, not a promise of safely removable files.
+- [ ] Provide per-container writable-layer usage and age for stopped containers
+  only when the local Docker API and permissions support it. Separate shared
+  image layers from unique size to avoid double counting. Identify missing
+  privileges, unsupported storage drivers and unavailable metrics explicitly.
+- [ ] Expose historical trends, configurable threshold alerts, and concise
+  operator diagnostics in the FR/EN web interface, CLI and Prometheus where
+  appropriate. Avoid unbounded scans or storing per-file inventories. Use
+  rate-limited collection and bounded cardinality; do not block regular health
+  monitoring when the storage collector fails.
+- [ ] Document independent deployment-staging inspections and the separate
+  host-maintenance jobs for Demo and Honorata. These remain host-specific
+  GitHub Actions/cron responsibilities, not implicit Docker data managed by
+  the open-source agent. Detect stale successful and failed deployment staging,
+  but preserve active jobs and recovery/rollback evidence.
+- [ ] Provide a native **self-hosted CI runner** monitoring profile, including
+  GitLab Runner with the Docker executor and persistent GitHub Actions runners.
+  Monitor job-container churn, leftover stopped containers, image/build-cache
+  growth, writable layers, host filesystem and inode pressure, and recovery
+  after runner failures. Distinguish active jobs from inactive resources using
+  supported runtime metadata; never assume that a stopped container is safe
+  to delete. Keep GitLab integration optional and standalone, without a GitLab
+  token, mandatory SaaS account, Centrex service or expanded Docker privileges.
+- [ ] Make Monit-Docker part of the **standard host provisioning baseline** for
+  persistent CI runner servers (especially self-hosted GitLab Runner Docker
+  executors), not an agent started inside each ephemeral job. Verify service
+  startup, restart/reboot recovery, local alerts, monitored Docker access and
+  upgrade/rollback on a real runner host before calling this profile delivered.
+- [ ] Reuse existing Monit-Docker authorized action capabilities for an optional
+  runner incident response: alert on a runaway or wedged job container, present
+  the exact container/job correlation and current state, then offer a reviewed
+  stop/restart where supported. Never kill a live CI job, remove its image or
+  automatically retry a destructive action based solely on resource pressure.
+  Keep protected targets, per-target grants, maintenance windows, cooldowns,
+  action budgets and audit enforcement on the server, including across restarts.
+  Any automatic remediation requires separate, explicit per-runner policy and
+  a fresh guard that the job is no longer legitimately active.
+- [ ] For GitLab Runner, document Docker executor behavior, runner-managed image
+  and container lifecycles, shared-runner multi-project boundaries, configured
+  cleanup hooks, and alert correlation with the host. Monitoring complements
+  GitLab Runner's own cleanup; it must not remove concurrent jobs, cached images
+  required by other pipelines or rollback artifacts.
+- [ ] Do not require long-lived monitoring inside ephemeral GitLab/GitHub CI jobs;
+  instead install the agent once on the persistent runner host, where its
+  service survives individual pipeline executions.
+- [ ] Start with **read-only monitoring and alerts**. Any later cleanup is a
+  separately reviewed, opt-in capability with a dry-run listing, exact object
+  identity, explicit operator approval, revalidation, audit, maintenance/backup
+  locks and protection of rollback image digests. Never use a broad
+  `rm -rf *`, `docker system prune`, automatic volume pruning or deletion of
+  Restic snapshots; exact-path `find` selection alone is not authorization.
+- [ ] Test overlay2/containerd and alternate Docker storage drivers, image
+  reuse/deduplication, stopped vs. running containers, changing Docker state,
+  access denied/daemon unavailable, storage exhaustion, retention boundaries,
+  security of filtered-socket permissions, alert deduplication and installation
+  upgrade/rollback. Verify no unexpected Docker actions in read-only mode.
+
+**Release order:** complete the bilingual dashboard first, then implement and
+qualify Docker Storage Monitor; separately finish the already pending real-model
+and physical push-notification acceptance work. Do not silently include a storage
+cleanup daemon in the existing 2.0.2 release.
+
 ### Acceptance work for delivered capabilities
 
 - [ ] Qualify real Ollama, OpenAI-compatible and Claude models on the documented
