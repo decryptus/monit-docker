@@ -64,6 +64,22 @@ or enabled**; acceptance and compatibility review are still required.
   GitHub Actions/cron responsibilities, not implicit Docker data managed by
   the open-source agent. Detect stale successful and failed deployment staging,
   but preserve active jobs and recovery/rollback evidence.
+- [ ] Provide a native **self-hosted CI runner** monitoring profile, including
+  GitLab Runner with the Docker executor and persistent GitHub Actions runners.
+  Monitor job-container churn, leftover stopped containers, image/build-cache
+  growth, writable layers, host filesystem and inode pressure, and recovery
+  after runner failures. Distinguish active jobs from inactive resources using
+  supported runtime metadata; never assume that a stopped container is safe
+  to delete. Keep GitLab integration optional and standalone, without a GitLab
+  token, mandatory SaaS account, Centrex service or expanded Docker privileges.
+- [ ] For GitLab Runner, document Docker executor behavior, runner-managed image
+  and container lifecycles, shared-runner multi-project boundaries, configured
+  cleanup hooks, and alert correlation with the host. Monitoring complements
+  GitLab Runner's own cleanup; it must not remove concurrent jobs, cached images
+  required by other pipelines or rollback artifacts.
+- [ ] Do not require long-lived monitoring inside ephemeral GitLab/GitHub CI jobs;
+  instead install the agent once on the persistent runner host, where its
+  service survives individual pipeline executions.
 - [ ] Start with **read-only monitoring and alerts**. Any later cleanup is a
   separately reviewed, opt-in capability with a dry-run listing, exact object
   identity, explicit operator approval, revalidation, audit, maintenance/backup
