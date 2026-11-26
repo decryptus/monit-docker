@@ -20,7 +20,7 @@ avec le [banc d'essai synthétique](incident-ai-review.md#reproducible-synthetic
 
 ## Vérifier les données avant l'envoi
 
-Depuis le dépôt de la version 2.0.0 :
+Depuis le dépôt d’une version 2.0.0 ou ultérieure (version actuelle : 2.0.2) :
 
 ```sh
 python3 -m venv .venv
@@ -176,8 +176,8 @@ aucun basculement ni nouvel appel automatique n'est effectué.
 
 ## Parcours web facultatif
 
-Utiliser des compilations du code candidat pour **l'agent et l'interface** : les
-images 2.0.0 contiennent cette fonction. Configurer les trois
+Utiliser des images **agent et interface** de même version, 2.0.0 ou ultérieure
+(version actuelle : 2.0.2), qui contiennent cette fonction. Configurer les trois
 options dans `serve:` (ou leurs équivalents CLI avec des tirets) :
 
 ```yaml

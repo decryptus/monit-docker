@@ -1,6 +1,6 @@
-# Local accounts, sessions and migration (development candidate)
+# Local accounts, sessions and migration
 
-Available since **2.0.0**. Use matching 2.0.0 agent and UI images. Enabling SQLite is an explicit configuration change; upgrading the package alone keeps the existing authentication mode. See the [French guide](authentication-fr.md).
+Available since **2.0.0**. Use matching agent and UI images, 2.0.0 or later (current release: 2.0.2). Enabling SQLite is an explicit configuration change; upgrading the package alone keeps the existing authentication mode. See the [French guide](authentication-fr.md).
 
 ## Email identifiers for new accounts
 

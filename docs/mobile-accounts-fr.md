@@ -1,7 +1,7 @@
 # Compte et notifications mobiles
 
-Cette évolution nécessite la mise à jour de gestion du compte postérieure à
-2.0.0. Sur un ancien serveur, la connexion et le monitoring restent disponibles ;
+Cette évolution nécessite un serveur 2.0.1 ou ultérieur (version actuelle :
+2.0.2). Sur un ancien serveur, la connexion et le monitoring restent disponibles ;
 les nouvelles routes renvoient 404. L’authentification SQLite reste optionnelle.
 La démonstration publique en lecture seule utilise un proxy distinct ; ne rendez
 jamais un agent privé anonyme pour obtenir une démo.

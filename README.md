@@ -17,7 +17,7 @@ SQLite activation is explicit; the Android release and device testing are deferr
 
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/monit-docker.svg)](https://pypi.org/project/monit-docker/)
 [![PyPI version shields.io](https://img.shields.io/pypi/v/monit-docker.svg)](https://pypi.org/project/monit-docker/)
-[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/decryptus/monit-docker)](https://hub.docker.com/r/decryptus/monit-docker)
+[![Docker Hub build](https://github.com/decryptus/monit-docker/actions/workflows/dockerhub.yml/badge.svg?branch=master)](https://github.com/decryptus/monit-docker/actions/workflows/dockerhub.yml)
 [![Documentation Status](https://readthedocs.org/projects/monit-docker/badge/?version=latest)](https://monit-docker.readthedocs.io/)
 
 [Website](https://www.monit-docker.com/) ·
