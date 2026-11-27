@@ -5,10 +5,24 @@
 Implemented for 2.0.3: the API reports the installed agent version and the
 UI displays it with independently embedded UI build metadata. CI verifies the
 package/API/image identities and missing, changed and disconnected versions.
-Publication and live demo deployment remain to be verified separately.
+Published and registry-verified as **2.0.3** on PyPI, Docker Hub and GHCR:
+[application PR #159](https://github.com/decryptus/monit-docker/pull/159),
+[publication run](https://github.com/decryptus/monit-docker/actions/runs/45985275891).
+The full regression suite, browser checks, package/image contents and upgrade
+checks passed before publication.
+
+Live demo deployment is **blocked, not complete**: the installed central
+controller refused the new UI digest before mutation (`digest_not_approved`,
+[run](https://github.com/decryptus/deploy/actions/runs/45986263973)). The demo
+still has its old agent/UI and handwritten banner. The merged Deploy upgrade
+preserves the sole SQLite writer, accounts, audit, state and rollback image.
+Finish through the SI batch `2026-11-27-monit-demo-2-0-3` on the administrator
+workstation; it refreshes the controller, upgrades agent/UI and verifies both
+versions and native authentication. Application code no longer needs a version
+in `ui.conf`.
 No shared-library change is needed: this is product metadata and presentation.
 
-## Current published delivery — 22 November 2026
+## Previous published delivery — 22 November 2026
 
 Monit-Docker **2.0.2 is published**. The 2.0 release is complete; it must not be
 listed as a future milestone. See [2.0.0](release-2.0.0.md),
