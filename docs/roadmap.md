@@ -11,15 +11,15 @@ Published and registry-verified as **2.0.3** on PyPI, Docker Hub and GHCR:
 The full regression suite, browser checks, package/image contents and upgrade
 checks passed before publication.
 
-Live demo deployment is **blocked, not complete**: the installed central
-controller refused the new UI digest before mutation (`digest_not_approved`,
-[run](https://github.com/decryptus/deploy/actions/runs/45986263973)). The demo
-still has its old agent/UI and handwritten banner. The merged Deploy upgrade
-preserves the sole SQLite writer, accounts, audit, state and rollback image.
-Finish through the SI batch `2026-11-27-monit-demo-2-0-3` on the administrator
-workstation; it refreshes the controller, upgrades agent/UI and verifies both
-versions and native authentication. Application code no longer needs a version
-in `ui.conf`.
+The live demo deployment is **complete and verified** on 27 November 2026.
+The public `/v1/status` reports `agent_version: 2.0.3` and `ready: true`; the
+served UI embeds `monit-ui-version: 2.0.3`. Native session authentication remains
+enabled, and the old handwritten 2.0.0 banner is absent. Versions now come from
+the installed package and UI build, with no version to maintain in `ui.conf`.
+The deployment preserves existing accounts, configuration, state and audit data.
+This verification does not establish real-model quality, physical push receipt
+or prolonged field acceptance; those remain separate work below.
+
 No shared-library change is needed: this is product metadata and presentation.
 
 ## Previous published delivery — 22 November 2026

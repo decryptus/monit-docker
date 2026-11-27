@@ -15,3 +15,6 @@ prune .github
 prune debian
 prune docker
 global-exclude __pycache__ *.py[cod]
+
+# GitHub social metadata is not a runtime package asset.
+prune assets/brand/social

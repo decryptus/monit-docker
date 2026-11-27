@@ -17,7 +17,7 @@ can compare providers with the [synthetic evaluation harness](incident-ai-review
 
 ## Preview the evidence first
 
-Install the 2.0.0 source checkout in a virtual environment:
+Install a 2.0.0 or later source checkout (current release: 2.0.3) in a virtual environment:
 
 ```sh
 python3 -m venv .venv
@@ -173,7 +173,7 @@ deadline. Slow local models may time out; there is no automatic fallback or retr
 
 ## Optional web workflow
 
-Use matching **2.0.0 agent and UI images**. AI remains disabled unless all three server
+Use matching **agent and UI images, 2.0.0 or later** (current release: 2.0.3). AI remains disabled unless all three server
 options are configured (CLI flags or the corresponding `serve:` YAML keys):
 
 ```yaml

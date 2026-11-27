@@ -320,8 +320,8 @@ The public demo keeps its journal private.
 
 Version 2.0.0 provides optional [incident assistance](incident-ai.md#optional-web-workflow) with separate AI operator access; available since 2.0.0.
 
-## SQLite authentication candidate
+## SQLite authentication
 
 For opt-in local accounts, browser sessions and migration from htpasswd, see
 [authentication and migration](authentication.md) or the [French guide](authentication-fr.md).
-Use matching 2.0.0 agent/UI images.
+Use matching agent/UI images, 2.0.0 or later (current release: 2.0.3).
