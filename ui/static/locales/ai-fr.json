@@ -56,5 +56,9 @@
   "languages": {
     "en": "English",
     "fr": "Français"
+  },
+  "version": {
+    "agent": "Agent {{agent}}",
+    "details": "Agent {{agent}} · Interface {{ui}}"
   }
 }

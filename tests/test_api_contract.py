@@ -1,6 +1,7 @@
 """Public wire contracts: names, units, capability discovery and failure meaning."""
 
 from monit_docker.adapters.http_security import HttpSecurity
+from monit_docker import __version__
 
 from dataclasses import replace
 import csv
@@ -33,7 +34,7 @@ _ORIGIN = 'https://monitor.example'
 _ACTION_HEADERS = {'Content-Type': 'application/json', 'Origin': _ORIGIN,
                    'X-Monit-Action-Token': _TOKEN, 'X-Monit-Actor': 'operator'}
 _AUDIT_HEADERS = {'X-Monit-Audit-Token': _TOKEN, 'X-Monit-Actor': 'operator'}
-_STATUS_FIELDS = frozenset(('api_version', 'running', 'ready', 'last_cycle_success',
+_STATUS_FIELDS = frozenset(('api_version', 'agent_version', 'running', 'ready', 'last_cycle_success',
     'last_cycle_finished_at', 'last_success_at', 'age_seconds', 'last_error_code',
     'cycles_total', 'errors_total', 'actions', 'containers', 'manual_actions', 'audit_enabled'))
 _OUTCOMES = frozenset(('executed', 'cooldown', 'pending', 'restart-limit', 'maintenance', 'dry-run'))
@@ -216,6 +217,7 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertLessEqual(_STATUS_FIELDS, startup.keys())
         self.assertEqual(startup['api_version'], 1)
+        self.assertEqual(startup['agent_version'], __version__)
         self.assertEqual(startup['manual_actions'], {'enabled': False})
         self.assertIs(startup['audit_enabled'], False)
         self.assertEqual(startup['actions'], dict.fromkeys(_OUTCOMES, 0))
@@ -227,6 +229,7 @@ class ApiContractTests(unittest.TestCase):
 
         self.monitor.run_cycle()
         ready = self.json_request('/v1/status')[1]
+        self.assertEqual(ready['agent_version'], __version__)
         self.assertLessEqual(_CONTAINER_FIELDS, ready['containers'][0].keys())
         self.assertEqual(ready['containers'][0]['filesystems'], [])
         for field in ('cpu_percent', 'pid', 'restart_limit', 'event_window_end', 'maintenance_until'):
@@ -236,6 +239,7 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(self.json_request('/readyz'), (200, {'ready': True}))
         self.ticks.return_value = 13.01
         code, stale = self.json_request('/v1/status')
+        self.assertEqual(stale['agent_version'], __version__)
         self.assertEqual((code, stale['containers'], stale['last_error_code']), (200, [], None))
         self.assertEqual((stale['last_success_at'], stale['errors_total']), (1000, 0))
         self.assertIs(stale['last_cycle_success'], True)
@@ -245,6 +249,7 @@ class ApiContractTests(unittest.TestCase):
         with self.assertLogs('monit-docker', level='ERROR'):
             self.monitor.run_cycle()
         failed = self.json_request('/v1/status')[1]
+        self.assertEqual(failed['agent_version'], __version__)
         self.assertEqual((failed['last_error_code'], failed['errors_total'], failed['cycles_total']), (170, 1, 2))
         self.assertEqual(failed['last_complete_snapshot'], {
             'collected_at': 1000, 'containers': ready['containers']})

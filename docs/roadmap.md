@@ -1,6 +1,14 @@
 # Roadmap and validation record
 
-## Current delivery — 22 November 2026
+## Version reporting — 27 November 2026
+
+Implemented for 2.0.3: the API reports the installed agent version and the
+UI displays it with independently embedded UI build metadata. CI verifies the
+package/API/image identities and missing, changed and disconnected versions.
+Publication and live demo deployment remain to be verified separately.
+No shared-library change is needed: this is product metadata and presentation.
+
+## Current published delivery — 22 November 2026
 
 Monit-Docker **2.0.2 is published**. The 2.0 release is complete; it must not be
 listed as a future milestone. See [2.0.0](release-2.0.0.md),

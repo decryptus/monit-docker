@@ -243,6 +243,7 @@ ignore additional fields, so later additions need not change the URL version.
 
 | Field | Meaning |
 | --- | --- |
+| `agent_version` | Version of the running agent package; independent of `api_version` |
 | `running` | A collection/remediation cycle is in progress |
 | `ready` | Latest completed cycle succeeded and is fresh |
 | `last_cycle_success` | Outcome of the last completed cycle; false at startup |

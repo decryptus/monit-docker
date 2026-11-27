@@ -14,7 +14,8 @@ const server = http.createServer((request, response) => {
   const filename = {'/ai-i18n.js': 'ai-i18n.js', '/vendor/i18next.min.js': 'vendor/i18next.min.js', '/locales/ai-en.json': 'locales/ai-en.json', '/locales/ai-fr.json': 'locales/ai-fr.json', '/logo.svg': 'logo.svg', '/': 'index.html', '/app.css': 'app.css', '/auth.js': 'auth.js', '/app.js': 'app.js'}[request.url];
   if (!filename) { response.writeHead(404).end(); return; }
   response.setHeader('Content-Type', types[path.extname(filename)]);
-  response.end(fs.readFileSync(path.join(root, filename)));
+  const content = fs.readFileSync(path.join(root, filename));
+  response.end(filename === 'index.html' ? content.toString().replace('name="monit-ui-version" content=""', 'name="monit-ui-version" content="9.8.6"') : content);
 });
 
 async function main() {
@@ -27,7 +28,7 @@ async function main() {
     page.on('pageerror', error => errors.push(error.message));
     const names = ['web-frontend', 'api-service', 'postgres-primary', 'redis-cache', 'nightly-backup'];
     let state = {
-      api_version: 1, audit_enabled: true, ready: true, running: false, last_cycle_success: true,
+      api_version: 1, agent_version: '9.8.7', audit_enabled: true, ready: true, running: false, last_cycle_success: true,
       last_success_at: 1790129400, last_cycle_finished_at: 1790129400, age_seconds: 2,
       last_error_code: null, cycles_total: 2841, errors_total: 0,
       actions: {executed: 3, cooldown: 8, pending: 1, 'dry-run': 0, 'restart-limit': 2},
@@ -60,6 +61,23 @@ async function main() {
     await page.goto(base);
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Healthy');
     await page.locator('#auto').uncheck();
+    await page.waitForFunction(() => document.getElementById('agent-version').title.includes('9.8.6'));
+    assert.equal(await page.locator('#agent-version').textContent(), 'v9.8.7');
+    assert.equal(await page.locator('#agent-version').getAttribute('title'), 'Agent 9.8.7 · Interface 9.8.6');
+    await page.evaluate(() => window.MonitAIText.select('fr'));
+    assert.equal(await page.locator('#agent-version').getAttribute('aria-label'), 'Agent 9.8.7 · Interface 9.8.6');
+    await page.evaluate(() => window.MonitAIText.select('en'));
+    for (const invalid of [undefined, null, '<img src=x onerror=alert(1)>', '2.0.3\n', 'x'.repeat(100)]) {
+      state.agent_version = invalid;
+      await page.locator('#refresh').click();
+      await page.waitForFunction(() => !document.getElementById('refresh').disabled);
+      assert.equal(await page.locator('#agent-version').isVisible(), false);
+      assert.equal(await page.locator('#agent-version').textContent(), '');
+    }
+    state.agent_version = '9.8.8';
+    await page.locator('#refresh').click();
+    await page.waitForFunction(() => document.getElementById('agent-version').textContent === 'v9.8.8');
+
     assert.equal(await page.locator('#journal-link').isVisible(), true);
     assert.equal(await page.locator('.container-row').count(), 5);
     assert.deepEqual(await page.locator('.health-state').allTextContents(),
@@ -179,14 +197,16 @@ async function main() {
     await page.locator('#refresh').click();
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Offline');
     assert.equal(await page.locator('.container-row').count(), 0);
-    offline = false; delete state.manual_actions; delete state.audit_enabled;
+    assert.equal(await page.locator('#agent-version').isVisible(), false);
+    offline = false; delete state.manual_actions; delete state.audit_enabled; delete state.agent_version;
     await page.locator('#refresh').click();
     await page.waitForFunction(() => document.getElementById('collection').textContent === 'Healthy');
     assert.equal(await page.locator('.container-row button:visible').count(), 0);
     assert.equal(await page.locator('#journal-link').isVisible(), false);
     assert.equal(posts, 3);
     assert.deepEqual(errors, []);
-    console.log('Browser checks passed: protection, mobile/desktop, XSS text, confirmations, queue, stale/offline, old API.');
+    assert.equal(await page.locator('#agent-version').isVisible(), false);
+    console.log('Browser checks passed: running and build versions, missing/malformed/offline version, protection, mobile/desktop, XSS text, confirmations, queue, stale/offline, old API.');
   } finally { await browser.close(); server.close(); }
 }
 main().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

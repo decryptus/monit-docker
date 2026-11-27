@@ -67,6 +67,7 @@ are covered by regression tests; JSON object ordering is not an interface.
 | Field | JSON type | Meaning |
 | --- | --- | --- |
 | `api_version` | integer | Currently 1; independent of package and journal versions |
+| `agent_version` | string | Running agent package version; present even before the first successful collection |
 | `running` | boolean | A monitoring cycle is collecting or applying rules; not a manual-action activity flag |
 | `ready` | boolean | Last completed cycle succeeded and its monotonic age is at most `stale_after` |
 | `last_cycle_success` | boolean | False at startup; outcome of the last completed cycle |
