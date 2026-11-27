@@ -56,5 +56,9 @@
     "en": "English",
     "fr": "Français"
   },
-  "preview_many": "Evidence: {{freshness}}. Explanation language: {{language}}. Preview expires in {{count}} seconds. No model call has been made."
+  "preview_many": "Evidence: {{freshness}}. Explanation language: {{language}}. Preview expires in {{count}} seconds. No model call has been made.",
+  "version": {
+    "agent": "Agent {{agent}}",
+    "details": "Agent {{agent}} · Interface {{ui}}"
+  }
 }

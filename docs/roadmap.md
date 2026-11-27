@@ -1,6 +1,28 @@
 # Roadmap and validation record
 
-## Current delivery — 22 November 2026
+## Version reporting — 27 November 2026
+
+Implemented for 2.0.3: the API reports the installed agent version and the
+UI displays it with independently embedded UI build metadata. CI verifies the
+package/API/image identities and missing, changed and disconnected versions.
+Published and registry-verified as **2.0.3** on PyPI, Docker Hub and GHCR:
+[application PR #159](https://github.com/decryptus/monit-docker/pull/159),
+[publication run](https://github.com/decryptus/monit-docker/actions/runs/45985275891).
+The full regression suite, browser checks, package/image contents and upgrade
+checks passed before publication.
+
+The live demo deployment is **complete and verified** on 27 November 2026.
+The public `/v1/status` reports `agent_version: 2.0.3` and `ready: true`; the
+served UI embeds `monit-ui-version: 2.0.3`. Native session authentication remains
+enabled, and the old handwritten 2.0.0 banner is absent. Versions now come from
+the installed package and UI build, with no version to maintain in `ui.conf`.
+The deployment preserves existing accounts, configuration, state and audit data.
+This verification does not establish real-model quality, physical push receipt
+or prolonged field acceptance; those remain separate work below.
+
+No shared-library change is needed: this is product metadata and presentation.
+
+## Previous published delivery — 22 November 2026
 
 Monit-Docker **2.0.2 is published**. The 2.0 release is complete; it must not be
 listed as a future milestone. See [2.0.0](release-2.0.0.md),
@@ -64,36 +86,35 @@ or enabled**; acceptance and compatibility review are still required.
   GitHub Actions/cron responsibilities, not implicit Docker data managed by
   the open-source agent. Detect stale successful and failed deployment staging,
   but preserve active jobs and recovery/rollback evidence.
-- [ ] Provide a native **self-hosted CI runner** monitoring profile, including
-  GitLab Runner with the Docker executor and persistent GitHub Actions runners.
-  Monitor job-container churn, leftover stopped containers, image/build-cache
-  growth, writable layers, host filesystem and inode pressure, and recovery
-  after runner failures. Distinguish active jobs from inactive resources using
-  supported runtime metadata; never assume that a stopped container is safe
-  to delete. Keep GitLab integration optional and standalone, without a GitLab
-  token, mandatory SaaS account, Centrex service or expanded Docker privileges.
-- [ ] Make Monit-Docker part of the **standard host provisioning baseline** for
-  persistent CI runner servers (especially self-hosted GitLab Runner Docker
-  executors), not an agent started inside each ephemeral job. Verify service
-  startup, restart/reboot recovery, local alerts, monitored Docker access and
-  upgrade/rollback on a real runner host before calling this profile delivered.
-- [ ] Reuse existing Monit-Docker authorized action capabilities for an optional
-  runner incident response: alert on a runaway or wedged job container, present
-  the exact container/job correlation and current state, then offer a reviewed
-  stop/restart where supported. Never kill a live CI job, remove its image or
-  automatically retry a destructive action based solely on resource pressure.
-  Keep protected targets, per-target grants, maintenance windows, cooldowns,
-  action budgets and audit enforcement on the server, including across restarts.
-  Any automatic remediation requires separate, explicit per-runner policy and
-  a fresh guard that the job is no longer legitimately active.
-- [ ] For GitLab Runner, document Docker executor behavior, runner-managed image
-  and container lifecycles, shared-runner multi-project boundaries, configured
-  cleanup hooks, and alert correlation with the host. Monitoring complements
-  GitLab Runner's own cleanup; it must not remove concurrent jobs, cached images
-  required by other pipelines or rollback artifacts.
-- [ ] Do not require long-lived monitoring inside ephemeral GitLab/GitHub CI jobs;
-  instead install the agent once on the persistent runner host, where its
-  service survives individual pipeline executions.
+- [ ] Develop a generic **CI/CD supervision mode** for persistent self-hosted
+  runner servers, regardless of CI platform. GitLab Runner and GitHub Actions
+  self-hosted runners are integration examples, not names of product features
+  or required dependencies. No platform token, vendor cloud, Centrex service
+  or expanded Docker privileges are required for host-level monitoring.
+- [ ] Monitor transient job-container churn, stopped/abandoned containers,
+  image/build-cache growth, writable layers, CPU/RAM pressure, host disk space,
+  inodes and recovery after runner failures. Distinguish active jobs from
+  inactive resources using supported runtime metadata; never assume stopped
+  containers or unused images are safe to delete.
+- [ ] Include the standalone Monit-Docker agent in the default provisioning
+  baseline for persistent CI/CD runner hosts, rather than launching it in each
+  short-lived job. Qualify startup, restart/reboot recovery, local alerts,
+  monitored Docker access and upgrades on representative runner hosts.
+- [ ] Reuse existing Monit-Docker authorized actions for an optional,
+  platform-independent incident response: alert on a runaway or wedged job
+  container, correlate the specific container/job and offer a reviewed stop
+  or restart where supported. Never kill a legitimate active job or remove
+  its image based solely on resource pressure. Keep protected targets,
+  scoped grants, maintenance windows, cooldowns, budgets and audit enforced
+  at the server. Automatic remediation requires a separately enabled policy
+  with fresh confirmation that the job is no longer legitimately active.
+- [ ] Document CI runner lifecycle and cleanup integration with platform
+  examples (such as GitLab Docker executor) without coupling the agent to
+  those platforms. Monitoring complements the runner's own cleanup and must
+  preserve concurrent jobs, shared caches and rollback artifacts.
+- [ ] Do not install a persistent agent inside ephemeral GitLab/GitHub CI
+  jobs; install it on the long-lived runner host and keep per-job cleanup
+  within the CI/CD workflow.
 - [ ] Start with **read-only monitoring and alerts**. Any later cleanup is a
   separately reviewed, opt-in capability with a dry-run listing, exact object
   identity, explicit operator approval, revalidation, audit, maintenance/backup

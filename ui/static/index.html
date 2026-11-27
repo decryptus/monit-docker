@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta name="monit-ui-version" content="">
   <title>monit-docker · Overview</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/app.css">
@@ -18,7 +19,7 @@
   </header>
   <main>
     <section class="intro" aria-labelledby="page-title">
-      <div><p class="eyebrow">HOST OVERVIEW</p><h1 id="page-title">A clear view of your containers.</h1><p class="subtitle">Current health, resource usage and essential controls.</p></div>
+      <div><p class="eyebrow">HOST OVERVIEW <span id="agent-version" hidden></span></p><h1 id="page-title">A clear view of your containers.</h1><p class="subtitle">Current health, resource usage and essential controls.</p></div>
       <div class="refresh"><button id="refresh" type="button">Refresh now</button><label><input id="auto" type="checkbox" checked> Auto-refresh · 5s</label></div>
     </section>
     <div id="notice" class="notice" role="status">Waiting for the agent’s first response.</div>

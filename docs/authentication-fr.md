@@ -1,6 +1,6 @@
 # Authentification SQLite et migration
 
-Disponible depuis la **2.0.0**. Utiliser des images agent et interface de même version, 2.0.0 ou ultérieure (version actuelle : 2.0.2). L'activation est explicite : une mise à jour seule ne change pas l'authentification existante. Le [guide technique anglais](authentication.md) décrit les commandes et le contrat API complet.
+Disponible depuis la **2.0.0**. Utiliser des images agent et interface de même version, 2.0.0 ou ultérieure (version actuelle : 2.0.3). L'activation est explicite : une mise à jour seule ne change pas l'authentification existante. Le [guide technique anglais](authentication.md) décrit les commandes et le contrat API complet.
 
 ## Identifiants e-mail pour les nouveaux comptes
 

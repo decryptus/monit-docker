@@ -7,3 +7,4 @@
 /.dockerignore export-ignore
 /tests/ export-ignore
 /textual_tests/ export-ignore
+/assets/brand/social/ export-ignore

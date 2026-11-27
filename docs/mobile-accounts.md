@@ -1,6 +1,6 @@
 # Self-service accounts and optional remote notifications
 
-These additions require server 2.0.1 or later (current release: 2.0.2). Older servers
+These additions require server 2.0.1 or later (current release: 2.0.3). Older servers
 continue to support login and monitoring but return 404 for the new endpoints.
 SQLite authentication remains opt-in. Anonymous demonstration access is a separate
 read-only proxy configuration; never disable authentication on a private agent.

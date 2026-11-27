@@ -102,3 +102,5 @@ select:focus-visible {outline:3px solid #369cff;outline-offset:3px}
  .auth-form>label {margin:16px 0}.auth-intro {margin-bottom:20px}
  .auth-account {font-size:11px}.auth-account .auth-language>span {display:none}
 }
+
+#agent-version{display:inline-block;margin-left:8px;padding:3px 6px;border:1px solid #c6daf7;border-radius:4px;font-size:10px;letter-spacing:0;text-transform:none;overflow-wrap:anywhere}#agent-version[hidden]{display:none}
