@@ -19,6 +19,12 @@ with its date and time. Its rows are read only. The failure notice identifies
 the action and container when available. A fresh successful cycle restores the
 live view. Before the first success there are no historical rows to show.
 
+The overview displays the running agent version from `/v1/status.agent_version`.
+Its tooltip also identifies the UI image version embedded at build time. These
+versions can differ during an upgrade; neither comes from the reverse proxy
+configuration. Older agents without this field, or a lost connection, hide the
+version badge instead of showing a stale value.
+
 The browser refreshes every five seconds while visible. It hides measurements
 and disables controls if no successful status response arrives for ten seconds,
 including when automatic refresh is paused. Unknown metrics display a dash, not

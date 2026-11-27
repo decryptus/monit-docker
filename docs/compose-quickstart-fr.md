@@ -72,7 +72,7 @@ Sur Linux amd64, installer Git, Docker Engine, son plugin Compose v2 avec
 `up --wait` et curl. Pour le tableau de bord, prévoir Python 3 et OpenSSL.
 
 ```sh
-git clone --branch v2.0.2 --depth 1 https://github.com/decryptus/monit-docker.git
+git clone --branch v2.0.3 --depth 1 https://github.com/decryptus/monit-docker.git
 cd monit-docker
 ./install.sh
 ```
@@ -157,7 +157,12 @@ Définir `MONIT_DOCKER_PORT`, `UI_PORT` ou `DOCKER_SOCKET_PATH` dans le shell av
 Compose si nécessaire. `UI_BIND` vaut `127.0.0.1` par défaut. Garder le même nom
 de projet et le même répertoire pour réutiliser le volume.
 
-Les images de l’agent et de l’UI sont fixées à **2.0.2**. Pour une évolution,
+Le tableau de bord affiche la version de l’agent reçue dans
+`/v1/status.agent_version`. L’infobulle indique aussi la version de l’interface,
+intégrée lors de sa construction. Aucun numéro ne provient de la configuration
+Nginx. Le numéro est masqué avec un ancien agent ou une connexion perdue.
+
+Les images de l’agent et de l’UI sont fixées à **2.0.3**. Pour une évolution,
 choisir des versions correspondantes, préserver la configuration et les données,
 puis utiliser `pull` et `up -d --wait` avec la même liste de fichiers. Un simple
 `pull` ne remplace pas les conteneurs en cours d’exécution.

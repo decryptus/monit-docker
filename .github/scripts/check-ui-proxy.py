@@ -20,6 +20,7 @@ import urllib.request
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from monit_docker import __version__
 from monit_docker.adapters.http import StatusServer
 from monit_docker.adapters.http_security import HttpSecurity
 from monit_docker.domain.models import ContainerSnapshot
@@ -116,12 +117,16 @@ def main():
                 assert request(path, None, body)[0] == 401, path
             code, page, headers = request('/')
             assert code == 200 and b'monit-docker' in page
+            expected = Path('VERSION').read_text().strip()
+            assert expected == __version__
+            assert ('name="monit-ui-version" content="' + expected + '"').encode() in page
             assert "frame-ancestors 'none'" in headers['Content-Security-Policy']
             assert request('/metrics')[0] == 404
             assert request('/healthz')[0] == 404
             assert request('/../etc/passwd')[0] in (400, 404)
             status = json.loads(request('/v1/status')[1])
             assert status['ready'] and token not in json.dumps(status)
+            assert status['agent_version'] == expected
             body = dict(request_id=uuid.uuid4().hex, container_id=identifier, action='restart')
             assert request('/v1/actions', body=body)[0] == 403
             assert request('/v1/actions', body=body, extra={'Origin': 'https://evil.example'})[0] == 403

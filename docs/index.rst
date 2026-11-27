@@ -59,6 +59,7 @@ For installation and the command reference, see the
    check-config
    configuration-validation
    textual
+   release-2.0.3
    release-2.0.2
    release-2.0.1
    release-2.0.0

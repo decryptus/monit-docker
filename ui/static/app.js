@@ -3,6 +3,8 @@
 // No external resources, HTML interpolation, credentials or Docker access.
 const $ = id => document.getElementById(id);
 const rows = new Map();
+const VERSION_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+(?:[a-zA-Z0-9.+-]+)?$/;
+const UI_VERSION = document.querySelector('meta[name="monit-ui-version"]')?.content;
 const labels = {start: 'Start', stop: 'Stop', restart: 'Restart', 'restart-reset': 'Rearm auto restarts', 'maintenance-15m': 'Maintenance 15 min', 'maintenance-1h': 'Maintenance 1 h', 'maintenance-off': 'Resume auto actions'};
 const HEALTH_LABELS = {
   healthy: 'Health: healthy', unhealthy: 'Health: unhealthy',
@@ -167,7 +169,24 @@ function renderContainers() {
     : !data.ready && !history ? 'No fresh measurements. Waiting for a successful collection.'
     : items.length ? 'No containers match your filter.' : 'No containers in the latest snapshot.';
 }
+function validVersion(value) {
+  return typeof value === 'string' && value.length <= 64 && !/[\r\n]/.test(value) && VERSION_PATTERN.test(value);
+}
+function renderVersion() {
+  const badge = $('agent-version');
+  const version = connected && data?.agent_version;
+  badge.hidden = !validVersion(version);
+  badge.textContent = badge.hidden ? '' : `v${version}`;
+  badge.title = '';
+  badge.removeAttribute('aria-label');
+  if (!badge.hidden && window.MonitAIText?.available) {
+    badge.title = window.MonitAIText.t(validVersion(UI_VERSION) ? 'version.details' : 'version.agent',
+      {agent: version, ui: UI_VERSION});
+    badge.setAttribute('aria-label', badge.title);
+  }
+}
 function render() {
+  renderVersion();
   $('journal-link').hidden = !connected || !data?.audit_enabled;
   const ready = connected && data?.ready;
   const items = ready ? data.containers : [];
@@ -364,6 +383,7 @@ $('ai-dialog').addEventListener('close', () => {
 
 function translateIncident() {
   if (!AIText.available) return;
+  renderVersion();
   $('ai-dialog').lang = AIText.language;
   $('ai-language').value = AIText.language;
   document.querySelectorAll('[data-ai-text]').forEach(element => { element.textContent = AIText.t(element.dataset.aiText); });

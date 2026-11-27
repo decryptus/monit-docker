@@ -5,6 +5,7 @@ import logging
 from threading import Lock
 import time
 
+from monit_docker import __version__
 from monit_docker.domain.errors import ActionRejected
 
 LOG = logging.getLogger('monit-docker')
@@ -25,7 +26,7 @@ class MonitorService(object):
         self.audit_reader = audit_reader
         self.incident_assistant = incident_assistant
         self._last_success_tick = None
-        self._data = dict(api_version=1, running=False, last_cycle_success=False,
+        self._data = dict(api_version=1, agent_version=__version__, running=False, last_cycle_success=False,
                           last_cycle_finished_at=None, last_success_at=None,
                           last_error_code=None, failed_action=None, cycles_total=0, errors_total=0,
                           actions=dict(executed=0, cooldown=0, pending=0, **{'dry-run': 0, 'restart-limit': 0, 'maintenance': 0}),
